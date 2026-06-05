@@ -345,6 +345,15 @@ export const adminListUpgradeRequests = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
     await assertAdmin(context.userId);
+    
+    // Auto-expire old pending requests (> 35 min) to keep list clean
+    const expiryCutoff = new Date(Date.now() - 35 * 60 * 1000).toISOString();
+    await supabaseAdmin
+      .from("upgrade_requests")
+      .update({ status: "expired" } as any)
+      .eq("status", "pending")
+      .lt("created_at", expiryCutoff);
+
     const { data, error } = await supabaseAdmin
       .from("upgrade_requests")
       .select("id, user_id, package_slug, amount, status, plisio_invoice_id, plisio_invoice_url, created_at, updated_at")
@@ -360,6 +369,7 @@ export const adminListUpgradeRequests = createServerFn({ method: "GET" })
     }
     return (data ?? []).map((r: any) => ({ ...r, email: emailMap[r.user_id] ?? "" }));
   });
+
 
 export const adminDecideUpgradeRequest = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
