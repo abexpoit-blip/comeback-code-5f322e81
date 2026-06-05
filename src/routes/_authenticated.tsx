@@ -7,6 +7,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { consumeDailyRedirect } from "@/lib/app-settings.functions";
 import { BrandLogo } from "@/components/brand-logo";
 import { ImpersonationBanner } from "@/components/impersonation-banner";
+import { BroadcastBell } from "@/components/broadcast-bell";
 
 export const Route = createFileRoute("/_authenticated")({
   head: () => ({
@@ -197,7 +198,7 @@ function AuthenticatedLayout() {
             {initials}
           </div>
           <div className="min-w-0">
-            <p className="text-sm font-semibold text-[#2D1B0D] truncate">{user.email}</p>
+            <p className="text-sm font-semibold text-[#2D1B0D] truncate">{user?.email}</p>
             <p className="text-[10px] text-[#FF7E5F] uppercase tracking-wider font-bold">{isAdmin ? "Admin" : "Premium Tier"}</p>
           </div>
         </div>
@@ -222,9 +223,10 @@ function AuthenticatedLayout() {
         </Link>
         <button
           onClick={() => setMenuOpen(true)}
-          className="p-2 rounded-xl bg-white/60 border border-white/80 text-[#2D1B0D]"
+          className="p-2 rounded-xl bg-white/60 border border-white/80 text-[#2D1B0D] flex items-center gap-2"
           aria-label="Open menu"
         >
+          <BroadcastBell />
           <Menu className="w-5 h-5" />
         </button>
       </div>
