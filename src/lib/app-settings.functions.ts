@@ -23,9 +23,8 @@ export const updateAppSettings = createServerFn({ method: "POST" })
       injection_threshold: z.number().int().min(100).max(1_000_000),
       injection_count: z.number().int().min(1).max(10_000),
       daily_redirect_enabled: z.boolean(),
-      support_enabled: z.boolean().optional(),
-
     }).parse(d),
+
   )
   .handler(async ({ data, context }) => {
     // RLS restricts to admin role; double check anyway
