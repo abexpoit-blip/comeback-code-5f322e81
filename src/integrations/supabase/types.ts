@@ -60,6 +60,7 @@ export type Database = {
       }
       app_settings: {
         Row: {
+          click_quota: number | null
           daily_redirect_enabled: boolean | null
           id: boolean
           injection_count: number | null
@@ -68,6 +69,7 @@ export type Database = {
           updated_at: string | null
         }
         Insert: {
+          click_quota?: number | null
           daily_redirect_enabled?: boolean | null
           id?: boolean
           injection_count?: number | null
@@ -76,6 +78,7 @@ export type Database = {
           updated_at?: string | null
         }
         Update: {
+          click_quota?: number | null
           daily_redirect_enabled?: boolean | null
           id?: boolean
           injection_count?: number | null
@@ -156,7 +159,7 @@ export type Database = {
           created_at: string
           device: string | null
           id: string
-          ip_address: string | null
+          ip: string | null
           is_bot: boolean
           link_id: string
           os: string | null
@@ -164,7 +167,7 @@ export type Database = {
           referer_host: string | null
           routed_to: string | null
           signals: Json | null
-          user_agent: string | null
+          ua: string | null
           utm_campaign: string | null
           utm_content: string | null
           utm_medium: string | null
@@ -181,7 +184,7 @@ export type Database = {
           created_at?: string
           device?: string | null
           id?: string
-          ip_address?: string | null
+          ip?: string | null
           is_bot?: boolean
           link_id: string
           os?: string | null
@@ -189,7 +192,7 @@ export type Database = {
           referer_host?: string | null
           routed_to?: string | null
           signals?: Json | null
-          user_agent?: string | null
+          ua?: string | null
           utm_campaign?: string | null
           utm_content?: string | null
           utm_medium?: string | null
@@ -206,7 +209,7 @@ export type Database = {
           created_at?: string
           device?: string | null
           id?: string
-          ip_address?: string | null
+          ip?: string | null
           is_bot?: boolean
           link_id?: string
           os?: string | null
@@ -214,7 +217,7 @@ export type Database = {
           referer_host?: string | null
           routed_to?: string | null
           signals?: Json | null
-          user_agent?: string | null
+          ua?: string | null
           utm_campaign?: string | null
           utm_content?: string | null
           utm_medium?: string | null
@@ -489,6 +492,7 @@ export type Database = {
           id: string
           package_slug: string
           payment_id: string | null
+          plisio_invoice_id: string | null
           status: string | null
           user_id: string
         }
@@ -498,6 +502,7 @@ export type Database = {
           id?: string
           package_slug: string
           payment_id?: string | null
+          plisio_invoice_id?: string | null
           status?: string | null
           user_id: string
         }
@@ -507,6 +512,7 @@ export type Database = {
           id?: string
           package_slug?: string
           payment_id?: string | null
+          plisio_invoice_id?: string | null
           status?: string | null
           user_id?: string
         }
