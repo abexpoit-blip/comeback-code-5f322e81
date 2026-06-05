@@ -438,6 +438,7 @@ export type Database = {
         Row: {
           avatar_url: string | null
           click_quota: number | null
+          clicks_period_start: string | null
           clicks_used: number | null
           created_at: string
           email: string | null
@@ -455,6 +456,7 @@ export type Database = {
         Insert: {
           avatar_url?: string | null
           click_quota?: number | null
+          clicks_period_start?: string | null
           clicks_used?: number | null
           created_at?: string
           email?: string | null
@@ -472,6 +474,7 @@ export type Database = {
         Update: {
           avatar_url?: string | null
           click_quota?: number | null
+          clicks_period_start?: string | null
           clicks_used?: number | null
           created_at?: string
           email?: string | null
