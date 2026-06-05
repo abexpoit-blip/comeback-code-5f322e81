@@ -67,7 +67,9 @@ export function BroadcastBell() {
   const markAll = useServerFn(markAllBroadcastsRead);
   const qc = useQueryClient();
   const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
+  const buttonRef = useRef<HTMLButtonElement>(null);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+  const [coords, setCoords] = useState({ top: 0, right: 0 });
 
   const q = useQuery({
     queryKey: ["broadcasts"],
@@ -76,39 +78,62 @@ export function BroadcastBell() {
     refetchInterval: 90_000,
   });
 
-  const markMut = useMutation({
-    mutationFn: (id: string) => mark({ data: { broadcast_id: id } }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["broadcasts"] }),
-  });
-  const markAllMut = useMutation({
-    mutationFn: () => markAll(),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["broadcasts"] }),
-  });
+  const updateCoords = () => {
+    if (buttonRef.current) {
+      const rect = buttonRef.current.getBoundingClientRect();
+      setCoords({
+        top: rect.bottom + window.scrollY,
+        right: window.innerWidth - rect.right,
+      });
+    }
+  };
+
+  useEffect(() => {
+    if (open) {
+      updateCoords();
+      window.addEventListener("scroll", updateCoords, true);
+      window.addEventListener("resize", updateCoords);
+    }
+    return () => {
+      window.removeEventListener("scroll", updateCoords, true);
+      window.removeEventListener("resize", updateCoords);
+    };
+  }, [open]);
 
   useEffect(() => {
     if (!open) return;
-    const handler = (e: MouseEvent) => {
-      // If clicking outside the component, close it
-      if (ref.current && !ref.current.contains(e.target as Node)) {
-        setOpen(false);
+    const handler = (e: MouseEvent | TouchEvent) => {
+      if (
+        buttonRef.current?.contains(e.target as Node) ||
+        dropdownRef.current?.contains(e.target as Node)
+      ) {
+        return;
       }
+      setOpen(false);
     };
-    // Use click instead of mousedown for better compatibility with toggle button
-    document.addEventListener("click", handler);
-    return () => document.removeEventListener("click", handler);
+    document.addEventListener("mousedown", handler);
+    document.addEventListener("touchstart", handler);
+    return () => {
+      document.removeEventListener("mousedown", handler);
+      document.removeEventListener("touchstart", handler);
+    };
   }, [open]);
 
   const items = q.data?.items ?? [];
   const unread = q.data?.unread_count ?? 0;
 
+  const handleToggle = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setOpen((v) => !v);
+  };
+
   return (
-    <div className="relative" ref={ref}>
+    <div className="relative">
       <button
-        onClick={(e) => {
-          e.stopPropagation();
-          setOpen((v) => !v);
-        }}
-        className={`relative group w-10 h-10 rounded-xl border transition-all shadow-sm flex items-center justify-center ${
+        ref={buttonRef}
+        onClick={handleToggle}
+        className={`relative group w-10 h-10 rounded-xl border transition-all shadow-sm flex items-center justify-center z-10 ${
           open 
             ? "bg-[#FF7E5F] border-[#FF7E5F] text-white" 
             : "bg-[#FFF9F5] border-[#FFEDD5] text-[#7D6452] hover:text-[#FF7E5F] hover:border-[#FF7E5F]/40"
