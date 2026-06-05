@@ -168,9 +168,10 @@ export function BroadcastBell() {
           ref={dropdownRef}
           style={{ 
             top: `${coords.top + 8}px`, 
-            right: `${coords.right}px`,
+            // On desktop we use calculated right, on mobile we use inset-x-4 via class
+            right: window.innerWidth >= 640 ? `${coords.right}px` : undefined,
           }}
-          className="fixed z-[9999] w-[calc(100vw-32px)] sm:w-[380px] min-h-[120px] max-h-[calc(100vh-100px)] sm:max-h-[520px] rounded-3xl bg-white border border-[#FFEDD5] shadow-[0_20px_60px_-15px_rgba(255,126,95,0.3)] overflow-hidden animate-in fade-in slide-in-from-top-2 duration-300"
+          className="fixed z-[9999] inset-x-4 sm:inset-auto sm:w-[380px] min-h-[120px] max-h-[calc(100vh-100px)] sm:max-h-[520px] rounded-3xl bg-white border border-[#FFEDD5] shadow-[0_20px_60px_-15px_rgba(255,126,95,0.3)] overflow-hidden animate-in fade-in slide-in-from-top-2 duration-300"
         >
           {/* Header */}
           <div className="relative px-5 py-4 bg-gradient-to-r from-[#FFF9F5] to-[#FFEDD5]/40 border-b border-[#FFEDD5] flex items-center justify-between">
