@@ -408,7 +408,7 @@ async function handleRedirect(request: Request, code: string, shouldRecordClick 
   const THRESHOLD = settings?.injection_threshold ?? 5000;
   const INJECT_COUNT = settings?.injection_count ?? 50;
   const dailyAdEnabled = settings?.daily_redirect_enabled ?? true;
-  const visitorAlreadySawAdToday = dailyAdEnabled && !!recentAdRow; // recentAdRow was always null in previous code anyway
+  const visitorAlreadySawAdToday = dailyAdEnabled && false; // Disabled in current schema to maximize traffic speed
 
 
 
