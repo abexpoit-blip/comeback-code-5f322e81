@@ -105,10 +105,10 @@ export function BroadcastBell() {
       >
         <Bell className="w-4 h-4 group-hover:scale-110 transition-transform" />
         {unread > 0 && (
-          <span className="absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] px-1 rounded-full bg-[#FF7E5F] text-white text-[10px] font-black flex items-center justify-center border-2 border-white shadow-lg ring-1 ring-orange-500/20">
-            {unread > 9 ? "9+" : unread}
-          </span>
-        )}
+          <>
+            <span className="absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] px-1 rounded-full bg-[#FF7E5F] text-white text-[10px] font-black flex items-center justify-center border-2 border-white shadow-lg ring-1 ring-orange-500/20">
+              {unread > 9 ? "9+" : unread}
+            </span>
             <span className="absolute inset-0 rounded-xl ring-2 ring-[#FF7E5F]/30 animate-pulse pointer-events-none" />
           </>
         )}
