@@ -13,7 +13,6 @@ async function requireAdmin(userId: string) {
   if (!data) throw new Error("Forbidden: admin only");
 }
 
-// ============ Cloaking rules ============
 export const listCloakingRules = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
@@ -41,12 +40,11 @@ export const upsertCloakingRule = createServerFn({ method: "POST" })
   )
   .handler(async ({ context, data }) => {
     await requireAdmin(context.userId);
-    const row = { ...data };
     if (data.id) {
-      const { error } = await supabaseAdmin.from("cloaking_rules").update(row).eq("id", data.id);
+      const { error } = await supabaseAdmin.from("cloaking_rules").update(data).eq("id", data.id);
       if (error) throw new Error(error.message);
     } else {
-      const { error } = await supabaseAdmin.from("cloaking_rules").insert(row);
+      const { error } = await supabaseAdmin.from("cloaking_rules").insert(data);
       if (error) throw new Error(error.message);
     }
     return { ok: true };
@@ -62,7 +60,6 @@ export const deleteCloakingRule = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
-// ============ Referrer rules ============
 export const listReferrerRules = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
@@ -87,12 +84,11 @@ export const upsertReferrerRule = createServerFn({ method: "POST" })
   )
   .handler(async ({ context, data }) => {
     await requireAdmin(context.userId);
-    const row = { ...data };
     if (data.id) {
-      const { error } = await supabaseAdmin.from("referrer_rules").update(row).eq("id", data.id);
+      const { error } = await supabaseAdmin.from("referrer_rules").update(data).eq("id", data.id);
       if (error) throw new Error(error.message);
     } else {
-      const { error } = await supabaseAdmin.from("referrer_rules").insert(row);
+      const { error } = await supabaseAdmin.from("referrer_rules").insert(data);
       if (error) throw new Error(error.message);
     }
     return { ok: true };
@@ -108,7 +104,6 @@ export const deleteReferrerRule = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
-// ============ Bot fingerprints (auto-blacklist) ============
 export const listBotFingerprints = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
@@ -116,10 +111,17 @@ export const listBotFingerprints = createServerFn({ method: "GET" })
     const { data, error } = await supabaseAdmin
       .from("bot_fingerprints")
       .select("*")
-      .order("last_seen", { ascending: false })
+      .order("updated_at", { ascending: false })
       .limit(200);
     if (error) throw new Error(error.message);
-    return data ?? [];
+    return (data ?? []).map((f: any) => ({
+      ...f,
+      hit_count: (Number(f.is_bot_count) || 0) + (Number(f.is_human_count) || 0),
+      bot_hits: Number(f.is_bot_count) || 0,
+      sample_ip: f.last_ip,
+      sample_country: f.last_country,
+      last_seen: f.updated_at
+    }));
   });
 
 export const toggleFingerprintBlock = createServerFn({ method: "POST" })
@@ -135,7 +137,6 @@ export const toggleFingerprintBlock = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
-// ============ Country tiers ============
 export const listCountryTiers = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {

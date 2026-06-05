@@ -12,15 +12,12 @@ type LinkRow = {
   created_at: string;
   adsterra_url?: string | null;
   safe_url?: string | null;
-  is_active?: boolean;
+  is_active?: boolean | null;
   destination_url?: string | null;
   adsterra_direct_link?: string | null;
   status?: string | null;
   prelanding_template?: string | null;
 };
-
-
-
 
 export type DashboardLink = ReturnType<typeof normalizeLink>;
 
@@ -34,27 +31,27 @@ function normalizeLink(row: LinkRow) {
 }
 
 async function selectLinks(supabase: any): Promise<{ data: DashboardLink[] | null; error: { message: string } | null }> {
-  const legacy = await supabase
+  const { data, error } = await supabase
     .from("links")
-    .select("id, user_id, short_code, title, destination_url, adsterra_direct_link, status, clicks_count, bot_clicks_count, created_at, updated_at, prelanding_template")
+    .select("*")
     .order("created_at", { ascending: false });
-  if (!legacy.error) return { data: (legacy.data ?? []).map((row: LinkRow) => normalizeLink(row)), error: null };
-  const modern = await supabase.from("links").select("*").order("created_at", { ascending: false });
-  return modern.error ? legacy : { data: (modern.data ?? []).map((row: LinkRow) => normalizeLink(row)), error: null };
+  
+  if (error) return { data: null, error: { message: error.message } };
+  return { data: (data ?? []).map((row: LinkRow) => normalizeLink(row)), error: null };
 }
 
 async function getProfileQuota(supabase: any, userId: string) {
-  const modern = await supabase
+  const { data, error } = await supabase
     .from("profiles")
     .select("plan_slug, link_limit, links_used")
     .eq("id", userId)
     .single();
-  if (modern.error) return null;
-  const plan = String(modern.data?.plan_slug ?? "").toLowerCase();
+  if (error) return null;
+  const plan = String(data?.plan_slug ?? "").toLowerCase();
   if (plan === "lifetime" || plan === "unlimited") {
-    return { limit: null, used: modern.data?.links_used ?? 0 };
+    return { limit: null, used: data?.links_used ?? 0 };
   }
-  return { limit: modern.data?.link_limit ?? null, used: modern.data?.links_used ?? 0 };
+  return { limit: data?.link_limit ?? null, used: data?.links_used ?? 0 };
 }
 
 function randomCode(len = 6) {
@@ -84,7 +81,6 @@ export const getMyProfile = createServerFn({ method: "GET" })
     return data;
   });
 
-// Combined: one server-fn call = links + profile + REAL click stats (server-aggregated)
 export const getDashboardData = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
@@ -108,8 +104,6 @@ export const getDashboardData = createServerFn({ method: "GET" })
       clicksByDay: {}, countryStats: {}, mobilePct: 0, uniqueVisitors: 0, perLinkDaily: {},
     };
 
-    // Ensure every link id has a 7-day array (RPC only emits keys for owned ids,
-    // but guard against schema drift).
     const perLinkDaily: Record<string, number[]> = {};
     for (const l of links) {
       const arr = stats.perLinkDaily?.[l.id];
@@ -117,7 +111,6 @@ export const getDashboardData = createServerFn({ method: "GET" })
         ? arr.map(Number) : new Array(7).fill(0);
     }
 
-    // Ensure 30-day buckets exist even when the RPC returns sparse keys.
     const clicksByDay: Record<string, number> = {};
     for (let i = 29; i >= 0; i--) {
       const k = new Date(Date.now() - i * 86400000).toISOString().slice(0, 10);
@@ -147,13 +140,11 @@ export const createLink = createServerFn({ method: "POST" })
     }).parse(d),
   )
   .handler(async ({ data, context }) => {
-    // Quota check
     const profile = await getProfileQuota(context.supabase, context.userId);
     if (profile && profile.limit !== null && profile.used >= profile.limit) {
       throw new Error(`Link limit reached (${profile.used}/${profile.limit}). Please upgrade.`);
     }
 
-    // Generate unique code
     let code = randomCode();
     for (let i = 0; i < 5; i++) {
       const { data: exists } = await context.supabase
@@ -162,40 +153,22 @@ export const createLink = createServerFn({ method: "POST" })
       code = randomCode();
     }
 
-    const createdLegacy = await context.supabase
+    const { data: linkData, error } = await context.supabase
       .from("links")
       .insert({
         user_id: context.userId,
         short_code: code,
         title: data.title ?? null,
         destination_url: data.safe_url ?? "https://sleepox.com/",
-        adsterra_direct_link: data.adsterra_url,
+        adsterra_url: data.adsterra_url,
+        safe_url: data.safe_url ?? "https://sleepox.com/",
         status: "active",
-      } as never)
+      })
       .select()
       .single();
 
-    let link: DashboardLink | null = createdLegacy.data ? normalizeLink(createdLegacy.data as LinkRow) : null;
-    let error: { message: string } | null = createdLegacy.error;
-
-    if (error) {
-      const modern = await context.supabase
-        .from("links")
-        .insert({
-          user_id: context.userId,
-          short_code: code,
-          title: data.title ?? null,
-          adsterra_url: data.adsterra_url,
-          safe_url: data.safe_url ?? "https://sleepox.com/",
-        })
-        .select()
-        .single();
-      link = modern.data ? normalizeLink(modern.data as LinkRow) : null;
-      error = modern.error;
-    }
     if (error) throw new Error(error.message);
-
-    return link;
+    return normalizeLink(linkData as LinkRow);
   });
 
 export const deleteLink = createServerFn({ method: "POST" })
@@ -220,18 +193,14 @@ export const toggleLink = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d) => z.object({ id: z.string().uuid(), is_active: z.boolean() }).parse(d))
   .handler(async ({ data, context }) => {
-    const legacy = await context.supabase
+    const { error } = await context.supabase
       .from("links")
-      .update({ status: data.is_active ? "active" : "paused" } as never)
+      .update({ 
+        is_active: data.is_active,
+        status: data.is_active ? "active" : "paused"
+      })
       .eq("id", data.id)
       .eq("user_id", context.userId);
-    const { error } = legacy.error
-      ? await context.supabase
-          .from("links")
-          .update({ is_active: data.is_active })
-          .eq("id", data.id)
-          .eq("user_id", context.userId)
-      : legacy;
     if (error) throw new Error(error.message);
     return { ok: true };
   });
