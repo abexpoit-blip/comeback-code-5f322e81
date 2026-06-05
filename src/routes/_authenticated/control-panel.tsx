@@ -415,7 +415,7 @@ function UsersTab() {
                 <div className="space-y-1 max-h-40 overflow-y-auto">
                   {detail.data.payments.map((p) => (
                     <div key={p.id} className="text-xs flex justify-between p-2 rounded bg-white/60 border border-[#FFE4D0]">
-                      <span>{new Date(p.created_at).toLocaleDateString()} · {p.package_slug}</span>
+                      <span>{new Date(p.created_at ?? "").toLocaleDateString()} · {p.package_slug}</span>
                       <span className="font-semibold">${Number(p.amount).toFixed(2)} · {p.status}</span>
                     </div>
                   ))}
