@@ -35,50 +35,47 @@ function detectDevice(ua: string): "mobile" | "tablet" | "desktop" {
   return "desktop";
 }
 
+// ------- In-memory Cache for High Traffic (TTL 2-5 mins) -------
+// Drastically reduces DB load by caching global rules & settings.
+const globalCache = {
+  settings: null as any,
+  cloaking: null as any[],
+  referrer: null as any[],
+  tiers: new Map<string, number>(),
+  lastFetch: 0,
+};
+const CACHE_TTL = 3 * 60 * 1000; // 3 mins
+
+async function refreshGlobalCache() {
+  const now = Date.now();
+  if (now - globalCache.lastFetch < CACHE_TTL && globalCache.settings) return;
+
+  try {
+    const [s, c, r, t] = await Promise.all([
+      supabaseAdmin.from("app_settings").select("*").eq("id", true).maybeSingle(),
+      supabaseAdmin.from("cloaking_rules").select("*").eq("is_active", true).order("priority"),
+      supabaseAdmin.from("referrer_rules").select("*").eq("is_active", true),
+      supabaseAdmin.from("country_tiers").select("country_code, tier"),
+    ]);
+    if (s.data) globalCache.settings = s.data;
+    if (c.data) globalCache.cloaking = c.data;
+    if (r.data) globalCache.referrer = r.data;
+    if (t.data) {
+      globalCache.tiers.clear();
+      t.data.forEach((row: any) => globalCache.tiers.set(row.country_code.toUpperCase(), row.tier));
+    }
+    globalCache.lastFetch = now;
+  } catch (e) {
+    console.error("[cache] failed to refresh global config", e);
+  }
+}
+
 // ------- IP → Country lookup (workerd-compatible, no native deps) -------
 // Cache by /24 subnet to drastically reduce upstream calls under high traffic.
-// Uses https://api.country.is (free, no key, HTTPS, country-only).
 const countryCache = new Map<string, { c: string; exp: number }>();
 const COUNTRY_TTL_MS = 24 * 60 * 60 * 1000; // 24h
 const COUNTRY_CACHE_MAX = 50_000;
 
-function subnetKey(ip: string): string {
-  if (ip.includes(":")) return ip.split(":").slice(0, 4).join(":"); // IPv6 /64-ish
-  const parts = ip.split(".");
-  return parts.length === 4 ? `${parts[0]}.${parts[1]}.${parts[2]}.0` : ip;
-}
-
-async function lookupCountryByIp(ip: string): Promise<string> {
-  const key = subnetKey(ip);
-  const now = Date.now();
-  const hit = countryCache.get(key);
-  if (hit && hit.exp > now) return hit.c;
-
-  try {
-    const ctrl = new AbortController();
-    const t = setTimeout(() => ctrl.abort(), 1200);
-    const r = await fetch(`https://api.country.is/${encodeURIComponent(ip)}`, {
-      signal: ctrl.signal,
-      headers: { accept: "application/json" },
-    });
-    clearTimeout(t);
-    if (r.ok) {
-      const j = (await r.json()) as { country?: string };
-      const c = (j.country || "").toUpperCase();
-      if (countryCache.size >= COUNTRY_CACHE_MAX) {
-        const firstKey = countryCache.keys().next().value;
-        if (firstKey) countryCache.delete(firstKey);
-      }
-      countryCache.set(key, { c, exp: now + COUNTRY_TTL_MS });
-      return c;
-    }
-  } catch (e) {
-    console.warn("[redirect] country lookup failed", (e as Error)?.message);
-  }
-  // Negative cache for 5 min to avoid hammering on bad IPs
-  countryCache.set(key, { c: "", exp: now + 5 * 60 * 1000 });
-  return "";
-}
 
 function sanitizeRedirectTarget(target: string | null | undefined): string {
   try {
