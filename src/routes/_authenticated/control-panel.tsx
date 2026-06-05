@@ -1246,7 +1246,7 @@ function ErrorsTab() {
   const clearFn = useServerFn(adminClearResolvedErrors);
   const [source, setSource] = useState<string>("");
   const [onlyOpen, setOnlyOpen] = useState(false);
-  const [expanded, setExpanded] = useState<number | null>(null);
+  const [expanded, setExpanded] = useState<string | null>(null);
 
   const stats = useQuery({
     queryKey: ["adminErrorStats"],
@@ -1255,19 +1255,19 @@ function ErrorsTab() {
   });
   const rows = useQuery({
     queryKey: ["adminListErrors", source, onlyOpen],
-    queryFn: () => listFn({ data: { source: source || undefined, onlyOpen, limit: 300 } }),
+    queryFn: () => listFn(),
     refetchInterval: 15_000,
   });
 
   const resolveM = useMutation({
-    mutationFn: (v: { id: number; resolved: boolean }) => resolveFn({ data: v }),
+    mutationFn: (v: { id: string; is_resolved: boolean }) => resolveFn({ data: v }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["adminListErrors"] });
       qc.invalidateQueries({ queryKey: ["adminErrorStats"] });
     },
   });
   const deleteM = useMutation({
-    mutationFn: (id: number) => deleteFn({ data: { id } }),
+    mutationFn: (id: string) => deleteFn({ data: { id } }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["adminListErrors"] });
       qc.invalidateQueries({ queryKey: ["adminErrorStats"] });
