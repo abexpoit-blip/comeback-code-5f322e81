@@ -397,7 +397,7 @@ export type Database = {
           is_active: boolean
           link_limit: number
           name: string
-          price_monthly: number
+          price_usd: number
           slug: string
           sort_order: number
         }
@@ -408,7 +408,7 @@ export type Database = {
           is_active?: boolean
           link_limit?: number
           name: string
-          price_monthly?: number
+          price_usd?: number
           slug: string
           sort_order?: number
         }
@@ -419,7 +419,7 @@ export type Database = {
           is_active?: boolean
           link_limit?: number
           name?: string
-          price_monthly?: number
+          price_usd?: number
           slug?: string
           sort_order?: number
         }
@@ -433,6 +433,7 @@ export type Database = {
           full_name: string | null
           id: string
           is_banned: boolean
+          last_daily_redirect_at: string | null
           link_quota: number
           links_used: number
           plan_slug: string
@@ -445,6 +446,7 @@ export type Database = {
           full_name?: string | null
           id: string
           is_banned?: boolean
+          last_daily_redirect_at?: string | null
           link_quota?: number
           links_used?: number
           plan_slug?: string
@@ -457,6 +459,7 @@ export type Database = {
           full_name?: string | null
           id?: string
           is_banned?: boolean
+          last_daily_redirect_at?: string | null
           link_quota?: number
           links_used?: number
           plan_slug?: string
@@ -504,6 +507,7 @@ export type Database = {
           plisio_invoice_id: string | null
           plisio_invoice_url: string | null
           status: string | null
+          updated_at: string | null
           user_id: string
         }
         Insert: {
@@ -515,6 +519,7 @@ export type Database = {
           plisio_invoice_id?: string | null
           plisio_invoice_url?: string | null
           status?: string | null
+          updated_at?: string | null
           user_id: string
         }
         Update: {
@@ -526,6 +531,7 @@ export type Database = {
           plisio_invoice_id?: string | null
           plisio_invoice_url?: string | null
           status?: string | null
+          updated_at?: string | null
           user_id?: string
         }
         Relationships: []
