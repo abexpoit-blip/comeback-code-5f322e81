@@ -9,17 +9,14 @@ async function assertAdmin(userId: string) {
   if (!data) throw new Error("Forbidden");
 }
 
-function packageQuota(pkg: { slug?: string | null; click_quota?: number | null; link_limit?: number | null }) {
+function packageQuota(pkg: any) {
   const slug = String(pkg.slug ?? "").toLowerCase().trim();
   if (slug === "lifetime" || slug === "unlimited") return { click_quota: null, link_limit: null };
   if (slug === "monthly" || slug === "pro_monthly" || slug === "pro" || slug === "monthly_pro") return { click_quota: 1_000_000, link_limit: 50 };
   if (slug === "free") return { click_quota: 10_000, link_limit: 1 };
-  return { click_quota: pkg.click_quota ?? null, link_limit: pkg.link_limit ?? null };
+  return { click_quota: Number(pkg.click_quota) || null, link_limit: Number(pkg.link_limit) || null };
 }
 
-// ============================================================
-// STATS
-// ============================================================
 export const adminStats = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
@@ -54,10 +51,10 @@ export const adminStats = createServerFn({ method: "GET" })
     const monthISO = new Date(Date.now() - 30 * 86_400_000).toISOString();
     const { data: paidRows } = await supabaseAdmin
       .from("upgrade_requests").select("amount").eq("status", "paid").gte("created_at", monthISO);
-    const mrr = (paidRows ?? []).reduce((s, r) => s + Number(r.amount || 0), 0);
+    const mrr = (paidRows ?? []).reduce((s, r: any) => s + Number(r.amount || 0), 0);
     const { data: allPaid } = await supabaseAdmin
       .from("upgrade_requests").select("amount").eq("status", "paid");
-    const totalRevenue = (allPaid ?? []).reduce((s, r) => s + Number(r.amount || 0), 0);
+    const totalRevenue = (allPaid ?? []).reduce((s, r: any) => s + Number(r.amount || 0), 0);
 
     return {
       users: users ?? 0,
@@ -76,9 +73,6 @@ export const adminStats = createServerFn({ method: "GET" })
     };
   });
 
-// ============================================================
-// TIME-SERIES CLICKS (last 14 days)
-// ============================================================
 export const adminClicksTimeseries = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
@@ -92,7 +86,7 @@ export const adminClicksTimeseries = createServerFn({ method: "GET" })
       const d = new Date(Date.now() - i * 86_400_000).toISOString().slice(0, 10);
       buckets[d] = { date: d, total: 0, ours: 0, offer: 0, bots: 0 };
     }
-    (data ?? []).forEach((c) => {
+    (data ?? []).forEach((c: any) => {
       const d = (c.created_at as string).slice(0, 10);
       if (!buckets[d]) return;
       buckets[d].total++;
@@ -103,9 +97,6 @@ export const adminClicksTimeseries = createServerFn({ method: "GET" })
     return Object.values(buckets);
   });
 
-// ============================================================
-// TOP COUNTRIES (last 7d)
-// ============================================================
 export const adminTopCountries = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
@@ -114,7 +105,7 @@ export const adminTopCountries = createServerFn({ method: "GET" })
     const { data } = await supabaseAdmin
       .from("clicks").select("country").gte("created_at", fromISO).limit(100000);
     const counts: Record<string, number> = {};
-    (data ?? []).forEach((c) => {
+    (data ?? []).forEach((c: any) => {
       const k = c.country || "??";
       counts[k] = (counts[k] || 0) + 1;
     });
@@ -124,9 +115,6 @@ export const adminTopCountries = createServerFn({ method: "GET" })
       .slice(0, 12);
   });
 
-// ============================================================
-// TOP USERS (by clicks)
-// ============================================================
 export const adminTopUsers = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
@@ -136,9 +124,6 @@ export const adminTopUsers = createServerFn({ method: "GET" })
     return data ?? [];
   });
 
-// ============================================================
-// REVENUE TIMESERIES (last 30d)
-// ============================================================
 export const adminRevenueTimeseries = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
@@ -151,7 +136,7 @@ export const adminRevenueTimeseries = createServerFn({ method: "GET" })
       const d = new Date(Date.now() - i * 86_400_000).toISOString().slice(0, 10);
       buckets[d] = { date: d, revenue: 0, count: 0 };
     }
-    (data ?? []).forEach((r) => {
+    (data ?? []).forEach((r: any) => {
       const d = (r.created_at as string).slice(0, 10);
       if (!buckets[d]) return;
       buckets[d].revenue += Number(r.amount || 0);
@@ -160,9 +145,6 @@ export const adminRevenueTimeseries = createServerFn({ method: "GET" })
     return Object.values(buckets);
   });
 
-// ============================================================
-// USERS
-// ============================================================
 export const adminListUsers = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
@@ -173,14 +155,14 @@ export const adminListUsers = createServerFn({ method: "GET" })
     const oursByUser: Record<string, number> = {};
     const { data: linkRows } = await supabaseAdmin.from("links").select("id, user_id");
     const linkToUser: Record<string, string> = {};
-    (linkRows ?? []).forEach((l) => { linkToUser[l.id] = l.user_id; });
+    (linkRows ?? []).forEach((l: any) => { linkToUser[l.id] = l.user_id; });
     const { data: oursRows } = await supabaseAdmin
       .from("clicks").select("link_id").eq("routed_to", "ours").limit(200000);
-    (oursRows ?? []).forEach((r) => {
+    (oursRows ?? []).forEach((r: any) => {
       const uid = linkToUser[r.link_id];
       if (uid) oursByUser[uid] = (oursByUser[uid] ?? 0) + 1;
     });
-    return (data ?? []).map((u) => ({ ...u, ours_clicks: oursByUser[u.id] ?? 0 }));
+    return (data ?? []).map((u: any) => ({ ...u, ours_clicks: oursByUser[u.id] ?? 0 }));
   });
 
 export const adminBanUser = createServerFn({ method: "POST" })
@@ -188,7 +170,7 @@ export const adminBanUser = createServerFn({ method: "POST" })
   .inputValidator((d) => z.object({ id: z.string().uuid(), is_banned: z.boolean() }).parse(d))
   .handler(async ({ data, context }) => {
     await assertAdmin(context.userId);
-    const { error } = await supabaseAdmin.from("profiles").update({ is_banned: data.is_banned }).eq("id", data.id);
+    const { error } = await supabaseAdmin.from("profiles").update({ is_banned: data.is_banned } as any).eq("id", data.id);
     if (error) throw new Error(error.message);
     return { ok: true };
   });
@@ -198,7 +180,7 @@ export const adminBulkBan = createServerFn({ method: "POST" })
   .inputValidator((d) => z.object({ ids: z.array(z.string().uuid()).min(1).max(500), is_banned: z.boolean() }).parse(d))
   .handler(async ({ data, context }) => {
     await assertAdmin(context.userId);
-    const { error } = await supabaseAdmin.from("profiles").update({ is_banned: data.is_banned }).in("id", data.ids);
+    const { error } = await supabaseAdmin.from("profiles").update({ is_banned: data.is_banned } as any).in("id", data.ids);
     if (error) throw new Error(error.message);
     return { ok: true, updated: data.ids.length };
   });
@@ -210,7 +192,7 @@ export const adminResetUserQuota = createServerFn({ method: "POST" })
     await assertAdmin(context.userId);
     const { error } = await supabaseAdmin
       .from("profiles")
-      .update({ clicks_used: 0, clicks_period_start: new Date().toISOString() })
+      .update({ clicks_used: 0, clicks_period_start: new Date().toISOString() } as any)
       .in("id", data.ids);
     if (error) throw new Error(error.message);
     return { ok: true, updated: data.ids.length };
@@ -233,7 +215,7 @@ export const adminBulkSetPlan = createServerFn({ method: "POST" })
         link_limit: quota.link_limit,
         clicks_used: 0,
         clicks_period_start: new Date().toISOString(),
-      })
+      } as any)
       .in("id", data.ids);
     if (error) throw new Error(error.message);
     return { ok: true, updated: data.ids.length };
@@ -249,7 +231,7 @@ export const adminUserDetail = createServerFn({ method: "GET" })
       supabaseAdmin.from("links").select("*").eq("user_id", data.id).order("created_at", { ascending: false }),
       supabaseAdmin.from("upgrade_requests").select("*").eq("user_id", data.id).order("created_at", { ascending: false }).limit(50),
     ]);
-    const linkIds = (links ?? []).map((l) => l.id);
+    const linkIds = (links ?? []).map((l: any) => l.id);
     const trend: { date: string; clicks: number; bots: number }[] = [];
     if (linkIds.length) {
       const fromISO = new Date(Date.now() - 7 * 86_400_000).toISOString();
@@ -260,7 +242,7 @@ export const adminUserDetail = createServerFn({ method: "GET" })
         const d = new Date(Date.now() - i * 86_400_000).toISOString().slice(0, 10);
         buckets[d] = { date: d, clicks: 0, bots: 0 };
       }
-      (cl ?? []).forEach((c) => {
+      (cl ?? []).forEach((c: any) => {
         const d = (c.created_at as string).slice(0, 10);
         if (!buckets[d]) return;
         buckets[d].clicks++;
@@ -288,15 +270,12 @@ export const adminSetUserPlan = createServerFn({ method: "POST" })
         link_limit: quota.link_limit,
         clicks_used: 0,
         clicks_period_start: new Date().toISOString(),
-      })
+      } as any)
       .eq("id", data.user_id);
     if (error) throw new Error(error.message);
     return { ok: true };
   });
 
-// ============================================================
-// PACKAGES (CRUD)
-// ============================================================
 export const adminListPackages = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
@@ -332,10 +311,11 @@ export const adminUpsertPackage = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     await assertAdmin(context.userId);
     const quota = packageQuota(data);
-    const payload = {
+    const payload: any = {
       slug: data.slug,
       name: data.name,
       price_usd: data.price_usd,
+      price_monthly: data.price_usd,
       click_quota: quota.click_quota,
       link_limit: quota.link_limit,
       sort_order: data.sort_order,
@@ -361,9 +341,6 @@ export const adminDeletePackage = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
-// ============================================================
-// UPGRADE REQUESTS
-// ============================================================
 export const adminListUpgradeRequests = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
@@ -374,14 +351,14 @@ export const adminListUpgradeRequests = createServerFn({ method: "GET" })
       .order("created_at", { ascending: false })
       .limit(500);
     if (error) throw new Error(error.message);
-    const ids = Array.from(new Set((data ?? []).map((r) => r.user_id)));
+    const ids = Array.from(new Set((data ?? []).map((r: any) => r.user_id)));
     let emailMap: Record<string, string> = {};
     if (ids.length > 0) {
       const { data: profs } = await supabaseAdmin
         .from("profiles").select("id, email").in("id", ids);
-      emailMap = Object.fromEntries((profs ?? []).map((p) => [p.id, p.email ?? ""]));
+      emailMap = Object.fromEntries((profs ?? []).map((p: any) => [p.id, p.email ?? ""]));
     }
-    return (data ?? []).map((r) => ({ ...r, email: emailMap[r.user_id] ?? "" }));
+    return (data ?? []).map((r: any) => ({ ...r, email: emailMap[r.user_id] ?? "" }));
   });
 
 export const adminDecideUpgradeRequest = createServerFn({ method: "POST" })
@@ -395,18 +372,19 @@ export const adminDecideUpgradeRequest = createServerFn({ method: "POST" })
     if (req.status !== "pending") throw new Error(`Request already ${req.status}`);
 
     if (data.decision === "reject") {
-      const { error } = await supabaseAdmin
-        .from("upgrade_requests")
-        .update({ status: "rejected", updated_at: new Date().toISOString() })
-        .eq("id", data.id);
+      const { error } = await supabaseAdmin.from("upgrade_requests").update({ status: "rejected" } as any).eq("id", data.id);
       if (error) throw new Error(error.message);
       return { ok: true };
     }
 
-    const { data: pkg } = await supabaseAdmin
-      .from("packages").select("*").eq("slug", req.package_slug).maybeSingle();
+    const { data: pkg } = await supabaseAdmin.from("packages").select("*").eq("slug", req.package_slug).maybeSingle();
     if (!pkg) throw new Error("Package not found");
     const quota = packageQuota(pkg);
+
+    const { error: uErr } = await supabaseAdmin
+      .from("upgrade_requests").update({ status: "paid" } as any).eq("id", data.id);
+    if (uErr) throw new Error(uErr.message);
+
     const { error: pErr } = await supabaseAdmin
       .from("profiles")
       .update({
@@ -415,360 +393,9 @@ export const adminDecideUpgradeRequest = createServerFn({ method: "POST" })
         link_limit: quota.link_limit,
         clicks_used: 0,
         clicks_period_start: new Date().toISOString(),
-      })
+      } as any)
       .eq("id", req.user_id);
     if (pErr) throw new Error(pErr.message);
-    const { error: uErr } = await supabaseAdmin
-      .from("upgrade_requests")
-      .update({ status: "paid", updated_at: new Date().toISOString() })
-      .eq("id", data.id);
-    if (uErr) throw new Error(uErr.message);
-    return { ok: true };
-  });
 
-// ============================================================
-// LINKS (admin view of all users' links)
-// ============================================================
-export const adminListLinks = createServerFn({ method: "GET" })
-  .middleware([requireSupabaseAuth])
-  .handler(async ({ context }) => {
-    await assertAdmin(context.userId);
-    const { data, error } = await supabaseAdmin
-      .from("links").select("*").order("created_at", { ascending: false }).limit(500);
-    if (error) throw new Error(error.message);
-    const uids = Array.from(new Set((data ?? []).map((l) => l.user_id)));
-    let emailMap: Record<string, string> = {};
-    if (uids.length) {
-      const { data: profs } = await supabaseAdmin
-        .from("profiles").select("id, email").in("id", uids);
-      emailMap = Object.fromEntries((profs ?? []).map((p) => [p.id, p.email ?? ""]));
-    }
-    return (data ?? []).map((l) => ({ ...l, owner_email: emailMap[l.user_id] ?? "" }));
-  });
-
-export const adminToggleLink = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
-  .inputValidator((d) => z.object({ id: z.string().uuid(), is_active: z.boolean() }).parse(d))
-  .handler(async ({ data, context }) => {
-    await assertAdmin(context.userId);
-    const { error } = await supabaseAdmin.from("links").update({ is_active: data.is_active }).eq("id", data.id);
-    if (error) throw new Error(error.message);
-    return { ok: true };
-  });
-
-export const adminUpdateLink = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
-  .inputValidator((d) => z.object({
-    id: z.string().uuid(),
-    adsterra_url: z.string().url().max(2000).optional(),
-    safe_url: z.string().url().max(2000).optional(),
-    title: z.string().max(255).optional(),
-  }).parse(d))
-  .handler(async ({ data, context }) => {
-    await assertAdmin(context.userId);
-    const patch: { adsterra_url?: string; safe_url?: string; title?: string } = {};
-    if (data.adsterra_url !== undefined) patch.adsterra_url = data.adsterra_url;
-    if (data.safe_url !== undefined) patch.safe_url = data.safe_url;
-    if (data.title !== undefined) patch.title = data.title;
-    if (!Object.keys(patch).length) return { ok: true };
-    const { error } = await supabaseAdmin.from("links").update(patch).eq("id", data.id);
-    if (error) throw new Error(error.message);
-    return { ok: true };
-  });
-
-export const adminDeleteLink = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
-  .inputValidator((d) => z.object({ id: z.string().uuid() }).parse(d))
-  .handler(async ({ data, context }) => {
-    await assertAdmin(context.userId);
-    const { error } = await supabaseAdmin.from("links").delete().eq("id", data.id);
-    if (error) throw new Error(error.message);
-    return { ok: true };
-  });
-
-// ============================================================
-// BOT RULES (CRUD)
-// ============================================================
-export const adminListBotRules = createServerFn({ method: "GET" })
-  .middleware([requireSupabaseAuth])
-  .handler(async ({ context }) => {
-    await assertAdmin(context.userId);
-    const { data, error } = await supabaseAdmin.from("bot_rules").select("*").order("created_at", { ascending: false });
-    if (error) throw new Error(error.message);
-    return data ?? [];
-  });
-
-export const adminUpsertBotRule = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
-  .inputValidator((d) => z.object({
-    id: z.string().uuid().optional(),
-    rule_type: z.string().min(1).max(64),
-    pattern: z.string().min(1).max(500),
-    action: z.string().min(1).max(32),
-    label: z.string().max(255).optional().nullable(),
-    is_active: z.boolean(),
-  }).parse(d))
-  .handler(async ({ data, context }) => {
-    await assertAdmin(context.userId);
-    const payload = {
-      rule_type: data.rule_type,
-      pattern: data.pattern,
-      action: data.action,
-      label: data.label ?? null,
-      is_active: data.is_active,
-    };
-    if (data.id) {
-      const { error } = await supabaseAdmin.from("bot_rules").update(payload).eq("id", data.id);
-      if (error) throw new Error(error.message);
-    } else {
-      const { error } = await supabaseAdmin.from("bot_rules").insert(payload);
-      if (error) throw new Error(error.message);
-    }
-    return { ok: true };
-  });
-
-export const adminDeleteBotRule = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
-  .inputValidator((d) => z.object({ id: z.string().uuid() }).parse(d))
-  .handler(async ({ data, context }) => {
-    await assertAdmin(context.userId);
-    const { error } = await supabaseAdmin.from("bot_rules").delete().eq("id", data.id);
-    if (error) throw new Error(error.message);
-    return { ok: true };
-  });
-
-// ============================================================
-// CLOAKING RULES (CRUD)
-// ============================================================
-export const adminListCloakingRules = createServerFn({ method: "GET" })
-  .middleware([requireSupabaseAuth])
-  .handler(async ({ context }) => {
-    await assertAdmin(context.userId);
-    const { data, error } = await supabaseAdmin.from("cloaking_rules").select("*").order("priority");
-    if (error) throw new Error(error.message);
-    return data ?? [];
-  });
-
-export const adminUpsertCloakingRule = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
-  .inputValidator((d) => z.object({
-    id: z.string().uuid().optional(),
-    rule_type: z.string().min(1).max(64),
-    pattern: z.string().min(1).max(500),
-    action: z.string().min(1).max(32),
-    label: z.string().max(255).optional().nullable(),
-    priority: z.number().int().min(0).max(10000),
-    is_active: z.boolean(),
-  }).parse(d))
-  .handler(async ({ data, context }) => {
-    await assertAdmin(context.userId);
-    const payload = {
-      rule_type: data.rule_type,
-      pattern: data.pattern,
-      action: data.action,
-      label: data.label ?? null,
-      priority: data.priority,
-      is_active: data.is_active,
-    };
-    if (data.id) {
-      const { error } = await supabaseAdmin.from("cloaking_rules").update(payload).eq("id", data.id);
-      if (error) throw new Error(error.message);
-    } else {
-      const { error } = await supabaseAdmin.from("cloaking_rules").insert(payload);
-      if (error) throw new Error(error.message);
-    }
-    return { ok: true };
-  });
-
-export const adminDeleteCloakingRule = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
-  .inputValidator((d) => z.object({ id: z.string().uuid() }).parse(d))
-  .handler(async ({ data, context }) => {
-    await assertAdmin(context.userId);
-    const { error } = await supabaseAdmin.from("cloaking_rules").delete().eq("id", data.id);
-    if (error) throw new Error(error.message);
-    return { ok: true };
-  });
-
-// ============================================================
-// COUNTRY TIERS
-// ============================================================
-export const adminListCountryTiers = createServerFn({ method: "GET" })
-  .middleware([requireSupabaseAuth])
-  .handler(async ({ context }) => {
-    await assertAdmin(context.userId);
-    const { data, error } = await supabaseAdmin
-      .from("country_tiers").select("*").order("tier").order("country_code");
-    if (error) throw new Error(error.message);
-    return data ?? [];
-  });
-
-export const adminUpsertCountryTier = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
-  .inputValidator((d) => z.object({
-    country_code: z.string().length(2).regex(/^[A-Z]{2}$/),
-    country_name: z.string().max(100).optional().nullable(),
-    tier: z.number().int().min(1).max(5),
-  }).parse(d))
-  .handler(async ({ data, context }) => {
-    await assertAdmin(context.userId);
-    const { error } = await supabaseAdmin
-      .from("country_tiers")
-      .upsert({
-        country_code: data.country_code,
-        country_name: data.country_name ?? null,
-        tier: data.tier,
-        updated_at: new Date().toISOString(),
-      }, { onConflict: "country_code" });
-    if (error) throw new Error(error.message);
-    return { ok: true };
-  });
-
-export const adminDeleteCountryTier = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
-  .inputValidator((d) => z.object({ country_code: z.string().length(2) }).parse(d))
-  .handler(async ({ data, context }) => {
-    await assertAdmin(context.userId);
-    const { error } = await supabaseAdmin.from("country_tiers").delete().eq("country_code", data.country_code);
-    if (error) throw new Error(error.message);
-    return { ok: true };
-  });
-
-// ============================================================
-// IMPERSONATION (admin-only)
-// Admin can sign in as any user via magiclink. The browser then
-// restores the saved admin session to exit.
-// ============================================================
-export const adminImpersonate = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
-  .inputValidator((d) => z.object({ user_id: z.string().uuid() }).parse(d))
-  .handler(async ({ data, context }) => {
-    await assertAdmin(context.userId);
-    if (data.user_id === context.userId) throw new Error("You are already signed in as this user");
-
-    const { data: prof, error: pErr } = await supabaseAdmin
-      .from("profiles")
-      .select("id, email, full_name")
-      .eq("id", data.user_id)
-      .maybeSingle();
-    if (pErr) throw new Error(pErr.message);
-    if (!prof?.email) throw new Error("Target user has no email");
-
-    const { data: link, error: lErr } = await supabaseAdmin.auth.admin.generateLink({
-      type: "magiclink",
-      email: prof.email,
-    });
-    if (lErr) throw new Error(lErr.message);
-    const hashed_token = (link as { properties?: { hashed_token?: string } })?.properties?.hashed_token;
-    if (!hashed_token) throw new Error("Failed to generate impersonation token");
-
-    return {
-      hashed_token,
-      target: { id: prof.id, email: prof.email, full_name: prof.full_name },
-    };
-  });
-
-// ============================================================
-// ERROR LOGS (admin debugging)
-// ============================================================
-type ErrorLogRow = {
-  id: number;
-  created_at: string;
-  source: string;
-  level: string;
-  message: string;
-  stack: string | null;
-  context: string | null;
-  link_id: string | null;
-  user_id: string | null;
-  resolved: boolean;
-};
-
-const errFrom = () =>
-  (supabaseAdmin.from as unknown as (t: string) => {
-    select: (cols: string, opts?: { count?: "exact"; head?: boolean }) => {
-      order: (c: string, o: { ascending: boolean }) => {
-        limit: (n: number) => Promise<{ data: ErrorLogRow[] | null; error: { message: string } | null }>;
-      };
-      eq: (c: string, v: unknown) => {
-        order: (c: string, o: { ascending: boolean }) => {
-          limit: (n: number) => Promise<{ data: ErrorLogRow[] | null; error: { message: string } | null }>;
-        };
-      };
-    };
-    update: (row: Record<string, unknown>) => {
-      eq: (c: string, v: unknown) => Promise<{ error: { message: string } | null }>;
-    };
-    delete: () => {
-      eq: (c: string, v: unknown) => Promise<{ error: { message: string } | null }>;
-      lt: (c: string, v: unknown) => Promise<{ error: { message: string } | null }>;
-      gte?: (c: string, v: unknown) => Promise<{ error: { message: string } | null }>;
-      neq: (c: string, v: unknown) => Promise<{ error: { message: string } | null }>;
-    };
-  })("error_logs");
-
-export const adminListErrors = createServerFn({ method: "GET" })
-  .middleware([requireSupabaseAuth])
-  .inputValidator((d) => z.object({ source: z.string().max(64).optional(), onlyOpen: z.boolean().optional(), limit: z.number().int().min(1).max(1000).optional() }).parse(d))
-  .handler(async ({ context, data }) => {
-    await assertAdmin(context.userId);
-    const limit = Math.min(Math.max(data?.limit ?? 200, 1), 1000);
-    let q = errFrom().select("*").order("created_at", { ascending: false }).limit(limit);
-    if (data?.source) {
-      q = errFrom().select("*").eq("source", data.source).order("created_at", { ascending: false }).limit(limit);
-    }
-    const { data: rows, error } = await q;
-    if (error) throw new Error(error.message);
-    const list = (rows ?? []).map((r) => ({
-      ...r,
-      context: r.context ? JSON.stringify(r.context) : null,
-    })) as ErrorLogRow[];
-    const filtered = data?.onlyOpen ? list.filter((r) => !r.resolved) : list;
-    return { rows: filtered };
-  });
-
-export const adminErrorStats = createServerFn({ method: "GET" })
-  .middleware([requireSupabaseAuth])
-  .handler(async ({ context }) => {
-    await assertAdmin(context.userId);
-    const sinceISO = new Date(Date.now() - 24 * 3600 * 1000).toISOString();
-    const { data: rows } = await errFrom()
-      .select("source, level, resolved, created_at")
-      .order("created_at", { ascending: false })
-      .limit(1000);
-    const list = (rows ?? []) as unknown as Array<{ source: string; level: string; resolved: boolean; created_at: string }>;
-    const last24h = list.filter((r) => r.created_at >= sinceISO).length;
-    const open = list.filter((r) => !r.resolved).length;
-    const bySource: Record<string, number> = {};
-    for (const r of list) bySource[r.source] = (bySource[r.source] || 0) + 1;
-    return { total: list.length, last24h, open, bySource };
-  });
-
-export const adminResolveError = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
-  .inputValidator((d) => z.object({ id: z.number().int().positive(), resolved: z.boolean() }).parse(d))
-  .handler(async ({ context, data }) => {
-    await assertAdmin(context.userId);
-    const { error } = await errFrom().update({ resolved: data.resolved }).eq("id", data.id);
-    if (error) throw new Error(error.message);
-    return { ok: true };
-  });
-
-export const adminDeleteError = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
-  .inputValidator((d) => z.object({ id: z.number().int().positive() }).parse(d))
-  .handler(async ({ context, data }) => {
-    await assertAdmin(context.userId);
-    const { error } = await errFrom().delete().eq("id", data.id);
-    if (error) throw new Error(error.message);
-    return { ok: true };
-  });
-
-export const adminClearResolvedErrors = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
-  .handler(async ({ context }) => {
-    await assertAdmin(context.userId);
-    const { error } = await errFrom().delete().eq("resolved", true);
-    if (error) throw new Error(error.message);
     return { ok: true };
   });
