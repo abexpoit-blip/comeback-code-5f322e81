@@ -6,7 +6,9 @@ module.exports = {
       script: ".output/server/index.mjs",
       instances: "max",
       exec_mode: "cluster",
-      max_memory_restart: "1G",
+      max_memory_restart: "1536M",
+      node_args: "--max-old-space-size=2048",
+
       watch: false,
       ignore_watch: ["node_modules", ".output"],
       autorestart: true,

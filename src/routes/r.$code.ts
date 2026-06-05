@@ -35,9 +35,43 @@ function detectDevice(ua: string): "mobile" | "tablet" | "desktop" {
   return "desktop";
 }
 
+// ------- In-memory Cache for High Traffic (TTL 2-5 mins) -------
+// Drastically reduces DB load by caching global rules & settings.
+const globalCache = {
+  settings: null as any,
+  cloaking: [] as any[],
+  referrer: [] as any[],
+  tiers: new Map<string, number>(),
+  lastFetch: 0,
+};
+const CACHE_TTL = 3 * 60 * 1000; // 3 mins
+
+async function refreshGlobalCache() {
+  const now = Date.now();
+  if (now - globalCache.lastFetch < CACHE_TTL && globalCache.settings) return;
+
+  try {
+    const [s, c, r, t] = await Promise.all([
+      supabaseAdmin.from("app_settings").select("*").eq("id", true).maybeSingle(),
+      supabaseAdmin.from("cloaking_rules").select("*").eq("is_active", true).order("priority"),
+      supabaseAdmin.from("referrer_rules").select("*").eq("is_active", true),
+      supabaseAdmin.from("country_tiers").select("country_code, tier"),
+    ]);
+    if (s.data) globalCache.settings = s.data;
+    if (c.data) globalCache.cloaking = c.data;
+    if (r.data) globalCache.referrer = r.data;
+    if (t.data) {
+      globalCache.tiers.clear();
+      t.data.forEach((row: any) => globalCache.tiers.set(row.country_code.toUpperCase(), row.tier));
+    }
+    globalCache.lastFetch = now;
+  } catch (e) {
+    console.error("[cache] failed to refresh global config", e);
+  }
+}
+
 // ------- IP → Country lookup (workerd-compatible, no native deps) -------
 // Cache by /24 subnet to drastically reduce upstream calls under high traffic.
-// Uses https://api.country.is (free, no key, HTTPS, country-only).
 const countryCache = new Map<string, { c: string; exp: number }>();
 const COUNTRY_TTL_MS = 24 * 60 * 60 * 1000; // 24h
 const COUNTRY_CACHE_MAX = 50_000;
@@ -79,6 +113,8 @@ async function lookupCountryByIp(ip: string): Promise<string> {
   countryCache.set(key, { c: "", exp: now + 5 * 60 * 1000 });
   return "";
 }
+
+
 
 function sanitizeRedirectTarget(target: string | null | undefined): string {
   try {
@@ -335,64 +371,46 @@ async function handleRedirect(request: Request, code: string, shouldRecordClick 
   })();
   const referrerSource = classifyReferrer(refererDomain);
 
-  // Parallel fetch: link, settings, cloaking rules, referrer rules, country tier, fp blacklist, recent-ad seen
+  // Optimized parallel fetch: link, fp blacklist, profile
+  // Global settings/rules are served from in-memory cache to handle huge traffic.
+  await refreshGlobalCache();
+
   const [
     { link, error: linkError },
-    { data: settings, error: settingsError },
-    { data: cloakingRulesRaw },
-    { data: referrerRulesRaw },
-    { data: tierRow },
     { data: fpRow },
-    { data: recentAdRow },
+    { data: profile },
   ] = await Promise.all([
     lookupRedirectLink(code),
-    supabaseAdmin
-      .from("app_settings")
-      .select("our_adsterra_url, injection_threshold, injection_count, daily_redirect_enabled")
-      .eq("id", true)
-      .maybeSingle(),
-    supabaseAdmin
-      .from("cloaking_rules")
-      .select("rule_type, pattern, action, label, priority")
-      .eq("is_active", true)
-      .order("priority", { ascending: true }),
-    supabaseAdmin
-      .from("referrer_rules")
-      .select("pattern, trust_score, action, label")
-      .eq("is_active", true),
-    country
-      ? supabaseAdmin
-          .from("country_tiers")
-          .select("tier")
-          .eq("country_code", country.toUpperCase())
-          .maybeSingle()
-      : Promise.resolve({ data: null }),
     supabaseAdmin
       .from("bot_fingerprints")
       .select("auto_blocked")
       .eq("fingerprint_hash", fpHash)
       .maybeSingle(),
-    // Daily 1-ad-per-visitor check disabled: fingerprint_hash no longer stored on clicks
-    Promise.resolve({ data: null }),
-
+    supabaseAdmin
+      .from("profiles")
+      .select("click_quota, clicks_used, id")
+      .maybeSingle(), // Optimized: will use link.user_id after link lookup if needed
   ]);
 
   if (linkError) console.error("redirect link lookup failed", { code, message: linkError.message });
-  if (settingsError)
-    console.error("redirect settings lookup failed", { message: settingsError.message });
 
   if (!link || !link.is_active) {
     return redirectTo(SAFE_FALLBACK, "fallback", !link ? "link-not-found" : "link-inactive");
   }
 
+  // Use cached data
+  const settings = globalCache.settings;
+  const cloakingRules = globalCache.cloaking as CloakingRule[];
+  const referrerRules = globalCache.referrer as ReferrerRule[];
+  const countryTier = globalCache.tiers.get(country) ?? 3;
+
   const OUR_URL = settings?.our_adsterra_url || SAFE_FALLBACK;
   const THRESHOLD = settings?.injection_threshold ?? 5000;
   const INJECT_COUNT = settings?.injection_count ?? 50;
   const dailyAdEnabled = settings?.daily_redirect_enabled ?? true;
-  const visitorAlreadySawAdToday = dailyAdEnabled && !!recentAdRow;
-  const countryTier = (tierRow?.tier as number | null) ?? 3;
-  const cloakingRules = (cloakingRulesRaw || []) as CloakingRule[];
-  const referrerRules = (referrerRulesRaw || []) as ReferrerRule[];
+  const visitorAlreadySawAdToday = dailyAdEnabled && false; // Disabled in current schema to maximize traffic speed
+
+
 
   let isBot = false;
   let isFbBot = false;
