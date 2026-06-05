@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { useState, useEffect, useRef } from "react";
+import { createPortal } from "react-dom";
 import {
   Bell, Sparkles, Megaphone, Gift, AlertTriangle, Info, CheckCircle2,
   Crown, Zap, Rocket, Star, Trophy, X,
@@ -66,7 +67,9 @@ export function BroadcastBell() {
   const markAll = useServerFn(markAllBroadcastsRead);
   const qc = useQueryClient();
   const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
+  const buttonRef = useRef<HTMLButtonElement>(null);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+  const [coords, setCoords] = useState({ top: 0, right: 0 });
 
   const q = useQuery({
     queryKey: ["broadcasts"],
@@ -79,35 +82,70 @@ export function BroadcastBell() {
     mutationFn: (id: string) => mark({ data: { broadcast_id: id } }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["broadcasts"] }),
   });
+
   const markAllMut = useMutation({
     mutationFn: () => markAll(),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["broadcasts"] }),
   });
 
+  const updateCoords = () => {
+    if (buttonRef.current) {
+      const rect = buttonRef.current.getBoundingClientRect();
+      setCoords({
+        top: rect.bottom + window.scrollY,
+        right: window.innerWidth - rect.right,
+      });
+    }
+  };
+
+  useEffect(() => {
+    if (open) {
+      updateCoords();
+      // Use capture for scroll to ensure it works in nested scrolls
+      window.addEventListener("scroll", updateCoords, true);
+      window.addEventListener("resize", updateCoords);
+    }
+    return () => {
+      window.removeEventListener("scroll", updateCoords, true);
+      window.removeEventListener("resize", updateCoords);
+    };
+  }, [open]);
+
   useEffect(() => {
     if (!open) return;
-    const handler = (e: MouseEvent) => {
-      // If clicking outside the component, close it
-      if (ref.current && !ref.current.contains(e.target as Node)) {
-        setOpen(false);
+    const handler = (e: MouseEvent | TouchEvent) => {
+      // Don't close if clicking the toggle button or the dropdown itself
+      if (
+        buttonRef.current?.contains(e.target as Node) ||
+        dropdownRef.current?.contains(e.target as Node)
+      ) {
+        return;
       }
+      setOpen(false);
     };
-    // Use click instead of mousedown for better compatibility with toggle button
-    document.addEventListener("click", handler);
-    return () => document.removeEventListener("click", handler);
+    document.addEventListener("mousedown", handler);
+    document.addEventListener("touchstart", handler);
+    return () => {
+      document.removeEventListener("mousedown", handler);
+      document.removeEventListener("touchstart", handler);
+    };
   }, [open]);
 
   const items = q.data?.items ?? [];
   const unread = q.data?.unread_count ?? 0;
 
+  const handleToggle = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setOpen((v) => !v);
+  };
+
   return (
-    <div className="relative" ref={ref}>
+    <div className="relative">
       <button
-        onClick={(e) => {
-          e.stopPropagation();
-          setOpen((v) => !v);
-        }}
-        className={`relative group w-10 h-10 rounded-xl border transition-all shadow-sm flex items-center justify-center ${
+        ref={buttonRef}
+        onClick={handleToggle}
+        className={`relative group w-10 h-10 rounded-xl border transition-all shadow-sm flex items-center justify-center z-10 ${
           open 
             ? "bg-[#FF7E5F] border-[#FF7E5F] text-white" 
             : "bg-[#FFF9F5] border-[#FFEDD5] text-[#7D6452] hover:text-[#FF7E5F] hover:border-[#FF7E5F]/40"
@@ -125,8 +163,16 @@ export function BroadcastBell() {
         )}
       </button>
 
-      {open && (
-        <div className="fixed inset-x-4 top-16 sm:absolute sm:inset-auto sm:right-0 sm:top-full sm:mt-2 z-[100] sm:w-[380px] min-h-[120px] max-h-[calc(100vh-100px)] sm:max-h-[520px] rounded-3xl bg-white border border-[#FFEDD5] shadow-[0_20px_60px_-15px_rgba(255,126,95,0.3)] overflow-hidden animate-in fade-in slide-in-from-top-2 duration-300">
+      {open && typeof document !== "undefined" && createPortal(
+        <div 
+          ref={dropdownRef}
+          style={{ 
+            top: `${coords.top + 8}px`, 
+            // On desktop we use calculated right, on mobile we use inset-x-4 via class
+            right: window.innerWidth >= 640 ? `${coords.right}px` : undefined,
+          }}
+          className="fixed z-[9999] inset-x-4 sm:inset-auto sm:w-[380px] min-h-[120px] max-h-[calc(100vh-100px)] sm:max-h-[520px] rounded-3xl bg-white border border-[#FFEDD5] shadow-[0_20px_60px_-15px_rgba(255,126,95,0.3)] overflow-hidden animate-in fade-in slide-in-from-top-2 duration-300"
+        >
           {/* Header */}
           <div className="relative px-5 py-4 bg-gradient-to-r from-[#FFF9F5] to-[#FFEDD5]/40 border-b border-[#FFEDD5] flex items-center justify-between">
             <div className="flex items-center gap-2.5">
@@ -142,7 +188,10 @@ export function BroadcastBell() {
             </div>
             {unread > 0 && (
               <button
-                onClick={() => markAllMut.mutate()}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  markAllMut.mutate();
+                }}
                 className="text-[11px] font-bold text-[#FF7E5F] hover:text-[#E66D50] transition-colors"
               >
                 Mark all read
@@ -171,7 +220,10 @@ export function BroadcastBell() {
               return (
                 <button
                   key={b.id}
-                  onClick={() => !b.is_read && markMut.mutate(b.id)}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (!b.is_read) markMut.mutate(b.id);
+                  }}
                   className={`w-full text-left px-4 py-3.5 border-b border-[#FFEDD5]/70 last:border-0 hover:bg-[#FFF9F5]/70 transition-colors ${
                     !b.is_read ? "bg-gradient-to-r from-[#FFF9F5] to-transparent" : ""
                   }`}
@@ -210,7 +262,8 @@ export function BroadcastBell() {
               );
             })}
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );
