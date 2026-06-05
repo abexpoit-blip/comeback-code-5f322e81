@@ -80,8 +80,8 @@ function GeoTab({ linkId }: { linkId: string }) {
   });
 
   const toggleMut = useMutation({
-    mutationFn: (r: { id: string; is_active: boolean; offer_url: string; weight: number; tier: number | null; country_codes: string[] | null }) =>
-      upsert({ data: { id: r.id, link_id: linkId, offer_url: r.offer_url, weight: r.weight, tier: r.tier ?? undefined, country_codes: r.country_codes ?? undefined, is_active: r.is_active } }),
+    mutationFn: (r: any) =>
+      upsert({ data: { id: r.id, link_id: linkId, offer_url: r.offer_url, weight: Number(r.weight) || 100, tier: r.tier ?? undefined, country_codes: r.country_codes ?? undefined, is_active: r.is_active } }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["geo-offers", linkId] }),
   });
 
@@ -141,7 +141,7 @@ function GeoTab({ linkId }: { linkId: string }) {
           <div className="p-6 text-center text-sm text-[#7D6452]">No geo rules yet — add one above.</div>
         )}
         <ul className="divide-y divide-[#FFEDD5]">
-          {q.data?.map(r => (
+          {q.data?.map((r: any) => (
             <li key={r.id} className="px-5 py-3 flex items-start gap-3 hover:bg-[#FFF9F5]">
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 flex-wrap">
@@ -195,8 +195,8 @@ function AbTab({ linkId }: { linkId: string }) {
   });
 
   const toggleMut = useMutation({
-    mutationFn: (r: { id: string; variant_label: string; offer_url: string; weight_pct: number; is_active: boolean }) =>
-      upsert({ data: { id: r.id, link_id: linkId, variant_label: r.variant_label, offer_url: r.offer_url, weight_pct: r.weight_pct, is_active: r.is_active } }),
+    mutationFn: (r: any) =>
+      upsert({ data: { id: r.id, link_id: linkId, variant_label: r.variant_label, offer_url: r.offer_url, weight_pct: Number(r.weight_pct) || 50, is_active: r.is_active } }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["ab-variants", linkId] }),
   });
 
@@ -205,7 +205,7 @@ function AbTab({ linkId }: { linkId: string }) {
     onSuccess: () => { toast.success("Removed"); qc.invalidateQueries({ queryKey: ["ab-variants", linkId] }); },
   });
 
-  const totalWeight = (q.data ?? []).filter(v => v.is_active).reduce((s, v) => s + v.weight_pct, 0);
+  const totalWeight = (q.data ?? []).filter((v: any) => v.is_active).reduce((s: number, v: any) => s + (Number(v.weight_pct) || 0), 0);
 
   return (
     <div className="space-y-6">
@@ -244,8 +244,8 @@ function AbTab({ linkId }: { linkId: string }) {
           <div className="p-6 text-center text-sm text-[#7D6452]">No variants — uses main offer URL.</div>
         )}
         <ul className="divide-y divide-[#FFEDD5]">
-          {q.data?.map(v => {
-            const ctr = v.clicks_count ? Math.round((v.conversions_count / v.clicks_count) * 1000) / 10 : 0;
+          {q.data?.map((v: any) => {
+            const ctr = v.clicks_count ? Math.round(((Number(v.conversions_count) || 0) / v.clicks_count) * 1000) / 10 : 0;
             return (
               <li key={v.id} className="px-5 py-3 flex items-start gap-3 hover:bg-[#FFF9F5]">
                 <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-[#FF7E5F] to-[#FEB47B] flex items-center justify-center text-white font-bold text-sm shrink-0">
@@ -255,7 +255,7 @@ function AbTab({ linkId }: { linkId: string }) {
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className="text-[11px] font-bold text-[#2D1B0D]">{v.weight_pct}% weight</span>
                     <span className="text-[11px] text-[#A38D7D]">·</span>
-                    <span className="text-[11px] text-[#7D6452]">{Number(v.clicks_count).toLocaleString()} clicks</span>
+                    <span className="text-[11px] text-[#7D6452]">{Number(v.clicks_count || 0).toLocaleString()} clicks</span>
                     <span className="text-[11px] text-[#A38D7D]">·</span>
                     <span className="text-[11px] text-emerald-600 font-bold">{ctr}% CTR</span>
                   </div>

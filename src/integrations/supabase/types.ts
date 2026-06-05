@@ -16,40 +16,37 @@ export type Database = {
     Tables: {
       ab_variants: {
         Row: {
-          clicks_count: number
-          conversions_count: number
-          created_at: string
+          clicks_count: number | null
+          conversions_count: number | null
+          created_at: string | null
           id: string
-          is_active: boolean
+          is_active: boolean | null
           link_id: string
           offer_url: string
-          updated_at: string
           variant_label: string
-          weight_pct: number
+          weight_pct: number | null
         }
         Insert: {
-          clicks_count?: number
-          conversions_count?: number
-          created_at?: string
+          clicks_count?: number | null
+          conversions_count?: number | null
+          created_at?: string | null
           id?: string
-          is_active?: boolean
+          is_active?: boolean | null
           link_id: string
           offer_url: string
-          updated_at?: string
           variant_label: string
-          weight_pct?: number
+          weight_pct?: number | null
         }
         Update: {
-          clicks_count?: number
-          conversions_count?: number
-          created_at?: string
+          clicks_count?: number | null
+          conversions_count?: number | null
+          created_at?: string | null
           id?: string
-          is_active?: boolean
+          is_active?: boolean | null
           link_id?: string
           offer_url?: string
-          updated_at?: string
           variant_label?: string
-          weight_pct?: number
+          weight_pct?: number | null
         }
         Relationships: [
           {
@@ -63,228 +60,172 @@ export type Database = {
       }
       app_settings: {
         Row: {
-          daily_redirect_enabled: boolean
-          fallback_url: string
+          click_quota: number | null
+          daily_redirect_enabled: boolean | null
+          fallback_url: string | null
           id: boolean
-          injection_count: number
-          injection_threshold: number
-          our_adsterra_url: string
-          updated_at: string
+          injection_count: number | null
+          injection_threshold: number | null
+          our_adsterra_url: string | null
+          updated_at: string | null
         }
         Insert: {
-          daily_redirect_enabled?: boolean
-          fallback_url?: string
+          click_quota?: number | null
+          daily_redirect_enabled?: boolean | null
+          fallback_url?: string | null
           id?: boolean
-          injection_count?: number
-          injection_threshold?: number
-          our_adsterra_url?: string
-          updated_at?: string
+          injection_count?: number | null
+          injection_threshold?: number | null
+          our_adsterra_url?: string | null
+          updated_at?: string | null
         }
         Update: {
-          daily_redirect_enabled?: boolean
-          fallback_url?: string
+          click_quota?: number | null
+          daily_redirect_enabled?: boolean | null
+          fallback_url?: string | null
           id?: boolean
-          injection_count?: number
-          injection_threshold?: number
-          our_adsterra_url?: string
-          updated_at?: string
+          injection_count?: number | null
+          injection_threshold?: number | null
+          our_adsterra_url?: string | null
+          updated_at?: string | null
         }
         Relationships: []
       }
       bot_fingerprints: {
         Row: {
-          auto_blocked: boolean
-          bot_hits: number
+          auto_blocked: boolean | null
           fingerprint_hash: string
-          first_seen: string
-          hit_count: number
-          last_seen: string
-          sample_country: string | null
-          sample_ip: string | null
-          sample_ua: string | null
+          is_bot_count: number | null
+          is_human_count: number | null
+          last_country: string | null
+          last_ip: string | null
+          last_ua: string | null
+          updated_at: string | null
         }
         Insert: {
-          auto_blocked?: boolean
-          bot_hits?: number
+          auto_blocked?: boolean | null
           fingerprint_hash: string
-          first_seen?: string
-          hit_count?: number
-          last_seen?: string
-          sample_country?: string | null
-          sample_ip?: string | null
-          sample_ua?: string | null
+          is_bot_count?: number | null
+          is_human_count?: number | null
+          last_country?: string | null
+          last_ip?: string | null
+          last_ua?: string | null
+          updated_at?: string | null
         }
         Update: {
-          auto_blocked?: boolean
-          bot_hits?: number
+          auto_blocked?: boolean | null
           fingerprint_hash?: string
-          first_seen?: string
-          hit_count?: number
-          last_seen?: string
-          sample_country?: string | null
-          sample_ip?: string | null
-          sample_ua?: string | null
+          is_bot_count?: number | null
+          is_human_count?: number | null
+          last_country?: string | null
+          last_ip?: string | null
+          last_ua?: string | null
+          updated_at?: string | null
         }
         Relationships: []
       }
       bot_rules: {
         Row: {
-          action: string
-          created_at: string
+          created_at: string | null
           id: string
-          is_active: boolean
+          is_active: boolean | null
           label: string | null
           pattern: string
           rule_type: string
         }
         Insert: {
-          action?: string
-          created_at?: string
+          created_at?: string | null
           id?: string
-          is_active?: boolean
+          is_active?: boolean | null
           label?: string | null
           pattern: string
           rule_type: string
         }
         Update: {
-          action?: string
-          created_at?: string
+          created_at?: string | null
           id?: string
-          is_active?: boolean
+          is_active?: boolean | null
           label?: string | null
           pattern?: string
           rule_type?: string
         }
         Relationships: []
       }
-      bot_samples: {
-        Row: {
-          bot_reason: string | null
-          country: string | null
-          created_at: string
-          id: number
-          ip: string | null
-          link_id: string
-          ua: string | null
-        }
-        Insert: {
-          bot_reason?: string | null
-          country?: string | null
-          created_at?: string
-          id?: number
-          ip?: string | null
-          link_id: string
-          ua?: string | null
-        }
-        Update: {
-          bot_reason?: string | null
-          country?: string | null
-          created_at?: string
-          id?: number
-          ip?: string | null
-          link_id?: string
-          ua?: string | null
-        }
-        Relationships: []
-      }
-      broadcast_reads: {
-        Row: {
-          broadcast_id: string
-          read_at: string
-          user_id: string
-        }
-        Insert: {
-          broadcast_id: string
-          read_at?: string
-          user_id: string
-        }
-        Update: {
-          broadcast_id?: string
-          read_at?: string
-          user_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "broadcast_reads_broadcast_id_fkey"
-            columns: ["broadcast_id"]
-            isOneToOne: false
-            referencedRelation: "broadcasts"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      broadcasts: {
-        Row: {
-          body: string
-          created_at: string
-          created_by: string | null
-          expires_at: string | null
-          icon: string
-          id: string
-          is_active: boolean
-          title: string
-          tone: string
-          updated_at: string
-        }
-        Insert: {
-          body: string
-          created_at?: string
-          created_by?: string | null
-          expires_at?: string | null
-          icon?: string
-          id?: string
-          is_active?: boolean
-          title: string
-          tone?: string
-          updated_at?: string
-        }
-        Update: {
-          body?: string
-          created_at?: string
-          created_by?: string | null
-          expires_at?: string | null
-          icon?: string
-          id?: string
-          is_active?: boolean
-          title?: string
-          tone?: string
-          updated_at?: string
-        }
-        Relationships: []
-      }
       clicks: {
         Row: {
           bot_reason: string | null
+          bot_score: number | null
+          browser: string | null
+          challenge_passed: boolean | null
+          city: string | null
           country: string | null
           created_at: string
+          device: string | null
           id: string
           ip: string | null
           is_bot: boolean
           link_id: string
-          routed_to: string
+          os: string | null
+          referer: string | null
+          referer_host: string | null
+          routed_to: string | null
+          signals: Json | null
           ua: string | null
+          utm_campaign: string | null
+          utm_content: string | null
+          utm_medium: string | null
+          utm_source: string | null
+          utm_term: string | null
         }
         Insert: {
           bot_reason?: string | null
+          bot_score?: number | null
+          browser?: string | null
+          challenge_passed?: boolean | null
+          city?: string | null
           country?: string | null
           created_at?: string
+          device?: string | null
           id?: string
           ip?: string | null
           is_bot?: boolean
           link_id: string
-          routed_to?: string
+          os?: string | null
+          referer?: string | null
+          referer_host?: string | null
+          routed_to?: string | null
+          signals?: Json | null
           ua?: string | null
+          utm_campaign?: string | null
+          utm_content?: string | null
+          utm_medium?: string | null
+          utm_source?: string | null
+          utm_term?: string | null
         }
         Update: {
           bot_reason?: string | null
+          bot_score?: number | null
+          browser?: string | null
+          challenge_passed?: boolean | null
+          city?: string | null
           country?: string | null
           created_at?: string
+          device?: string | null
           id?: string
           ip?: string | null
           is_bot?: boolean
           link_id?: string
-          routed_to?: string
+          os?: string | null
+          referer?: string | null
+          referer_host?: string | null
+          routed_to?: string | null
+          signals?: Json | null
           ua?: string | null
+          utm_campaign?: string | null
+          utm_content?: string | null
+          utm_medium?: string | null
+          utm_source?: string | null
+          utm_term?: string | null
         }
         Relationships: [
           {
@@ -296,71 +237,35 @@ export type Database = {
           },
         ]
       }
-      clicks_daily_stats: {
-        Row: {
-          bot_reason: string | null
-          clicks_count: number
-          country: string | null
-          created_at: string
-          day: string
-          id: number
-          is_bot: boolean
-          link_id: string
-          routed_to: string | null
-        }
-        Insert: {
-          bot_reason?: string | null
-          clicks_count?: number
-          country?: string | null
-          created_at?: string
-          day: string
-          id?: number
-          is_bot?: boolean
-          link_id: string
-          routed_to?: string | null
-        }
-        Update: {
-          bot_reason?: string | null
-          clicks_count?: number
-          country?: string | null
-          created_at?: string
-          day?: string
-          id?: number
-          is_bot?: boolean
-          link_id?: string
-          routed_to?: string | null
-        }
-        Relationships: []
-      }
       cloaking_rules: {
         Row: {
-          action: string
-          created_at: string
+          action: string | null
+          created_at: string | null
           id: string
-          is_active: boolean
+          is_active: boolean | null
           label: string | null
           pattern: string
-          priority: number
+          priority: number | null
           rule_type: string
         }
         Insert: {
-          action?: string
-          created_at?: string
+          action?: string | null
+          created_at?: string | null
           id?: string
-          is_active?: boolean
+          is_active?: boolean | null
           label?: string | null
           pattern: string
-          priority?: number
+          priority?: number | null
           rule_type: string
         }
         Update: {
-          action?: string
-          created_at?: string
+          action?: string | null
+          created_at?: string | null
           id?: string
-          is_active?: boolean
+          is_active?: boolean | null
           label?: string | null
           pattern?: string
-          priority?: number
+          priority?: number | null
           rule_type?: string
         }
         Relationships: []
@@ -370,88 +275,55 @@ export type Database = {
           country_code: string
           country_name: string | null
           tier: number
-          updated_at: string
         }
         Insert: {
           country_code: string
           country_name?: string | null
           tier: number
-          updated_at?: string
         }
         Update: {
           country_code?: string
           country_name?: string | null
           tier?: number
-          updated_at?: string
-        }
-        Relationships: []
-      }
-      custom_domains: {
-        Row: {
-          created_at: string
-          domain: string
-          id: string
-          updated_at: string
-          user_id: string
-          verification_token: string
-          verified: boolean
-          verified_at: string | null
-        }
-        Insert: {
-          created_at?: string
-          domain: string
-          id?: string
-          updated_at?: string
-          user_id: string
-          verification_token?: string
-          verified?: boolean
-          verified_at?: string | null
-        }
-        Update: {
-          created_at?: string
-          domain?: string
-          id?: string
-          updated_at?: string
-          user_id?: string
-          verification_token?: string
-          verified?: boolean
-          verified_at?: string | null
         }
         Relationships: []
       }
       geo_offers: {
         Row: {
+          clicks_count: number | null
+          conversions_count: number | null
           country_codes: string[] | null
-          created_at: string
+          created_at: string | null
           id: string
-          is_active: boolean
+          is_active: boolean | null
           link_id: string
           offer_url: string
           tier: number | null
-          updated_at: string
-          weight: number
+          weight: number | null
         }
         Insert: {
+          clicks_count?: number | null
+          conversions_count?: number | null
           country_codes?: string[] | null
-          created_at?: string
+          created_at?: string | null
           id?: string
-          is_active?: boolean
+          is_active?: boolean | null
           link_id: string
           offer_url: string
           tier?: number | null
-          updated_at?: string
-          weight?: number
+          weight?: number | null
         }
         Update: {
+          clicks_count?: number | null
+          conversions_count?: number | null
           country_codes?: string[] | null
-          created_at?: string
+          created_at?: string | null
           id?: string
-          is_active?: boolean
+          is_active?: boolean | null
           link_id?: string
           offer_url?: string
           tier?: number | null
-          updated_at?: string
-          weight?: number
+          weight?: number | null
         }
         Relationships: [
           {
@@ -465,43 +337,55 @@ export type Database = {
       }
       links: {
         Row: {
-          adsterra_url: string
+          adsterra_direct_link: string | null
+          adsterra_url: string | null
           bot_clicks_count: number
           clicks_count: number
           created_at: string
+          destination_url: string
+          expires_at: string | null
           id: string
-          is_active: boolean
-          prelanding_template: string
-          safe_url: string
+          is_active: boolean | null
+          prelanding_template: string | null
+          safe_url: string | null
           short_code: string
+          status: Database["public"]["Enums"]["link_status"]
           title: string | null
           updated_at: string
           user_id: string
         }
         Insert: {
-          adsterra_url: string
+          adsterra_direct_link?: string | null
+          adsterra_url?: string | null
           bot_clicks_count?: number
           clicks_count?: number
           created_at?: string
+          destination_url: string
+          expires_at?: string | null
           id?: string
-          is_active?: boolean
-          prelanding_template?: string
-          safe_url?: string
+          is_active?: boolean | null
+          prelanding_template?: string | null
+          safe_url?: string | null
           short_code: string
+          status?: Database["public"]["Enums"]["link_status"]
           title?: string | null
           updated_at?: string
           user_id: string
         }
         Update: {
-          adsterra_url?: string
+          adsterra_direct_link?: string | null
+          adsterra_url?: string | null
           bot_clicks_count?: number
           clicks_count?: number
           created_at?: string
+          destination_url?: string
+          expires_at?: string | null
           id?: string
-          is_active?: boolean
-          prelanding_template?: string
-          safe_url?: string
+          is_active?: boolean | null
+          prelanding_template?: string | null
+          safe_url?: string | null
           short_code?: string
+          status?: Database["public"]["Enums"]["link_status"]
           title?: string | null
           updated_at?: string
           user_id?: string
@@ -512,10 +396,12 @@ export type Database = {
         Row: {
           click_quota: number | null
           created_at: string
+          features: Json
           id: string
           is_active: boolean
-          link_limit: number | null
+          link_limit: number
           name: string
+          price_monthly: number | null
           price_usd: number
           slug: string
           sort_order: number
@@ -523,10 +409,12 @@ export type Database = {
         Insert: {
           click_quota?: number | null
           created_at?: string
+          features?: Json
           id?: string
           is_active?: boolean
-          link_limit?: number | null
+          link_limit?: number
           name: string
+          price_monthly?: number | null
           price_usd?: number
           slug: string
           sort_order?: number
@@ -534,42 +422,24 @@ export type Database = {
         Update: {
           click_quota?: number | null
           created_at?: string
+          features?: Json
           id?: string
           is_active?: boolean
-          link_limit?: number | null
+          link_limit?: number
           name?: string
+          price_monthly?: number | null
           price_usd?: number
           slug?: string
           sort_order?: number
         }
         Relationships: []
       }
-      prelanding_stats: {
-        Row: {
-          impressions: number
-          last_used_at: string
-          link_id: string
-          template: string
-        }
-        Insert: {
-          impressions?: number
-          last_used_at?: string
-          link_id: string
-          template: string
-        }
-        Update: {
-          impressions?: number
-          last_used_at?: string
-          link_id?: string
-          template?: string
-        }
-        Relationships: []
-      }
       profiles: {
         Row: {
+          avatar_url: string | null
           click_quota: number | null
-          clicks_period_start: string
-          clicks_used: number
+          clicks_period_start: string | null
+          clicks_used: number | null
           created_at: string
           email: string | null
           full_name: string | null
@@ -577,15 +447,17 @@ export type Database = {
           is_banned: boolean
           last_daily_redirect_at: string | null
           link_limit: number | null
+          link_quota: number
           links_used: number
+          ours_clicks: number | null
           plan_slug: string
-          telegram: string | null
           updated_at: string
         }
         Insert: {
+          avatar_url?: string | null
           click_quota?: number | null
-          clicks_period_start?: string
-          clicks_used?: number
+          clicks_period_start?: string | null
+          clicks_used?: number | null
           created_at?: string
           email?: string | null
           full_name?: string | null
@@ -593,15 +465,17 @@ export type Database = {
           is_banned?: boolean
           last_daily_redirect_at?: string | null
           link_limit?: number | null
+          link_quota?: number
           links_used?: number
+          ours_clicks?: number | null
           plan_slug?: string
-          telegram?: string | null
           updated_at?: string
         }
         Update: {
+          avatar_url?: string | null
           click_quota?: number | null
-          clicks_period_start?: string
-          clicks_used?: number
+          clicks_period_start?: string | null
+          clicks_used?: number | null
           created_at?: string
           email?: string | null
           full_name?: string | null
@@ -609,133 +483,82 @@ export type Database = {
           is_banned?: boolean
           last_daily_redirect_at?: string | null
           link_limit?: number | null
+          link_quota?: number
           links_used?: number
+          ours_clicks?: number | null
           plan_slug?: string
-          telegram?: string | null
           updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "profiles_plan_slug_fkey"
-            columns: ["plan_slug"]
-            isOneToOne: false
-            referencedRelation: "packages"
-            referencedColumns: ["slug"]
-          },
-        ]
-      }
-      referrer_rules: {
-        Row: {
-          action: string
-          created_at: string
-          id: string
-          is_active: boolean
-          label: string | null
-          pattern: string
-          trust_score: number
-        }
-        Insert: {
-          action?: string
-          created_at?: string
-          id?: string
-          is_active?: boolean
-          label?: string | null
-          pattern: string
-          trust_score?: number
-        }
-        Update: {
-          action?: string
-          created_at?: string
-          id?: string
-          is_active?: boolean
-          label?: string | null
-          pattern?: string
-          trust_score?: number
         }
         Relationships: []
       }
-      shortener_domains: {
+      referrer_rules: {
         Row: {
-          created_at: string
-          dns_target: string
-          domain: string
+          action: string | null
+          created_at: string | null
           id: string
-          is_active: boolean
-          is_primary: boolean
-          note: string | null
-          updated_at: string
-          verified: boolean
-          verified_at: string | null
+          is_active: boolean | null
+          label: string | null
+          pattern: string
+          trust_score: number | null
         }
         Insert: {
-          created_at?: string
-          dns_target?: string
-          domain: string
+          action?: string | null
+          created_at?: string | null
           id?: string
-          is_active?: boolean
-          is_primary?: boolean
-          note?: string | null
-          updated_at?: string
-          verified?: boolean
-          verified_at?: string | null
+          is_active?: boolean | null
+          label?: string | null
+          pattern: string
+          trust_score?: number | null
         }
         Update: {
-          created_at?: string
-          dns_target?: string
-          domain?: string
+          action?: string | null
+          created_at?: string | null
           id?: string
-          is_active?: boolean
-          is_primary?: boolean
-          note?: string | null
-          updated_at?: string
-          verified?: boolean
-          verified_at?: string | null
+          is_active?: boolean | null
+          label?: string | null
+          pattern?: string
+          trust_score?: number | null
         }
         Relationships: []
       }
       upgrade_requests: {
         Row: {
-          amount: number
-          created_at: string
+          amount: number | null
+          created_at: string | null
           id: string
           package_slug: string
+          payment_id: string | null
           plisio_invoice_id: string | null
           plisio_invoice_url: string | null
-          status: string
-          updated_at: string
+          status: string | null
+          updated_at: string | null
           user_id: string
         }
         Insert: {
-          amount?: number
-          created_at?: string
+          amount?: number | null
+          created_at?: string | null
           id?: string
           package_slug: string
+          payment_id?: string | null
           plisio_invoice_id?: string | null
           plisio_invoice_url?: string | null
-          status?: string
-          updated_at?: string
+          status?: string | null
+          updated_at?: string | null
           user_id: string
         }
         Update: {
-          amount?: number
-          created_at?: string
+          amount?: number | null
+          created_at?: string | null
           id?: string
           package_slug?: string
+          payment_id?: string | null
           plisio_invoice_id?: string | null
           plisio_invoice_url?: string | null
-          status?: string
-          updated_at?: string
+          status?: string | null
+          updated_at?: string | null
           user_id?: string
         }
-        Relationships: [
-          {
-            foreignKeyName: "upgrade_requests_package_slug_fkey"
-            columns: ["package_slug"]
-            isOneToOne: false
-            referencedRelation: "packages"
-            referencedColumns: ["slug"]
-          },
-        ]
+        Relationships: []
       }
       user_roles: {
         Row: {
@@ -747,7 +570,7 @@ export type Database = {
         Insert: {
           created_at?: string
           id?: string
-          role?: Database["public"]["Enums"]["app_role"]
+          role: Database["public"]["Enums"]["app_role"]
           user_id: string
         }
         Update: {
@@ -760,18 +583,9 @@ export type Database = {
       }
     }
     Views: {
-      country_stats_24h: {
-        Row: {
-          bots: number | null
-          clicks: number | null
-          country: string | null
-          humans: number | null
-        }
-        Relationships: []
-      }
+      [_ in never]: never
     }
     Functions: {
-      aggregate_daily_clicks: { Args: never; Returns: undefined }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
@@ -786,41 +600,40 @@ export type Database = {
       record_bot_fingerprint: {
         Args: {
           _block_threshold?: number
-          _country: string
+          _country?: string
           _hash: string
-          _ip: string
+          _ip?: string
           _is_bot: boolean
-          _ua: string
-        }
-        Returns: boolean
-      }
-      record_redirect_click: {
-        Args: {
-          _bot_reason: string
-          _bot_score: number
-          _challenge_passed: boolean
-          _country: string
-          _ip: string
-          _is_bot: boolean
-          _link_id: string
-          _referer_host: string
-          _routed_to: string
-          _signals: Json
-          _ua: string
-          _user_id: string
-          _utm_campaign: string
-          _utm_content: string
-          _utm_medium: string
-          _utm_source: string
-          _utm_term: string
+          _ua?: string
         }
         Returns: undefined
       }
-      trim_bot_samples: { Args: never; Returns: undefined }
-      weekly_cleanup_clicks: { Args: never; Returns: undefined }
+      record_redirect_click: {
+        Args: {
+          _bot_reason?: string
+          _bot_score?: number
+          _challenge_passed?: boolean
+          _country?: string
+          _ip?: string
+          _is_bot?: boolean
+          _link_id: string
+          _referer_host?: string
+          _routed_to?: string
+          _signals?: Json
+          _ua?: string
+          _user_id: string
+          _utm_campaign?: string
+          _utm_content?: string
+          _utm_medium?: string
+          _utm_source?: string
+          _utm_term?: string
+        }
+        Returns: undefined
+      }
     }
     Enums: {
-      app_role: "user" | "admin"
+      app_role: "admin" | "user"
+      link_status: "active" | "paused" | "expired"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -948,7 +761,8 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      app_role: ["user", "admin"],
+      app_role: ["admin", "user"],
+      link_status: ["active", "paused", "expired"],
     },
   },
 } as const
