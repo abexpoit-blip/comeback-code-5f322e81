@@ -221,14 +221,16 @@ function AuthenticatedLayout() {
         <Link to="/dashboard" aria-label="Sleepox dashboard">
           <BrandLogo />
         </Link>
-        <button
-          onClick={() => setMenuOpen(true)}
-          className="p-2 rounded-xl bg-white/60 border border-white/80 text-[#2D1B0D] flex items-center gap-2"
-          aria-label="Open menu"
-        >
+        <div className="flex items-center gap-2">
           <BroadcastBell />
-          <Menu className="w-5 h-5" />
-        </button>
+          <button
+            onClick={() => setMenuOpen(true)}
+            className="p-2 rounded-xl bg-white/60 border border-white/80 text-[#2D1B0D]"
+            aria-label="Open menu"
+          >
+            <Menu className="w-5 h-5" />
+          </button>
+        </div>
       </div>
 
       {/* Mobile drawer overlay */}
