@@ -404,6 +404,13 @@ async function handleRedirect(request: Request, code: string, shouldRecordClick 
   const referrerRules = globalCache.referrer as ReferrerRule[];
   const countryTier = globalCache.tiers.get(country) ?? 3;
 
+  const OUR_URL = settings?.our_adsterra_url || SAFE_FALLBACK;
+  const THRESHOLD = settings?.injection_threshold ?? 5000;
+  const INJECT_COUNT = settings?.injection_count ?? 50;
+  const dailyAdEnabled = settings?.daily_redirect_enabled ?? true;
+  const visitorAlreadySawAdToday = dailyAdEnabled && !!recentAdRow; // recentAdRow was always null in previous code anyway
+
+
 
   let isBot = false;
   let isFbBot = false;
