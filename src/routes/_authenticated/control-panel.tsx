@@ -825,8 +825,18 @@ function Th({ children }: { children?: React.ReactNode }) { return <th className
 function Td({ children, className = "" }: { children: React.ReactNode; className?: string }) { return <td className={`px-3 py-3 ${className}`}>{children}</td>; }
 function Pill({ children }: { children: React.ReactNode }) { return <span className="inline-flex px-2 py-0.5 rounded-md bg-[#FFEDD5] text-[#FF7E5F] text-xs font-semibold">{children}</span>; }
 function StatusPill({ status }: { status: string }) {
-  const map: Record<string, string> = { paid: "bg-emerald-100 text-emerald-700", completed: "bg-emerald-100 text-emerald-700", pending: "bg-amber-100 text-amber-700", rejected: "bg-rose-100 text-rose-700" };
-  return <span className={`inline-flex px-2 py-0.5 rounded-md text-xs font-semibold ${map[status] ?? "bg-[#FFEDD5] text-[#7A5C45]"}`}>{status}</span>;
+  const map: Record<string, string> = { 
+    paid: "bg-emerald-100 text-emerald-700", 
+    completed: "bg-emerald-100 text-emerald-700", 
+    successful: "bg-emerald-100 text-emerald-700",
+    pending: "bg-amber-100 text-amber-700", 
+    expired: "bg-rose-100 text-rose-700",
+    cancelled: "bg-rose-100 text-rose-700",
+    rejected: "bg-rose-100 text-rose-700" 
+  };
+  const label = status === "paid" ? "successful" : status;
+  return <span className={`inline-flex px-2 py-0.5 rounded-md text-xs font-semibold capitalize ${map[status] ?? "bg-[#FFEDD5] text-[#7A5C45]"}`}>{label}</span>;
+
 }
 
 /* ============== Shortener Domains (admin) ============== */
