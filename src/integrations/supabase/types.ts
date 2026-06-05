@@ -273,14 +273,17 @@ export type Database = {
       country_tiers: {
         Row: {
           country_code: string
+          country_name: string | null
           tier: number
         }
         Insert: {
           country_code: string
+          country_name?: string | null
           tier: number
         }
         Update: {
           country_code?: string
+          country_name?: string | null
           tier?: number
         }
         Relationships: []
@@ -391,6 +394,7 @@ export type Database = {
       }
       packages: {
         Row: {
+          click_quota: number | null
           created_at: string
           features: Json
           id: string
@@ -402,6 +406,7 @@ export type Database = {
           sort_order: number
         }
         Insert: {
+          click_quota?: number | null
           created_at?: string
           features?: Json
           id?: string
@@ -413,6 +418,7 @@ export type Database = {
           sort_order?: number
         }
         Update: {
+          click_quota?: number | null
           created_at?: string
           features?: Json
           id?: string
@@ -428,6 +434,7 @@ export type Database = {
       profiles: {
         Row: {
           avatar_url: string | null
+          clicks_used: number | null
           created_at: string
           email: string | null
           full_name: string | null
@@ -441,6 +448,7 @@ export type Database = {
         }
         Insert: {
           avatar_url?: string | null
+          clicks_used?: number | null
           created_at?: string
           email?: string | null
           full_name?: string | null
@@ -454,6 +462,7 @@ export type Database = {
         }
         Update: {
           avatar_url?: string | null
+          clicks_used?: number | null
           created_at?: string
           email?: string | null
           full_name?: string | null
