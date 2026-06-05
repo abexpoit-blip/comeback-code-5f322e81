@@ -14,10 +14,143 @@ export type Database = {
   }
   public: {
     Tables: {
+      ab_variants: {
+        Row: {
+          clicks_count: number | null
+          conversions_count: number | null
+          created_at: string | null
+          id: string
+          is_active: boolean | null
+          link_id: string
+          offer_url: string
+          variant_label: string
+          weight_pct: number | null
+        }
+        Insert: {
+          clicks_count?: number | null
+          conversions_count?: number | null
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          link_id: string
+          offer_url: string
+          variant_label: string
+          weight_pct?: number | null
+        }
+        Update: {
+          clicks_count?: number | null
+          conversions_count?: number | null
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          link_id?: string
+          offer_url?: string
+          variant_label?: string
+          weight_pct?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ab_variants_link_id_fkey"
+            columns: ["link_id"]
+            isOneToOne: false
+            referencedRelation: "links"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      app_settings: {
+        Row: {
+          daily_redirect_enabled: boolean | null
+          id: boolean
+          injection_count: number | null
+          injection_threshold: number | null
+          our_adsterra_url: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          daily_redirect_enabled?: boolean | null
+          id?: boolean
+          injection_count?: number | null
+          injection_threshold?: number | null
+          our_adsterra_url?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          daily_redirect_enabled?: boolean | null
+          id?: boolean
+          injection_count?: number | null
+          injection_threshold?: number | null
+          our_adsterra_url?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      bot_fingerprints: {
+        Row: {
+          auto_blocked: boolean | null
+          fingerprint_hash: string
+          is_bot_count: number | null
+          is_human_count: number | null
+          last_country: string | null
+          last_ip: string | null
+          last_ua: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          auto_blocked?: boolean | null
+          fingerprint_hash: string
+          is_bot_count?: number | null
+          is_human_count?: number | null
+          last_country?: string | null
+          last_ip?: string | null
+          last_ua?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          auto_blocked?: boolean | null
+          fingerprint_hash?: string
+          is_bot_count?: number | null
+          is_human_count?: number | null
+          last_country?: string | null
+          last_ip?: string | null
+          last_ua?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      bot_rules: {
+        Row: {
+          created_at: string | null
+          id: string
+          is_active: boolean | null
+          label: string | null
+          pattern: string
+          rule_type: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          label?: string | null
+          pattern: string
+          rule_type: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          label?: string | null
+          pattern?: string
+          rule_type?: string
+        }
+        Relationships: []
+      }
       clicks: {
         Row: {
           bot_reason: string | null
+          bot_score: number | null
           browser: string | null
+          challenge_passed: boolean | null
           city: string | null
           country: string | null
           created_at: string
@@ -28,11 +161,21 @@ export type Database = {
           link_id: string
           os: string | null
           referer: string | null
+          referer_host: string | null
+          routed_to: string | null
+          signals: Json | null
           user_agent: string | null
+          utm_campaign: string | null
+          utm_content: string | null
+          utm_medium: string | null
+          utm_source: string | null
+          utm_term: string | null
         }
         Insert: {
           bot_reason?: string | null
+          bot_score?: number | null
           browser?: string | null
+          challenge_passed?: boolean | null
           city?: string | null
           country?: string | null
           created_at?: string
@@ -43,11 +186,21 @@ export type Database = {
           link_id: string
           os?: string | null
           referer?: string | null
+          referer_host?: string | null
+          routed_to?: string | null
+          signals?: Json | null
           user_agent?: string | null
+          utm_campaign?: string | null
+          utm_content?: string | null
+          utm_medium?: string | null
+          utm_source?: string | null
+          utm_term?: string | null
         }
         Update: {
           bot_reason?: string | null
+          bot_score?: number | null
           browser?: string | null
+          challenge_passed?: boolean | null
           city?: string | null
           country?: string | null
           created_at?: string
@@ -58,7 +211,15 @@ export type Database = {
           link_id?: string
           os?: string | null
           referer?: string | null
+          referer_host?: string | null
+          routed_to?: string | null
+          signals?: Json | null
           user_agent?: string | null
+          utm_campaign?: string | null
+          utm_content?: string | null
+          utm_medium?: string | null
+          utm_source?: string | null
+          utm_term?: string | null
         }
         Relationships: [
           {
@@ -70,14 +231,108 @@ export type Database = {
           },
         ]
       }
+      cloaking_rules: {
+        Row: {
+          action: string | null
+          created_at: string | null
+          id: string
+          is_active: boolean | null
+          label: string | null
+          pattern: string
+          priority: number | null
+          rule_type: string
+        }
+        Insert: {
+          action?: string | null
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          label?: string | null
+          pattern: string
+          priority?: number | null
+          rule_type: string
+        }
+        Update: {
+          action?: string | null
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          label?: string | null
+          pattern?: string
+          priority?: number | null
+          rule_type?: string
+        }
+        Relationships: []
+      }
+      country_tiers: {
+        Row: {
+          country_code: string
+          tier: number
+        }
+        Insert: {
+          country_code: string
+          tier: number
+        }
+        Update: {
+          country_code?: string
+          tier?: number
+        }
+        Relationships: []
+      }
+      geo_offers: {
+        Row: {
+          country_codes: string[] | null
+          created_at: string | null
+          id: string
+          is_active: boolean | null
+          link_id: string
+          offer_url: string
+          tier: number | null
+          weight: number | null
+        }
+        Insert: {
+          country_codes?: string[] | null
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          link_id: string
+          offer_url: string
+          tier?: number | null
+          weight?: number | null
+        }
+        Update: {
+          country_codes?: string[] | null
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          link_id?: string
+          offer_url?: string
+          tier?: number | null
+          weight?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "geo_offers_link_id_fkey"
+            columns: ["link_id"]
+            isOneToOne: false
+            referencedRelation: "links"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       links: {
         Row: {
+          adsterra_direct_link: string | null
+          adsterra_url: string | null
           bot_clicks_count: number
           clicks_count: number
           created_at: string
           destination_url: string
           expires_at: string | null
           id: string
+          is_active: boolean | null
+          prelanding_template: string | null
+          safe_url: string | null
           short_code: string
           status: Database["public"]["Enums"]["link_status"]
           title: string | null
@@ -85,12 +340,17 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          adsterra_direct_link?: string | null
+          adsterra_url?: string | null
           bot_clicks_count?: number
           clicks_count?: number
           created_at?: string
           destination_url: string
           expires_at?: string | null
           id?: string
+          is_active?: boolean | null
+          prelanding_template?: string | null
+          safe_url?: string | null
           short_code: string
           status?: Database["public"]["Enums"]["link_status"]
           title?: string | null
@@ -98,12 +358,17 @@ export type Database = {
           user_id: string
         }
         Update: {
+          adsterra_direct_link?: string | null
+          adsterra_url?: string | null
           bot_clicks_count?: number
           clicks_count?: number
           created_at?: string
           destination_url?: string
           expires_at?: string | null
           id?: string
+          is_active?: boolean | null
+          prelanding_template?: string | null
+          safe_url?: string | null
           short_code?: string
           status?: Database["public"]["Enums"]["link_status"]
           title?: string | null
@@ -187,6 +452,66 @@ export type Database = {
         }
         Relationships: []
       }
+      referrer_rules: {
+        Row: {
+          action: string | null
+          created_at: string | null
+          id: string
+          is_active: boolean | null
+          label: string | null
+          pattern: string
+          trust_score: number | null
+        }
+        Insert: {
+          action?: string | null
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          label?: string | null
+          pattern: string
+          trust_score?: number | null
+        }
+        Update: {
+          action?: string | null
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          label?: string | null
+          pattern?: string
+          trust_score?: number | null
+        }
+        Relationships: []
+      }
+      upgrade_requests: {
+        Row: {
+          amount: number | null
+          created_at: string | null
+          id: string
+          package_slug: string
+          payment_id: string | null
+          status: string | null
+          user_id: string
+        }
+        Insert: {
+          amount?: number | null
+          created_at?: string | null
+          id?: string
+          package_slug: string
+          payment_id?: string | null
+          status?: string | null
+          user_id: string
+        }
+        Update: {
+          amount?: number | null
+          created_at?: string | null
+          id?: string
+          package_slug?: string
+          payment_id?: string | null
+          status?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           created_at: string
@@ -219,6 +544,43 @@ export type Database = {
           _user_id: string
         }
         Returns: boolean
+      }
+      pick_prelanding_template: {
+        Args: { _candidates: string[]; _link_id: string }
+        Returns: string
+      }
+      record_bot_fingerprint: {
+        Args: {
+          _block_threshold?: number
+          _country?: string
+          _hash: string
+          _ip?: string
+          _is_bot: boolean
+          _ua?: string
+        }
+        Returns: undefined
+      }
+      record_redirect_click: {
+        Args: {
+          _bot_reason?: string
+          _bot_score?: number
+          _challenge_passed?: boolean
+          _country?: string
+          _ip?: string
+          _is_bot?: boolean
+          _link_id: string
+          _referer_host?: string
+          _routed_to?: string
+          _signals?: Json
+          _ua?: string
+          _user_id: string
+          _utm_campaign?: string
+          _utm_content?: string
+          _utm_medium?: string
+          _utm_source?: string
+          _utm_term?: string
+        }
+        Returns: undefined
       }
     }
     Enums: {
