@@ -387,7 +387,7 @@ function Stat({ label, value, icon: Icon, tone }: { label: string; value: string
   );
 }
 
-type Row = { id: string; is_active: boolean; [k: string]: unknown };
+type Row = { id: string; is_active: boolean | null; [k: string]: any };
 function RulesTable<T extends Row>({
   loading, rows, empty, cols, onToggle, onDelete,
 }: {
