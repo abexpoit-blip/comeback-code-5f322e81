@@ -101,6 +101,7 @@ export function BroadcastBell() {
   useEffect(() => {
     if (open) {
       updateCoords();
+      // Use capture for scroll to ensure it works in nested scrolls
       window.addEventListener("scroll", updateCoords, true);
       window.addEventListener("resize", updateCoords);
     }
@@ -113,6 +114,7 @@ export function BroadcastBell() {
   useEffect(() => {
     if (!open) return;
     const handler = (e: MouseEvent | TouchEvent) => {
+      // Don't close if clicking the toggle button or the dropdown itself
       if (
         buttonRef.current?.contains(e.target as Node) ||
         dropdownRef.current?.contains(e.target as Node)
@@ -196,7 +198,6 @@ export function BroadcastBell() {
             )}
           </div>
 
-
           {/* List */}
           <div className="overflow-y-auto max-h-[440px]">
             {q.isLoading && (
@@ -218,7 +219,10 @@ export function BroadcastBell() {
               return (
                 <button
                   key={b.id}
-                  onClick={() => !b.is_read && markMut.mutate(b.id)}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (!b.is_read) markMut.mutate(b.id);
+                  }}
                   className={`w-full text-left px-4 py-3.5 border-b border-[#FFEDD5]/70 last:border-0 hover:bg-[#FFF9F5]/70 transition-colors ${
                     !b.is_read ? "bg-gradient-to-r from-[#FFF9F5] to-transparent" : ""
                   }`}
@@ -257,7 +261,8 @@ export function BroadcastBell() {
               );
             })}
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );
