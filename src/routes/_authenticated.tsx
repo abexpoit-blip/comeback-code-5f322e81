@@ -2,11 +2,12 @@ import { createFileRoute, Outlet, Link, useNavigate, useRouterState } from "@tan
 import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useRef, useState } from "react";
 import type { AuthChangeEvent, User } from "@supabase/supabase-js";
-import { LayoutDashboard, BarChart3, Crown, ShieldCheck, LogOut, Menu, X, Globe, Activity, Shield } from "lucide-react";
+import { LayoutDashboard, BarChart3, Crown, ShieldCheck, LogOut, Menu, X, Globe, Activity, Shield, Bell } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { consumeDailyRedirect } from "@/lib/app-settings.functions";
 import { BrandLogo } from "@/components/brand-logo";
 import { ImpersonationBanner } from "@/components/impersonation-banner";
+import { BroadcastBell } from "@/components/broadcast-bell";
 
 export const Route = createFileRoute("/_authenticated")({
   head: () => ({
@@ -25,6 +26,7 @@ const navMgmt = [
   { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { to: "/analytics", label: "Analytics", icon: BarChart3 },
   { to: "/live", label: "Live Feed", icon: Activity },
+  { to: "/notices", label: "Notices", icon: Bell },
   { to: "/domains", label: "Domains", icon: Globe },
 ] as const;
 
@@ -69,7 +71,7 @@ function AuthenticatedLayout() {
     if (!user) return;
     (async () => {
       const { data } = await supabase
-        .from("user_roles").select("role").eq("user_id", user.id).eq("role", "admin").maybeSingle();
+        .from("user_roles").select("role").eq("user_id", user?.id).eq("role", "admin").maybeSingle();
       setIsAdmin(!!data);
     })();
   }, [user]);
@@ -196,7 +198,7 @@ function AuthenticatedLayout() {
             {initials}
           </div>
           <div className="min-w-0">
-            <p className="text-sm font-semibold text-[#2D1B0D] truncate">{user.email}</p>
+            <p className="text-sm font-semibold text-[#2D1B0D] truncate">{user?.email}</p>
             <p className="text-[10px] text-[#FF7E5F] uppercase tracking-wider font-bold">{isAdmin ? "Admin" : "Premium Tier"}</p>
           </div>
         </div>
@@ -221,9 +223,10 @@ function AuthenticatedLayout() {
         </Link>
         <button
           onClick={() => setMenuOpen(true)}
-          className="p-2 rounded-xl bg-white/60 border border-white/80 text-[#2D1B0D]"
+          className="p-2 rounded-xl bg-white/60 border border-white/80 text-[#2D1B0D] flex items-center gap-2"
           aria-label="Open menu"
         >
+          <BroadcastBell />
           <Menu className="w-5 h-5" />
         </button>
       </div>

@@ -151,6 +151,68 @@ export type Database = {
         }
         Relationships: []
       }
+      broadcast_reads: {
+        Row: {
+          broadcast_id: string
+          read_at: string
+          user_id: string
+        }
+        Insert: {
+          broadcast_id: string
+          read_at?: string
+          user_id: string
+        }
+        Update: {
+          broadcast_id?: string
+          read_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "broadcast_reads_broadcast_id_fkey"
+            columns: ["broadcast_id"]
+            isOneToOne: false
+            referencedRelation: "broadcasts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      broadcasts: {
+        Row: {
+          body: string
+          created_at: string
+          created_by: string | null
+          expires_at: string | null
+          icon: string
+          id: string
+          is_active: boolean
+          title: string
+          tone: string
+        }
+        Insert: {
+          body: string
+          created_at?: string
+          created_by?: string | null
+          expires_at?: string | null
+          icon?: string
+          id?: string
+          is_active?: boolean
+          title: string
+          tone?: string
+        }
+        Update: {
+          body?: string
+          created_at?: string
+          created_by?: string | null
+          expires_at?: string | null
+          icon?: string
+          id?: string
+          is_active?: boolean
+          title?: string
+          tone?: string
+        }
+        Relationships: []
+      }
       clicks: {
         Row: {
           bot_reason: string | null
