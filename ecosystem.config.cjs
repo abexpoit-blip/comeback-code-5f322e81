@@ -1,0 +1,31 @@
+module.exports = {
+  apps: [
+    {
+      name: "sleepox",
+      cwd: "/opt/sleepox-app-new",
+      script: ".output/server/index.mjs",
+      instances: "max",
+      exec_mode: "cluster",
+      max_memory_restart: "1G",
+      watch: false,
+      ignore_watch: ["node_modules", ".output"],
+      autorestart: true,
+      restart_delay: 5000,
+      max_restarts: 10,
+      min_uptime: "10s",
+      env: {
+        PORT: "4000",
+        HOST: "0.0.0.0",
+        NODE_ENV: "production",
+        SUPABASE_URL: "https://supabase.sleepox.com",
+        SUPABASE_SERVICE_ROLE_KEY: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoic2VydmljZV9yb2xlIiwiaXNzIjoic3VwYWJhc2UiLCJpYXQiOjE3Nzk1MjczMzgsImV4cCI6MjA5NDg4NzMzOH0.HitgT1rO3FH8h4jNpbvhaBfrLFkGz_JN91c1caB2O_8",
+        JWT_SECRET: "18a2a6262cfb62820f9c5ed7452809ed3469ba0b814b9884417f3bd83889a594",
+        POSTGRES_PASSWORD: "d628c0fc3707abe6c56ed2db5c584b89f83475a199476f34",
+        DASHBOARD_PASSWORD: "7a045062ea340b6b1f5f6dea4a5e86ac",
+        SECRET_KEY_BASE: "01f2fe3a7043d2eacc6537bde67aeb427dd51d3a2d249e4f9e41edc89b1151e2",
+        VAULT_ENC_KEY: "241ec31985b4abe024e103241dec9357",
+        PLISIO_API_KEY: "SkkZKl5C_QLes32hefTT3xokoeSrgf1CWc2SUn5C8u4GioW88bgPvxoLxXZV1ORb",
+ },
+    },
+  ],
+};
