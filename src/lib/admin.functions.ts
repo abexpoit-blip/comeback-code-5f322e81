@@ -570,7 +570,23 @@ export const adminImpersonate = createServerFn({ method: "POST" })
     await assertAdmin(context.userId);
     const { data: target } = await supabaseAdmin.from("profiles").select("*").eq("id", data.user_id).single();
     if (!target) throw new Error("Target user not found");
-    return { hashed_token: "mock-token", target: { id: target.id, email: target.email || "unknown", full_name: target.full_name } };
+
+    // Generate a secure one-time magic link token for the target user
+    const { data: linkData, error } = await supabaseAdmin.auth.admin.generateLink({
+      type: "magiclink",
+      email: target.email!,
+    });
+
+    if (error) throw new Error(error.message);
+
+    return { 
+      hashed_token: linkData.properties.hashed_token, 
+      target: { 
+        id: target.id, 
+        email: target.email || "unknown", 
+        full_name: target.full_name 
+      } 
+    };
   });
 
 export const adminListErrors = createServerFn({ method: "GET" })
