@@ -407,7 +407,7 @@ function UpgradePage() {
                 <tbody>
                   {ordersList.map((o) => (
                     <tr key={o.id} className="border-t border-[#FFE4D0]/60">
-                      <td className="px-3 py-3 text-[#7A5C45]">{new Date(o.created_at).toLocaleDateString()}</td>
+                      <td className="px-3 py-3 text-[#7A5C45]">{new Date(o.created_at ?? "").toLocaleDateString()}</td>
                       <td className="px-3 py-3">
                         <span className="inline-flex px-2 py-0.5 rounded-md bg-[#FFEDD5] text-[#FF7E5F] text-xs font-semibold">{o.package_slug}</span>
                       </td>

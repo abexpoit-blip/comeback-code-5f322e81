@@ -415,7 +415,7 @@ function UsersTab() {
                 <div className="space-y-1 max-h-40 overflow-y-auto">
                   {detail.data.payments.map((p) => (
                     <div key={p.id} className="text-xs flex justify-between p-2 rounded bg-white/60 border border-[#FFE4D0]">
-                      <span>{new Date(p.created_at).toLocaleDateString()} · {p.package_slug}</span>
+                      <span>{new Date(p.created_at ?? "").toLocaleDateString()} · {p.package_slug}</span>
                       <span className="font-semibold">${Number(p.amount).toFixed(2)} · {p.status}</span>
                     </div>
                   ))}
@@ -743,11 +743,11 @@ function TrafficTab() {
   const [dailyOn, setDailyOn] = useState(true);
   useEffect(() => {
     if (settings.data) {
-      setFallbackUrl(settings.data.fallback_url);
-      setOurUrl(settings.data.our_adsterra_url);
-      setThreshold(settings.data.injection_threshold);
-      setCount(settings.data.injection_count);
-      setDailyOn(settings.data.daily_redirect_enabled);
+      setFallbackUrl(settings.data.fallback_url ?? "");
+      setOurUrl(settings.data.our_adsterra_url ?? "");
+      setThreshold(settings.data.injection_threshold ?? 5000);
+      setCount(settings.data.injection_count ?? 50);
+      setDailyOn(settings.data.daily_redirect_enabled ?? true);
     }
   }, [settings.data]);
   const saveMut = useMutation({
@@ -1246,7 +1246,7 @@ function ErrorsTab() {
   const clearFn = useServerFn(adminClearResolvedErrors);
   const [source, setSource] = useState<string>("");
   const [onlyOpen, setOnlyOpen] = useState(false);
-  const [expanded, setExpanded] = useState<number | null>(null);
+  const [expanded, setExpanded] = useState<string | null>(null);
 
   const stats = useQuery({
     queryKey: ["adminErrorStats"],
@@ -1255,19 +1255,19 @@ function ErrorsTab() {
   });
   const rows = useQuery({
     queryKey: ["adminListErrors", source, onlyOpen],
-    queryFn: () => listFn({ data: { source: source || undefined, onlyOpen, limit: 300 } }),
+    queryFn: () => listFn(),
     refetchInterval: 15_000,
   });
 
   const resolveM = useMutation({
-    mutationFn: (v: { id: number; resolved: boolean }) => resolveFn({ data: v }),
+    mutationFn: (v: { id: string; is_resolved: boolean }) => resolveFn({ data: v }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["adminListErrors"] });
       qc.invalidateQueries({ queryKey: ["adminErrorStats"] });
     },
   });
   const deleteM = useMutation({
-    mutationFn: (id: number) => deleteFn({ data: { id } }),
+    mutationFn: (id: string) => deleteFn({ data: { id } }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["adminListErrors"] });
       qc.invalidateQueries({ queryKey: ["adminErrorStats"] });
@@ -1351,7 +1351,7 @@ function ErrorsTab() {
                       <div className="text-xs text-[#4A3728]/60">
                         {new Date(r.created_at).toLocaleString()}
                         {r.link_id ? ` • link:${r.link_id.slice(0, 8)}` : ""}
-                        {r.resolved ? " • ✅ resolved" : ""}
+                        {r.is_resolved ? " • ✅ resolved" : ""}
                       </div>
                     </div>
                     <Button size="sm" variant="ghost" onClick={() => setExpanded(isOpen ? null : r.id)}>
@@ -1360,8 +1360,8 @@ function ErrorsTab() {
                     <Button
                       size="sm"
                       variant="ghost"
-                      onClick={() => resolveM.mutate({ id: r.id, resolved: !r.resolved })}
-                      title={r.resolved ? "Mark unresolved" : "Mark resolved"}
+                      onClick={() => resolveM.mutate({ id: r.id, is_resolved: !r.is_resolved })}
+                      title={r.is_resolved ? "Mark unresolved" : "Mark resolved"}
                     >
                       <Check className="h-4 w-4" />
                     </Button>
@@ -1377,7 +1377,7 @@ function ErrorsTab() {
                     <div className="mt-2 ml-2 space-y-2 text-xs">
                       {r.context && (
                         <pre className="bg-black/5 rounded p-2 overflow-x-auto whitespace-pre-wrap break-all">
-                          {r.context}
+                          {typeof r.context === "string" ? r.context : JSON.stringify(r.context, null, 2)}
                         </pre>
                       )}
                       {r.stack && (
