@@ -78,6 +78,16 @@ export function BroadcastBell() {
     refetchInterval: 90_000,
   });
 
+  const markMut = useMutation({
+    mutationFn: (id: string) => mark({ data: { broadcast_id: id } }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["broadcasts"] }),
+  });
+
+  const markAllMut = useMutation({
+    mutationFn: () => markAll(),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["broadcasts"] }),
+  });
+
   const updateCoords = () => {
     if (buttonRef.current) {
       const rect = buttonRef.current.getBoundingClientRect();
