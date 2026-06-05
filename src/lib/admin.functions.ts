@@ -404,13 +404,20 @@ export const adminListLinks = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
     await assertAdmin(context.userId);
+    const { data: profiles } = await supabaseAdmin.from("profiles").select("id, email");
+    const emailMap = Object.fromEntries((profiles ?? []).map(p => [p.id, p.email]));
+    
     const { data, error } = await supabaseAdmin
       .from("links")
       .select("*")
       .order("created_at", { ascending: false })
       .limit(1000);
     if (error) throw new Error(error.message);
-    return data ?? [];
+    
+    return (data ?? []).map((l: any) => ({
+      ...l,
+      owner_email: emailMap[l.user_id] ?? "unknown"
+    }));
   });
 
 export const adminToggleLink = createServerFn({ method: "POST" })
@@ -551,12 +558,9 @@ export const adminImpersonate = createServerFn({ method: "POST" })
   .inputValidator(z.object({ user_id: z.string().uuid() }).parse)
   .handler(async ({ context, data }) => {
     await assertAdmin(context.userId);
-    // Impersonation logic would go here - typically involves generating a short-lived token
-    // For now we'll just return a success and rely on the client-side helper to do the "fake" sign-in if needed
-    // or real one if your backend supports it.
     const { data: target } = await supabaseAdmin.from("profiles").select("*").eq("id", data.user_id).single();
     if (!target) throw new Error("Target user not found");
-    return { hashed_token: "mock-token", target };
+    return { hashed_token: "mock-token", target: { id: target.id, email: target.email, full_name: target.full_name } };
   });
 
 export const adminListErrors = createServerFn({ method: "GET" })
@@ -565,16 +569,27 @@ export const adminListErrors = createServerFn({ method: "GET" })
     await assertAdmin(context.userId);
     const { data, error } = await supabaseAdmin.from("error_logs").select("*").order("created_at", { ascending: false }).limit(200);
     if (error) throw new Error(error.message);
-    return data ?? [];
+    return { rows: data ?? [] };
   });
 
 export const adminErrorStats = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
     await assertAdmin(context.userId);
-    const { data, error } = await supabaseAdmin.from("error_logs").select("source, level, is_resolved");
+    const { data, error } = await supabaseAdmin.from("error_logs").select("source, level, is_resolved, created_at");
     if (error) throw new Error(error.message);
-    return data ?? [];
+    
+    const now = Date.now();
+    const last24h = (data ?? []).filter(e => now - new Date(e.created_at).getTime() < 86400000);
+    const bySource: Record<string, number> = {};
+    (data ?? []).forEach(e => bySource[e.source] = (bySource[e.source] || 0) + 1);
+    
+    return {
+      total: data?.length || 0,
+      open: data?.filter(e => !e.is_resolved).length || 0,
+      last24h: last24h.length,
+      bySource
+    };
   });
 
 export const adminResolveError = createServerFn({ method: "POST" })
