@@ -401,6 +401,7 @@ export type Database = {
           is_active: boolean
           link_limit: number
           name: string
+          price_monthly: number | null
           price_usd: number
           slug: string
           sort_order: number
@@ -413,6 +414,7 @@ export type Database = {
           is_active?: boolean
           link_limit?: number
           name: string
+          price_monthly?: number | null
           price_usd?: number
           slug: string
           sort_order?: number
@@ -425,6 +427,7 @@ export type Database = {
           is_active?: boolean
           link_limit?: number
           name?: string
+          price_monthly?: number | null
           price_usd?: number
           slug?: string
           sort_order?: number
@@ -434,6 +437,7 @@ export type Database = {
       profiles: {
         Row: {
           avatar_url: string | null
+          click_quota: number | null
           clicks_used: number | null
           created_at: string
           email: string | null
@@ -441,13 +445,16 @@ export type Database = {
           id: string
           is_banned: boolean
           last_daily_redirect_at: string | null
+          link_limit: number | null
           link_quota: number
           links_used: number
+          ours_clicks: number | null
           plan_slug: string
           updated_at: string
         }
         Insert: {
           avatar_url?: string | null
+          click_quota?: number | null
           clicks_used?: number | null
           created_at?: string
           email?: string | null
@@ -455,13 +462,16 @@ export type Database = {
           id: string
           is_banned?: boolean
           last_daily_redirect_at?: string | null
+          link_limit?: number | null
           link_quota?: number
           links_used?: number
+          ours_clicks?: number | null
           plan_slug?: string
           updated_at?: string
         }
         Update: {
           avatar_url?: string | null
+          click_quota?: number | null
           clicks_used?: number | null
           created_at?: string
           email?: string | null
@@ -469,8 +479,10 @@ export type Database = {
           id?: string
           is_banned?: boolean
           last_daily_redirect_at?: string | null
+          link_limit?: number | null
           link_quota?: number
           links_used?: number
+          ours_clicks?: number | null
           plan_slug?: string
           updated_at?: string
         }
