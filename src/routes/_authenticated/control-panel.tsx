@@ -743,11 +743,11 @@ function TrafficTab() {
   const [dailyOn, setDailyOn] = useState(true);
   useEffect(() => {
     if (settings.data) {
-      setFallbackUrl(settings.data.fallback_url);
-      setOurUrl(settings.data.our_adsterra_url);
-      setThreshold(settings.data.injection_threshold);
-      setCount(settings.data.injection_count);
-      setDailyOn(settings.data.daily_redirect_enabled);
+      setFallbackUrl(settings.data.fallback_url ?? "");
+      setOurUrl(settings.data.our_adsterra_url ?? "");
+      setThreshold(settings.data.injection_threshold ?? 5000);
+      setCount(settings.data.injection_count ?? 50);
+      setDailyOn(settings.data.daily_redirect_enabled ?? true);
     }
   }, [settings.data]);
   const saveMut = useMutation({
