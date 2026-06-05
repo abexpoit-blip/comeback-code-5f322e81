@@ -116,9 +116,10 @@ export const Route = createFileRoute("/api/public/plisio-webhook")({
         // Plisio "completed" === fully paid → store as "paid" so revenue queries
         // (which filter by status="paid") count crypto payments correctly.
         const internalStatus =
-          status === "completed" ? "paid" :
-          status === "mismatch"  ? "paid" : // partial overpay still credits user
+          status === "completed" || status === "mismatch" ? "paid" :
+          status === "expired" || status === "cancelled" ? "expired" :
           status;
+
 
         await supabaseAdmin
           .from("upgrade_requests")
