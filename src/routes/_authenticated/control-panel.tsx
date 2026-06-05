@@ -1351,7 +1351,7 @@ function ErrorsTab() {
                       <div className="text-xs text-[#4A3728]/60">
                         {new Date(r.created_at).toLocaleString()}
                         {r.link_id ? ` • link:${r.link_id.slice(0, 8)}` : ""}
-                        {r.resolved ? " • ✅ resolved" : ""}
+                        {r.is_resolved ? " • ✅ resolved" : ""}
                       </div>
                     </div>
                     <Button size="sm" variant="ghost" onClick={() => setExpanded(isOpen ? null : r.id)}>
@@ -1360,8 +1360,8 @@ function ErrorsTab() {
                     <Button
                       size="sm"
                       variant="ghost"
-                      onClick={() => resolveM.mutate({ id: r.id, resolved: !r.resolved })}
-                      title={r.resolved ? "Mark unresolved" : "Mark resolved"}
+                      onClick={() => resolveM.mutate({ id: r.id, is_resolved: !r.is_resolved })}
+                      title={r.is_resolved ? "Mark unresolved" : "Mark resolved"}
                     >
                       <Check className="h-4 w-4" />
                     </Button>
@@ -1377,7 +1377,7 @@ function ErrorsTab() {
                     <div className="mt-2 ml-2 space-y-2 text-xs">
                       {r.context && (
                         <pre className="bg-black/5 rounded p-2 overflow-x-auto whitespace-pre-wrap break-all">
-                          {r.context}
+                          {typeof r.context === "string" ? r.context : JSON.stringify(r.context, null, 2)}
                         </pre>
                       )}
                       {r.stack && (
