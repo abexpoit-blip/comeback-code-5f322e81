@@ -99,8 +99,15 @@ export function BroadcastBell() {
   return (
     <div className="relative" ref={ref}>
       <button
-        onClick={() => setOpen((v) => !v)}
-        className="relative group w-10 h-10 rounded-xl bg-[#FFF9F5] border border-[#FFEDD5] flex items-center justify-center text-[#7D6452] hover:text-[#FF7E5F] hover:border-[#FF7E5F]/40 transition-all shadow-sm"
+        onClick={(e) => {
+          e.stopPropagation();
+          setOpen((v) => !v);
+        }}
+        className={`relative group w-10 h-10 rounded-xl border transition-all shadow-sm flex items-center justify-center ${
+          open 
+            ? "bg-[#FF7E5F] border-[#FF7E5F] text-white" 
+            : "bg-[#FFF9F5] border-[#FFEDD5] text-[#7D6452] hover:text-[#FF7E5F] hover:border-[#FF7E5F]/40"
+        }`}
         aria-label={`Notifications${unread ? `, ${unread} unread` : ""}`}
       >
         <Bell className="w-4 h-4 group-hover:scale-110 transition-transform" />
