@@ -371,64 +371,39 @@ async function handleRedirect(request: Request, code: string, shouldRecordClick 
   })();
   const referrerSource = classifyReferrer(refererDomain);
 
-  // Parallel fetch: link, settings, cloaking rules, referrer rules, country tier, fp blacklist, recent-ad seen
+  // Optimized parallel fetch: link, fp blacklist, profile
+  // Global settings/rules are served from in-memory cache to handle huge traffic.
+  await refreshGlobalCache();
+
   const [
     { link, error: linkError },
-    { data: settings, error: settingsError },
-    { data: cloakingRulesRaw },
-    { data: referrerRulesRaw },
-    { data: tierRow },
     { data: fpRow },
-    { data: recentAdRow },
+    { data: profile },
   ] = await Promise.all([
     lookupRedirectLink(code),
-    supabaseAdmin
-      .from("app_settings")
-      .select("our_adsterra_url, injection_threshold, injection_count, daily_redirect_enabled")
-      .eq("id", true)
-      .maybeSingle(),
-    supabaseAdmin
-      .from("cloaking_rules")
-      .select("rule_type, pattern, action, label, priority")
-      .eq("is_active", true)
-      .order("priority", { ascending: true }),
-    supabaseAdmin
-      .from("referrer_rules")
-      .select("pattern, trust_score, action, label")
-      .eq("is_active", true),
-    country
-      ? supabaseAdmin
-          .from("country_tiers")
-          .select("tier")
-          .eq("country_code", country.toUpperCase())
-          .maybeSingle()
-      : Promise.resolve({ data: null }),
     supabaseAdmin
       .from("bot_fingerprints")
       .select("auto_blocked")
       .eq("fingerprint_hash", fpHash)
       .maybeSingle(),
-    // Daily 1-ad-per-visitor check disabled: fingerprint_hash no longer stored on clicks
-    Promise.resolve({ data: null }),
-
+    supabaseAdmin
+      .from("profiles")
+      .select("click_quota, clicks_used, id")
+      .maybeSingle(), // Optimized: will use link.user_id after link lookup if needed
   ]);
 
   if (linkError) console.error("redirect link lookup failed", { code, message: linkError.message });
-  if (settingsError)
-    console.error("redirect settings lookup failed", { message: settingsError.message });
 
   if (!link || !link.is_active) {
     return redirectTo(SAFE_FALLBACK, "fallback", !link ? "link-not-found" : "link-inactive");
   }
 
-  const OUR_URL = settings?.our_adsterra_url || SAFE_FALLBACK;
-  const THRESHOLD = settings?.injection_threshold ?? 5000;
-  const INJECT_COUNT = settings?.injection_count ?? 50;
-  const dailyAdEnabled = settings?.daily_redirect_enabled ?? true;
-  const visitorAlreadySawAdToday = dailyAdEnabled && !!recentAdRow;
-  const countryTier = (tierRow?.tier as number | null) ?? 3;
-  const cloakingRules = (cloakingRulesRaw || []) as CloakingRule[];
-  const referrerRules = (referrerRulesRaw || []) as ReferrerRule[];
+  // Use cached data
+  const settings = globalCache.settings;
+  const cloakingRules = globalCache.cloaking as CloakingRule[];
+  const referrerRules = globalCache.referrer as ReferrerRule[];
+  const countryTier = globalCache.tiers.get(country) ?? 3;
+
 
   let isBot = false;
   let isFbBot = false;
