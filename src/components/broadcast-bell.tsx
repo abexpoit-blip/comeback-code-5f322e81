@@ -115,7 +115,7 @@ export function BroadcastBell() {
       </button>
 
       {open && (
-        <div className="absolute right-0 sm:right-[-40px] md:right-0 top-12 z-50 w-[calc(100vw-32px)] sm:w-[380px] max-h-[calc(100vh-100px)] sm:max-h-[520px] rounded-2xl bg-white border border-[#FFEDD5] shadow-2xl shadow-orange-900/15 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200">
+        <div className="absolute right-0 top-full mt-2 z-[100] w-[calc(100vw-32px)] sm:w-[380px] max-h-[calc(100vh-100px)] sm:max-h-[520px] rounded-3xl bg-white border border-[#FFEDD5] shadow-[0_20px_60px_-15px_rgba(255,126,95,0.3)] overflow-hidden animate-in fade-in slide-in-from-top-2 duration-300">
           {/* Header */}
           <div className="relative px-5 py-4 bg-gradient-to-r from-[#FFF9F5] to-[#FFEDD5]/40 border-b border-[#FFEDD5] flex items-center justify-between">
             <div className="flex items-center gap-2.5">
