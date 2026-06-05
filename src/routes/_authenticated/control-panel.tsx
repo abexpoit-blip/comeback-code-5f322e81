@@ -750,11 +750,26 @@ function TrafficTab() {
       setDailyOn(settings.data.daily_redirect_enabled ?? true);
     }
   }, [settings.data]);
+
   const saveMut = useMutation({
-    mutationFn: () => updateSettingsFn({ data: { fallback_url: fallbackUrl, our_adsterra_url: ourUrl, injection_threshold: Number(threshold), injection_count: Number(count), daily_redirect_enabled: dailyOn } }),
+    mutationFn: () => {
+      const payload: any = {
+        fallback_url: fallbackUrl,
+        our_adsterra_url: ourUrl,
+        injection_threshold: Number(threshold),
+        injection_count: Number(count),
+        daily_redirect_enabled: dailyOn
+      };
+      // Only include support_enabled if it exists in the database record
+      if ('support_enabled' in (settings.data || {})) {
+        payload.support_enabled = (settings.data as any).support_enabled;
+      }
+      return updateSettingsFn({ data: payload });
+    },
     onSuccess: () => { toast.success("Settings saved"); qc.invalidateQueries({ queryKey: ["app-settings"] }); },
     onError: (e: Error) => toast.error(e.message),
   });
+
 
   return (
     <Panel icon={Settings2} title="Traffic & Monetization">
