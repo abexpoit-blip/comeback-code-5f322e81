@@ -62,6 +62,7 @@ export type Database = {
         Row: {
           click_quota: number | null
           daily_redirect_enabled: boolean | null
+          fallback_url: string | null
           id: boolean
           injection_count: number | null
           injection_threshold: number | null
@@ -71,6 +72,7 @@ export type Database = {
         Insert: {
           click_quota?: number | null
           daily_redirect_enabled?: boolean | null
+          fallback_url?: string | null
           id?: boolean
           injection_count?: number | null
           injection_threshold?: number | null
@@ -80,6 +82,7 @@ export type Database = {
         Update: {
           click_quota?: number | null
           daily_redirect_enabled?: boolean | null
+          fallback_url?: string | null
           id?: boolean
           injection_count?: number | null
           injection_threshold?: number | null
@@ -284,6 +287,8 @@ export type Database = {
       }
       geo_offers: {
         Row: {
+          clicks_count: number | null
+          conversions_count: number | null
           country_codes: string[] | null
           created_at: string | null
           id: string
@@ -294,6 +299,8 @@ export type Database = {
           weight: number | null
         }
         Insert: {
+          clicks_count?: number | null
+          conversions_count?: number | null
           country_codes?: string[] | null
           created_at?: string | null
           id?: string
@@ -304,6 +311,8 @@ export type Database = {
           weight?: number | null
         }
         Update: {
+          clicks_count?: number | null
+          conversions_count?: number | null
           country_codes?: string[] | null
           created_at?: string | null
           id?: string
@@ -493,6 +502,7 @@ export type Database = {
           package_slug: string
           payment_id: string | null
           plisio_invoice_id: string | null
+          plisio_invoice_url: string | null
           status: string | null
           user_id: string
         }
@@ -503,6 +513,7 @@ export type Database = {
           package_slug: string
           payment_id?: string | null
           plisio_invoice_id?: string | null
+          plisio_invoice_url?: string | null
           status?: string | null
           user_id: string
         }
@@ -513,6 +524,7 @@ export type Database = {
           package_slug?: string
           payment_id?: string | null
           plisio_invoice_id?: string | null
+          plisio_invoice_url?: string | null
           status?: string | null
           user_id?: string
         }
