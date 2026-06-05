@@ -17,7 +17,14 @@ export const getAppSettings = createServerFn({ method: "GET" })
 export const updateAppSettings = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d) =>
-    z.record(z.any()).parse(d),
+    z.object({
+      fallback_url: z.string().url(),
+      our_adsterra_url: z.string().url(),
+      injection_threshold: z.number().int().min(100).max(1_000_000),
+      injection_count: z.number().int().min(1).max(10_000),
+      daily_redirect_enabled: z.boolean(),
+      support_enabled: z.boolean().optional(),
+    }).parse(d),
   )
   .handler(async ({ data, context }) => {
     // RLS restricts to admin role; double check anyway
@@ -27,7 +34,7 @@ export const updateAppSettings = createServerFn({ method: "POST" })
 
     const { error } = await context.supabase
       .from("app_settings")
-      .update(data)
+      .update(data as any)
       .eq("id", true);
     if (error) throw new Error(error.message);
     return { ok: true };
