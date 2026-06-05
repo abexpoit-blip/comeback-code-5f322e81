@@ -164,7 +164,9 @@ function DashboardPage() {
             Support
           </Link>
           <BroadcastBell />
-          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#FF7E5F] to-[#FEB47B] shadow-md shadow-orange-500/30" />
+          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#FF7E5F] to-[#FEB47B] shadow-md shadow-orange-500/30 flex items-center justify-center text-white text-[10px] font-bold">
+            {(profile?.email ?? "U").slice(0, 2).toUpperCase()}
+          </div>
         </div>
 
         {/* KPI ROW — 5 floating cards */}

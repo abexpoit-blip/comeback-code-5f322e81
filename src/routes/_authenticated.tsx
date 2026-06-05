@@ -2,7 +2,7 @@ import { createFileRoute, Outlet, Link, useNavigate, useRouterState } from "@tan
 import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useRef, useState } from "react";
 import type { AuthChangeEvent, User } from "@supabase/supabase-js";
-import { LayoutDashboard, BarChart3, Crown, ShieldCheck, LogOut, Menu, X, Globe, Activity, Shield } from "lucide-react";
+import { LayoutDashboard, BarChart3, Crown, ShieldCheck, LogOut, Menu, X, Globe, Activity, Shield, Bell } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { consumeDailyRedirect } from "@/lib/app-settings.functions";
 import { BrandLogo } from "@/components/brand-logo";
@@ -25,6 +25,7 @@ const navMgmt = [
   { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { to: "/analytics", label: "Analytics", icon: BarChart3 },
   { to: "/live", label: "Live Feed", icon: Activity },
+  { to: "/notices", label: "Notices", icon: Bell },
   { to: "/domains", label: "Domains", icon: Globe },
 ] as const;
 
@@ -69,7 +70,7 @@ function AuthenticatedLayout() {
     if (!user) return;
     (async () => {
       const { data } = await supabase
-        .from("user_roles").select("role").eq("user_id", user.id).eq("role", "admin").maybeSingle();
+        .from("user_roles").select("role").eq("user_id", user?.id).eq("role", "admin").maybeSingle();
       setIsAdmin(!!data);
     })();
   }, [user]);

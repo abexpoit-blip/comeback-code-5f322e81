@@ -100,15 +100,15 @@ export function BroadcastBell() {
     <div className="relative" ref={ref}>
       <button
         onClick={() => setOpen((v) => !v)}
-        className="relative w-10 h-10 rounded-xl bg-[#FFF9F5] border border-[#FFEDD5] flex items-center justify-center text-[#7D6452] hover:text-[#FF7E5F] hover:border-[#FF7E5F]/40 transition-all"
+        className="relative group w-10 h-10 rounded-xl bg-[#FFF9F5] border border-[#FFEDD5] flex items-center justify-center text-[#7D6452] hover:text-[#FF7E5F] hover:border-[#FF7E5F]/40 transition-all shadow-sm"
         aria-label={`Notifications${unread ? `, ${unread} unread` : ""}`}
       >
-        <Bell className="w-4 h-4" />
+        <Bell className="w-4 h-4 group-hover:scale-110 transition-transform" />
         {unread > 0 && (
-          <>
-            <span className="absolute top-1.5 right-1.5 min-w-[18px] h-[18px] px-1 rounded-full bg-gradient-to-br from-[#FF7E5F] to-[#FEB47B] text-white text-[10px] font-extrabold flex items-center justify-center shadow-[0_0_8px_rgba(255,126,95,0.9)]">
-              {unread > 9 ? "9+" : unread}
-            </span>
+          <span className="absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] px-1 rounded-full bg-[#FF7E5F] text-white text-[10px] font-black flex items-center justify-center border-2 border-white shadow-lg ring-1 ring-orange-500/20">
+            {unread > 9 ? "9+" : unread}
+          </span>
+        )}
             <span className="absolute inset-0 rounded-xl ring-2 ring-[#FF7E5F]/30 animate-pulse pointer-events-none" />
           </>
         )}
