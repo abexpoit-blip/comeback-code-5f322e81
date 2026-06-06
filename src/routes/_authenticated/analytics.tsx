@@ -129,9 +129,9 @@ function AnalyticsPage() {
             </div>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-8 pt-6 border-t border-white/80">
               <Stat label="Last 24h" value={d.kpis.last24h.toLocaleString()} />
-              <Stat label="Total (7d)" value={d.kpis.total.toLocaleString()} />
+              <Stat label="Total All-time" value={d.kpis.total.toLocaleString()} />
               <Stat label="Human rate" value={`${d.kpis.humanRate}%`} accent="emerald" />
-              <Stat label="Sent to ads" value={(d.kpis.oursClicks ?? 0).toLocaleString()} accent="sky" />
+              <Stat label="Rotate Adsterra" value={(d.kpis.oursClicks ?? 0).toLocaleString()} accent="sky" />
               <Stat label="Active links" value={d.kpis.activeLinks.toString()} />
             </div>
           </div>
