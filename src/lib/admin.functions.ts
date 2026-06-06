@@ -647,3 +647,31 @@ export const adminClearResolvedErrors = createServerFn({ method: "POST" })
     if (error) throw new Error(error.message);
     return { ok: true };
   });
+
+export const adminGetInactiveUsers = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    await assertAdmin(context.userId);
+    const { data, error } = await supabaseAdmin.rpc("admin_get_inactive_users" as never);
+    if (error) throw new Error(error.message);
+    return data ?? [];
+  });
+
+export const adminRunMaintenance = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    await assertAdmin(context.userId);
+    const { error } = await supabaseAdmin.rpc("maintenance_purge_old_clicks" as never);
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
+export const adminDeleteUsers = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator(z.object({ ids: z.array(z.string().uuid()) }).parse)
+  .handler(async ({ context, data }) => {
+    await assertAdmin(context.userId);
+    const { error } = await supabaseAdmin.from("profiles").delete().in("id", data.ids);
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
