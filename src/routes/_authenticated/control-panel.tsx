@@ -106,6 +106,7 @@ function AdminPage() {
             <TabsTrigger value="support">Support</TabsTrigger>
             <TabsTrigger value="broadcasts">Broadcasts</TabsTrigger>
             <TabsTrigger value="errors">Errors</TabsTrigger>
+            <TabsTrigger value="maintenance">Maintenance</TabsTrigger>
           </TabsList>
           <TabsContent value="overview"><OverviewTab /></TabsContent>
           <TabsContent value="users"><UsersTab /></TabsContent>
