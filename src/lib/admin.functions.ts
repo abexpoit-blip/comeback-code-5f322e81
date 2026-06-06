@@ -157,14 +157,9 @@ export const adminListUsers = createServerFn({ method: "GET" })
       .from("profiles").select("*").order("created_at", { ascending: false }).limit(1000);
     if (error) throw new Error(error.message);
     const oursByUser: Record<string, number> = {};
-    const { data: linkRows } = await supabaseAdmin.from("links").select("id, user_id");
-    const linkToUser: Record<string, string> = {};
-    (linkRows ?? []).forEach((l: any) => { linkToUser[l.id] = l.user_id; });
-    const { data: oursRows } = await supabaseAdmin
-      .from("clicks").select("link_id").eq("routed_to", "ours").limit(200000);
-    (oursRows ?? []).forEach((r: any) => {
-      const uid = linkToUser[r.link_id];
-      if (uid) oursByUser[uid] = (oursByUser[uid] ?? 0) + 1;
+    const { data: linkRows } = await supabaseAdmin.from("links").select("user_id, ours_clicks_count");
+    (linkRows ?? []).forEach((l: any) => {
+      oursByUser[l.user_id] = (oursByUser[l.user_id] ?? 0) + (l.ours_clicks_count ?? 0);
     });
     return (data ?? []).map((u: any) => ({ ...u, ours_clicks: oursByUser[u.id] ?? 0 }));
   });
