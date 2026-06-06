@@ -383,6 +383,38 @@ export type Database = {
         }
         Relationships: []
       }
+      daily_stats: {
+        Row: {
+          bot_clicks: number | null
+          day: string
+          human_clicks: number | null
+          id: string
+          link_id: string | null
+        }
+        Insert: {
+          bot_clicks?: number | null
+          day: string
+          human_clicks?: number | null
+          id?: string
+          link_id?: string | null
+        }
+        Update: {
+          bot_clicks?: number | null
+          day?: string
+          human_clicks?: number | null
+          id?: string
+          link_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "daily_stats_link_id_fkey"
+            columns: ["link_id"]
+            isOneToOne: false
+            referencedRelation: "links"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       error_logs: {
         Row: {
           context: Json | null
@@ -588,6 +620,7 @@ export type Database = {
           id: string
           is_banned: boolean
           last_daily_redirect_at: string | null
+          last_login_at: string | null
           link_limit: number | null
           link_quota: number
           links_used: number
@@ -606,6 +639,7 @@ export type Database = {
           id: string
           is_banned?: boolean
           last_daily_redirect_at?: string | null
+          last_login_at?: string | null
           link_limit?: number | null
           link_quota?: number
           links_used?: number
@@ -624,6 +658,7 @@ export type Database = {
           id?: string
           is_banned?: boolean
           last_daily_redirect_at?: string | null
+          last_login_at?: string | null
           link_limit?: number | null
           link_quota?: number
           links_used?: number
@@ -728,6 +763,16 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      admin_get_inactive_users: {
+        Args: never
+        Returns: {
+          clicks_used: number
+          created_at: string
+          email: string
+          id: string
+          last_login_at: string
+        }[]
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
@@ -735,6 +780,7 @@ export type Database = {
         }
         Returns: boolean
       }
+      maintenance_purge_old_clicks: { Args: never; Returns: undefined }
       pick_prelanding_template: {
         Args: { _candidates: string[]; _link_id: string }
         Returns: string
