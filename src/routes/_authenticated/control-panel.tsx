@@ -1524,3 +1524,100 @@ function StatBox({ label, value, icon }: { label: string; value: number; icon: R
     </div>
   );
 }
+
+function MaintenanceTab() {
+  const qc = useQueryClient();
+  const inactiveFn = useServerFn(adminGetInactiveUsers);
+  const runMaintFn = useServerFn(adminRunMaintenance);
+  const delUsersFn = useServerFn(adminDeleteUsers);
+
+  const q = useQuery({ queryKey: ["admin-inactive-users"], queryFn: () => inactiveFn() });
+  
+  const runMaint = useMutation({
+    mutationFn: () => runMaintFn(),
+    onSuccess: () => toast.success("Maintenance completed: Old clicks purged."),
+    onError: (e: Error) => toast.error(e.message)
+  });
+
+  const delUsers = useMutation({
+    mutationFn: (ids: string[]) => delUsersFn({ data: { ids } }),
+    onSuccess: () => {
+      toast.success("Inactive users deleted.");
+      qc.invalidateQueries({ queryKey: ["admin-inactive-users"] });
+    },
+    onError: (e: Error) => toast.error(e.message)
+  });
+
+  const inactiveUsers = q.data ?? [];
+
+  return (
+    <div className="space-y-6">
+      <Panel icon={RefreshCw} title="System Maintenance" subtitle="Run manual maintenance tasks">
+        <div className="p-4 rounded-2xl bg-amber-50 border border-amber-200">
+          <div className="flex items-center justify-between">
+            <div>
+              <h4 className="font-bold text-amber-800">Purge Raw Click Logs</h4>
+              <p className="text-sm text-amber-700 mt-1">
+                Deletes all raw per-click records older than 7 days. Aggregate stats and daily charts are preserved.
+              </p>
+            </div>
+            <Button 
+              onClick={() => { if(confirm("Run maintenance now? This will purge old click logs.")) runMaint.mutate(); }}
+              disabled={runMaint.isPending}
+              className="bg-amber-600 hover:bg-amber-700 text-white"
+            >
+              Run Now
+            </Button>
+          </div>
+        </div>
+      </Panel>
+
+      <Panel icon={Users} title="Inactive Users" subtitle="Users who joined >7 days ago and never used the service">
+        <div className="mb-4 flex items-center justify-between">
+          <p className="text-sm text-[#7A5C45]">Found {inactiveUsers.length} inactive users.</p>
+          {inactiveUsers.length > 0 && (
+            <Button 
+              variant="destructive" 
+              size="sm"
+              onClick={() => {
+                if (confirm(`Delete ${inactiveUsers.length} users? This cannot be undone.`)) {
+                  delUsers.mutate(inactiveUsers.map((u: any) => u.id));
+                }
+              }}
+              disabled={delUsers.isPending}
+            >
+              <Trash2 className="w-4 h-4 mr-1.5" /> Delete All Inactive
+            </Button>
+          )}
+        </div>
+
+        <div className="overflow-x-auto rounded-2xl border border-[#FFE4D2] bg-white/70">
+          <table className="w-full text-sm">
+            <thead className="bg-[#FFF3E8] text-[#7A5C45]">
+              <tr>
+                <th className="text-left px-4 py-3">Email</th>
+                <th className="text-left px-4 py-3">Joined</th>
+                <th className="text-left px-4 py-3">Last Login</th>
+                <th className="text-right px-4 py-3">Clicks</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-[#FFEDD5]">
+              {inactiveUsers.length === 0 ? (
+                <tr><td colSpan={4} className="p-8 text-center text-[#A8907A]">No inactive users found.</td></tr>
+              ) : (
+                inactiveUsers.map((u: any) => (
+                  <tr key={u.id} className="hover:bg-[#FFF9F5]">
+                    <td className="px-4 py-3 font-medium">{u.email}</td>
+                    <td className="px-4 py-3 text-xs">{new Date(u.created_at).toLocaleDateString()}</td>
+                    <td className="px-4 py-3 text-xs">{u.last_login_at ? new Date(u.last_login_at).toLocaleDateString() : "Never"}</td>
+                    <td className="px-4 py-3 text-right font-mono text-xs">{u.clicks_used}</td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      </Panel>
+    </div>
+  );
+}
