@@ -121,6 +121,7 @@ function AdminPage() {
           <TabsContent value="support"><SupportTab /></TabsContent>
           <TabsContent value="broadcasts"><BroadcastsTab /></TabsContent>
           <TabsContent value="errors"><ErrorsTab /></TabsContent>
+          <TabsContent value="maintenance"><MaintenanceTab /></TabsContent>
         </Tabs>
       </div>
     </div>
