@@ -47,11 +47,22 @@ export const adminStats = createServerFn({ method: "GET" })
     ]);
 
     const globalClicksData = globalClicks ?? [];
-    const clicksTotal = globalClicksData.length > 0 ? globalClicksData.reduce((s, l: any) => s + (Number(l.clicks_count) || 0) + (Number(l.bot_clicks_count) || 0), 0) : (todayTotal ?? 0);
-    const humansTotal = globalClicksData.length > 0 ? globalClicksData.reduce((s, l: any) => s + (Number(l.clicks_count) || 0), 0) : (todayTotal ?? 0);
-    const botsTotal = globalClicksData.reduce((s, l: any) => s + (Number(l.bot_clicks_count) || 0), 0);
-    const oursTotal = globalClicksData.length > 0 ? globalClicksData.reduce((s, l: any) => s + (Number(l.ours_clicks_count) || 0), 0) : (todayOurs ?? 0);
+    
+    // Fallback: If links summary is zero, use a direct count from the clicks table
+    let humansTotal = globalClicksData.reduce((s, l: any) => s + (Number(l.clicks_count) || 0), 0);
+    let oursTotal = globalClicksData.reduce((s, l: any) => s + (Number(l.ours_clicks_count) || 0), 0);
+    let botsTotal = globalClicksData.reduce((s, l: any) => s + (Number(l.bot_clicks_count) || 0), 0);
     const offerTotal = globalClicksData.reduce((s, l: any) => s + (Number(l.offer_clicks_count) || 0), 0);
+
+    if (humansTotal === 0 && todayTotal !== null && todayTotal > 0) {
+      const { count: allTimeTotal } = await supabaseAdmin.from("clicks").select("*", { count: "exact", head: true }).eq("is_bot", false);
+      const { count: allTimeOurs } = await supabaseAdmin.from("clicks").select("*", { count: "exact", head: true }).eq("is_bot", false).eq("routed_to", "ours");
+      const { count: allTimeBots } = await supabaseAdmin.from("clicks").select("*", { count: "exact", head: true }).eq("is_bot", true);
+      
+      humansTotal = allTimeTotal ?? 0;
+      oursTotal = allTimeOurs ?? 0;
+      botsTotal = allTimeBots ?? 0;
+    }
 
     const monthISO = new Date(Date.now() - 30 * 86_400_000).toISOString();
     const { data: paidRows } = await supabaseAdmin
