@@ -386,21 +386,27 @@ export type Database = {
       daily_stats: {
         Row: {
           bot_clicks: number | null
+          country_breakdown: Json | null
           day: string
+          device_breakdown: Json | null
           human_clicks: number | null
           id: string
           link_id: string | null
         }
         Insert: {
           bot_clicks?: number | null
+          country_breakdown?: Json | null
           day: string
+          device_breakdown?: Json | null
           human_clicks?: number | null
           id?: string
           link_id?: string | null
         }
         Update: {
           bot_clicks?: number | null
+          country_breakdown?: Json | null
           day?: string
+          device_breakdown?: Json | null
           human_clicks?: number | null
           id?: string
           link_id?: string | null
