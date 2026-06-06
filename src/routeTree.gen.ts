@@ -26,6 +26,7 @@ import { Route as AuthenticatedDashboardRouteImport } from './routes/_authentica
 import { Route as AuthenticatedControlPanelRouteImport } from './routes/_authenticated/control-panel'
 import { Route as AuthenticatedAnalyticsRouteImport } from './routes/_authenticated/analytics'
 import { Route as ApiPublicPlisioWebhookRouteImport } from './routes/api/public/plisio-webhook'
+import { Route as ApiPublicDebugEnvRouteImport } from './routes/api/public/debug-env'
 
 const SxVault9k2m7xRoute = SxVault9k2m7xRouteImport.update({
   id: '/sx-vault-9k2m7x',
@@ -113,6 +114,11 @@ const ApiPublicPlisioWebhookRoute = ApiPublicPlisioWebhookRouteImport.update({
   path: '/api/public/plisio-webhook',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPublicDebugEnvRoute = ApiPublicDebugEnvRouteImport.update({
+  id: '/api/public/debug-env',
+  path: '/api/public/debug-env',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -130,6 +136,7 @@ export interface FileRoutesByFullPath {
   '/support': typeof AuthenticatedSupportRoute
   '/upgrade': typeof AuthenticatedUpgradeRoute
   '/r/$code': typeof RCodeRoute
+  '/api/public/debug-env': typeof ApiPublicDebugEnvRoute
   '/api/public/plisio-webhook': typeof ApiPublicPlisioWebhookRoute
 }
 export interface FileRoutesByTo {
@@ -148,6 +155,7 @@ export interface FileRoutesByTo {
   '/support': typeof AuthenticatedSupportRoute
   '/upgrade': typeof AuthenticatedUpgradeRoute
   '/r/$code': typeof RCodeRoute
+  '/api/public/debug-env': typeof ApiPublicDebugEnvRoute
   '/api/public/plisio-webhook': typeof ApiPublicPlisioWebhookRoute
 }
 export interface FileRoutesById {
@@ -168,6 +176,7 @@ export interface FileRoutesById {
   '/_authenticated/support': typeof AuthenticatedSupportRoute
   '/_authenticated/upgrade': typeof AuthenticatedUpgradeRoute
   '/r/$code': typeof RCodeRoute
+  '/api/public/debug-env': typeof ApiPublicDebugEnvRoute
   '/api/public/plisio-webhook': typeof ApiPublicPlisioWebhookRoute
 }
 export interface FileRouteTypes {
@@ -188,6 +197,7 @@ export interface FileRouteTypes {
     | '/support'
     | '/upgrade'
     | '/r/$code'
+    | '/api/public/debug-env'
     | '/api/public/plisio-webhook'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -206,6 +216,7 @@ export interface FileRouteTypes {
     | '/support'
     | '/upgrade'
     | '/r/$code'
+    | '/api/public/debug-env'
     | '/api/public/plisio-webhook'
   id:
     | '__root__'
@@ -225,6 +236,7 @@ export interface FileRouteTypes {
     | '/_authenticated/support'
     | '/_authenticated/upgrade'
     | '/r/$code'
+    | '/api/public/debug-env'
     | '/api/public/plisio-webhook'
   fileRoutesById: FileRoutesById
 }
@@ -236,6 +248,7 @@ export interface RootRouteChildren {
   SignupRoute: typeof SignupRoute
   SxVault9k2m7xRoute: typeof SxVault9k2m7xRoute
   RCodeRoute: typeof RCodeRoute
+  ApiPublicDebugEnvRoute: typeof ApiPublicDebugEnvRoute
   ApiPublicPlisioWebhookRoute: typeof ApiPublicPlisioWebhookRoute
 }
 
@@ -360,6 +373,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicPlisioWebhookRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/debug-env': {
+      id: '/api/public/debug-env'
+      path: '/api/public/debug-env'
+      fullPath: '/api/public/debug-env'
+      preLoaderRoute: typeof ApiPublicDebugEnvRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -399,6 +419,7 @@ const rootRouteChildren: RootRouteChildren = {
   SignupRoute: SignupRoute,
   SxVault9k2m7xRoute: SxVault9k2m7xRoute,
   RCodeRoute: RCodeRoute,
+  ApiPublicDebugEnvRoute: ApiPublicDebugEnvRoute,
   ApiPublicPlisioWebhookRoute: ApiPublicPlisioWebhookRoute,
 }
 export const routeTree = rootRouteImport
