@@ -1,5 +1,4 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { supabaseAdmin } from "@/integrations/supabase/client.server";
 
 export const Route = createFileRoute("/api/public/debug-env")({
   server: {
@@ -10,16 +9,11 @@ export const Route = createFileRoute("/api/public/debug-env")({
         const hasPlisio = !!process.env.PLISIO_API_KEY;
         const keys = Object.keys(process.env).filter(k => !k.includes("KEY") && !k.includes("SECRET") && !k.includes("PASS"));
         
-        return new Response(JSON.stringify({
-          SUPABASE_URL: hasUrl,
-          SUPABASE_SERVICE_ROLE_KEY: hasKey,
-          PLISIO_API_KEY: hasPlisio,
-          NODE_ENV: process.env.NODE_ENV,
-          ENV_KEYS: keys,
-        }), {
-          headers: { "Content-Type": "application/json" }
+        return new Response(`SUPABASE_URL: ${hasUrl}\nSUPABASE_SERVICE_ROLE_KEY: ${hasKey}\nPLISIO_API_KEY: ${hasPlisio}\nNODE_ENV: ${process.env.NODE_ENV}\nENV_KEYS: ${keys.join(", ")}`, {
+          headers: { "Content-Type": "text/plain" }
         });
       }
     }
   }
 });
+
