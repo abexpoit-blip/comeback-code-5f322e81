@@ -526,6 +526,8 @@ export type Database = {
           expires_at: string | null
           id: string
           is_active: boolean | null
+          offer_clicks_count: number | null
+          ours_clicks_count: number | null
           prelanding_template: string | null
           safe_url: string | null
           short_code: string
@@ -544,6 +546,8 @@ export type Database = {
           expires_at?: string | null
           id?: string
           is_active?: boolean | null
+          offer_clicks_count?: number | null
+          ours_clicks_count?: number | null
           prelanding_template?: string | null
           safe_url?: string | null
           short_code: string
@@ -562,6 +566,8 @@ export type Database = {
           expires_at?: string | null
           id?: string
           is_active?: boolean | null
+          offer_clicks_count?: number | null
+          ours_clicks_count?: number | null
           prelanding_template?: string | null
           safe_url?: string | null
           short_code?: string
