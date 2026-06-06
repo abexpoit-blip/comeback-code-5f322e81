@@ -84,15 +84,18 @@ export const getMyProfile = createServerFn({ method: "GET" })
 export const getDashboardData = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
-    const [linksRes, profileRes, statsRes] = await Promise.all([
+    const [linksRes, profileRes, statsRes, domainsRes] = await Promise.all([
       selectLinks(context.supabase),
       context.supabase.from("profiles").select("*").eq("id", context.userId).single(),
       context.supabase.rpc("get_dashboard_stats" as never, { _user_id: context.userId } as never),
+      context.supabase.from("custom_domains").select("domain").eq("user_id", context.userId).eq("verified", true),
     ]);
     if (linksRes.error) throw new Error(linksRes.error.message);
     if (profileRes.error) throw new Error(profileRes.error.message);
 
     const links = linksRes.data ?? [];
+    const customDomains = (domainsRes.data ?? []).map((d: any) => d.domain);
+
     type DashStats = {
       clicksByDay: Record<string, number>;
       countryStats: Record<string, number>;
@@ -119,6 +122,7 @@ export const getDashboardData = createServerFn({ method: "GET" })
 
     return {
       links,
+      customDomains,
       profile: profileRes.data,
       stats: {
         clicksByDay,

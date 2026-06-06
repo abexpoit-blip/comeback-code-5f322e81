@@ -100,7 +100,8 @@ function AdminPage() {
             <TabsTrigger value="rules">Bot/Cloak</TabsTrigger>
             <TabsTrigger value="geo">Geo Tiers</TabsTrigger>
             <TabsTrigger value="traffic">Traffic</TabsTrigger>
-            <TabsTrigger value="domains">Domains</TabsTrigger>
+            <TabsTrigger value="domains">Pool</TabsTrigger>
+            <TabsTrigger value="user_domains">User Domains</TabsTrigger>
             <TabsTrigger value="support">Support</TabsTrigger>
             <TabsTrigger value="broadcasts">Broadcasts</TabsTrigger>
             <TabsTrigger value="errors">Errors</TabsTrigger>
@@ -114,6 +115,7 @@ function AdminPage() {
           <TabsContent value="geo"><GeoTab /></TabsContent>
           <TabsContent value="traffic"><TrafficTab /></TabsContent>
           <TabsContent value="domains"><DomainsTab /></TabsContent>
+          <TabsContent value="user_domains"><UserDomainsTab /></TabsContent>
           <TabsContent value="support"><SupportTab /></TabsContent>
           <TabsContent value="broadcasts"><BroadcastsTab /></TabsContent>
           <TabsContent value="errors"><ErrorsTab /></TabsContent>
@@ -998,6 +1000,79 @@ function DomainsTab() {
         </ol>
       </div>
     </section>
+  );
+}
+
+function UserDomainsTab() {
+  const qc = useQueryClient();
+  const detailFn = useServerFn(adminUserDetail);
+  
+  // We can just query custom_domains directly since we are admin
+  const q = useQuery({
+    queryKey: ["admin-user-custom-domains"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("custom_domains")
+        .select(`
+          id, domain, verified, created_at, user_id,
+          profiles ( email )
+        `)
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return data;
+    }
+  });
+
+  const invalidate = () => qc.invalidateQueries({ queryKey: ["admin-user-custom-domains"] });
+
+  const delMut = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from("custom_domains").delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => { toast.success("Deleted"); invalidate(); },
+    onError: (e: Error) => toast.error(e.message)
+  });
+
+  const domains = q.data ?? [];
+
+  return (
+    <Panel icon={Globe} title="User Custom Domains" subtitle="Manage and monitor domains added by users">
+      <div className="overflow-x-auto rounded-2xl border border-[#FFE4D2] bg-white/70">
+        <table className="w-full text-sm">
+          <thead className="bg-[#FFF3E8] text-[#7A5C45]">
+            <tr>
+              <th className="text-left px-4 py-3">Domain</th>
+              <th className="text-left px-4 py-3">Owner</th>
+              <th className="text-left px-4 py-3">Status</th>
+              <th className="text-left px-4 py-3">Created</th>
+              <th className="text-right px-4 py-3">Actions</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-[#FFEDD5]">
+            {domains.length === 0 ? (
+              <tr><td colSpan={5} className="p-8 text-center text-[#A8907A]">No user domains yet.</td></tr>
+            ) : (
+              domains.map((d: any) => (
+                <tr key={d.id} className="hover:bg-[#FFF9F5]">
+                  <td className="px-4 py-3 font-mono font-semibold text-[#2D1B0D]">{d.domain}</td>
+                  <td className="px-4 py-3 text-xs text-[#7A5C45]">{(d.profiles as any)?.email ?? d.user_id}</td>
+                  <td className="px-4 py-3">
+                    {d.verified ? <Pill>Verified</Pill> : <span className="text-xs text-amber-600 font-semibold">Pending</span>}
+                  </td>
+                  <td className="px-4 py-3 text-xs text-[#7A5C45]">{new Date(d.created_at).toLocaleDateString()}</td>
+                  <td className="px-4 py-3 text-right">
+                    <Button size="sm" variant="outline" onClick={() => { if (confirm(`Delete user domain ${d.domain}?`)) delMut.mutate(d.id); }} className="border-rose-300 text-rose-600">
+                      <Trash2 className="w-3 h-3" />
+                    </Button>
+                  </td>
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
+      </div>
+    </Panel>
   );
 }
 
