@@ -350,6 +350,39 @@ export type Database = {
         }
         Relationships: []
       }
+      custom_domains: {
+        Row: {
+          created_at: string
+          domain: string
+          id: string
+          updated_at: string
+          user_id: string
+          verification_token: string
+          verified: boolean
+          verified_at: string | null
+        }
+        Insert: {
+          created_at?: string
+          domain: string
+          id?: string
+          updated_at?: string
+          user_id: string
+          verification_token: string
+          verified?: boolean
+          verified_at?: string | null
+        }
+        Update: {
+          created_at?: string
+          domain?: string
+          id?: string
+          updated_at?: string
+          user_id?: string
+          verification_token?: string
+          verified?: boolean
+          verified_at?: string | null
+        }
+        Relationships: []
+      }
       error_logs: {
         Row: {
           context: Json | null
