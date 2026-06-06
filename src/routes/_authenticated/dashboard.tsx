@@ -81,8 +81,11 @@ function DashboardPage() {
     gcTime: 30 * 60_000,
     refetchOnWindowFocus: false,
   });
+  const [selectedDomain, setSelectedDomain] = useState<string>("");
   const primaryDomain = primaryQ.data?.domain ?? "sleepox.com";
-  const origin = typeof window !== "undefined" ? `${window.location.protocol}//${primaryDomain}` : `https://${primaryDomain}`;
+  const customDomains = dashQ.data?.customDomains ?? [];
+  const effectiveDomain = selectedDomain || primaryDomain;
+  const origin = typeof window !== "undefined" ? `${window.location.protocol}//${effectiveDomain}` : `https://${effectiveDomain}`;
   const links = dashQ.data?.links ?? [];
   const profile = dashQ.data?.profile;
   const stats = dashQ.data?.stats;
@@ -156,6 +159,21 @@ function DashboardPage() {
               className="w-full bg-[#FFF9F5]/70 border border-[#FFEDD5] rounded-xl py-2.5 pl-11 pr-4 text-sm placeholder:text-[#A38D7D] focus:outline-none focus:border-[#FF7E5F]/50 focus:bg-white transition-all"
             />
           </div>
+          {customDomains.length > 0 && (
+            <div className="flex items-center gap-2">
+              <Globe className="w-4 h-4 text-[#A38D7D]" />
+              <select
+                value={selectedDomain}
+                onChange={(e) => setSelectedDomain(e.target.value)}
+                className="bg-[#FFF9F5]/70 border border-[#FFEDD5] rounded-xl py-2 px-3 text-xs text-[#2D1B0D] focus:outline-none focus:border-[#FF7E5F]/50 transition-all"
+              >
+                <option value="">Default Domain</option>
+                {customDomains.map((d: string) => (
+                  <option key={d} value={d}>{d}</option>
+                ))}
+              </select>
+            </div>
+          )}
           <Link
             to="/support"
             className="hidden sm:inline-flex h-10 px-3 items-center gap-1.5 rounded-xl bg-[#FFF9F5] border border-[#FFEDD5] text-[#7D6452] hover:text-[#FF7E5F] hover:border-[#FF7E5F]/40 transition-all text-[12px] font-bold"
