@@ -45,6 +45,7 @@ export const Route = createFileRoute("/api/public/plisio-webhook")({
     handlers: {
       POST: async ({ request }) => {
         const apiKey = process.env.PLISIO_API_KEY;
+        console.log("[plisio] webhook called", { hasApiKey: !!apiKey });
         if (!apiKey) {
           console.error("[plisio] PLISIO_API_KEY missing");
           return new Response("not configured", { status: 500 });
@@ -67,6 +68,7 @@ export const Route = createFileRoute("/api/public/plisio-webhook")({
           const params = new URLSearchParams(rawText);
           params.forEach((v, k) => { body[k] = v; });
         }
+        console.log("[plisio] body parsed", { isJson, keys: Object.keys(body), txn_id: body.txn_id || body.id });
 
         // Verification: form callback uses verify_hash; JSON callback we re-fetch from Plisio.
         let verified = false;
@@ -110,7 +112,10 @@ export const Route = createFileRoute("/api/public/plisio-webhook")({
           .select("id, user_id, package_slug, status")
           .eq("id", orderNumber)
           .maybeSingle();
-        if (!req) return new Response("not found", { status: 404 });
+        if (!req) {
+          console.error("[plisio] upgrade request not found", { orderNumber });
+          return new Response("not found", { status: 404 });
+        }
 
         // Normalize Plisio status → internal status.
         // Plisio "completed" === fully paid → store as "paid" so revenue queries
@@ -121,12 +126,14 @@ export const Route = createFileRoute("/api/public/plisio-webhook")({
           status;
 
 
+        console.log("[plisio] updating status", { id: req.id, old: req.status, new: internalStatus });
         await supabaseAdmin
           .from("upgrade_requests")
           .update({ status: internalStatus, updated_at: new Date().toISOString() })
           .eq("id", req.id);
 
         if (internalStatus === "paid" && req.status !== "paid" && req.status !== "completed") {
+          console.log("[plisio] applying package", { user_id: req.user_id, slug: req.package_slug });
           // Apply package to user
           const { data: pkg } = await supabaseAdmin
             .from("packages").select("slug, click_quota, link_limit")
