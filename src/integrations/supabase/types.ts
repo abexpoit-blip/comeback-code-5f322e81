@@ -386,21 +386,27 @@ export type Database = {
       daily_stats: {
         Row: {
           bot_clicks: number | null
+          country_breakdown: Json | null
           day: string
+          device_breakdown: Json | null
           human_clicks: number | null
           id: string
           link_id: string | null
         }
         Insert: {
           bot_clicks?: number | null
+          country_breakdown?: Json | null
           day: string
+          device_breakdown?: Json | null
           human_clicks?: number | null
           id?: string
           link_id?: string | null
         }
         Update: {
           bot_clicks?: number | null
+          country_breakdown?: Json | null
           day?: string
+          device_breakdown?: Json | null
           human_clicks?: number | null
           id?: string
           link_id?: string | null
@@ -773,6 +779,11 @@ export type Database = {
           last_login_at: string
         }[]
       }
+      get_analytics_summary: {
+        Args: { _days?: number; _user_id: string }
+        Returns: Json
+      }
+      get_dashboard_stats: { Args: { _user_id: string }; Returns: Json }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
