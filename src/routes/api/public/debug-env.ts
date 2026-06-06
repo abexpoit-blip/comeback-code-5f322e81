@@ -1,6 +1,9 @@
 import { createFileRoute } from "@tanstack/react-router";
 
 export const Route = createFileRoute("/api/public/debug-env")({
+  beforeLoad: () => {
+    // try to bypass any potential redirects in middleware if this is actually being redirected
+  },
   server: {
     handlers: {
       GET: async () => {
