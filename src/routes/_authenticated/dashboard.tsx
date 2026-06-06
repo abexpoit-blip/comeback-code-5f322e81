@@ -5,7 +5,7 @@ import { useMemo, useState, type FormEvent, type ReactNode } from "react";
 import { toast } from "sonner";
 import {
   Copy, Trash2, Play, Pause, Plus, Search, ArrowRight, LifeBuoy,
-  TrendingUp, Filter, RefreshCw, ChevronRight, Smartphone,
+  TrendingUp, Filter, RefreshCw, ChevronRight, Smartphone, Globe
 } from "lucide-react";
 import { getDashboardData, createLink, deleteLink, toggleLink } from "@/lib/links.functions";
 import { getPrimaryShortenerDomain } from "@/lib/shortener-domains.functions";
