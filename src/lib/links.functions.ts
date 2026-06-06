@@ -84,11 +84,12 @@ export const getMyProfile = createServerFn({ method: "GET" })
 export const getDashboardData = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
-    const [linksRes, profileRes, statsRes, domainsRes] = await Promise.all([
+    const [linksRes, profileRes, statsRes, domainsRes, archivedRes] = await Promise.all([
       selectLinks(context.supabase),
       context.supabase.from("profiles").select("*").eq("id", context.userId).single(),
       context.supabase.rpc("get_dashboard_stats" as never, { _user_id: context.userId } as never),
       context.supabase.from("custom_domains").select("domain").eq("user_id", context.userId).eq("verified", true),
+      context.supabase.from("daily_stats").select("day, human_clicks").in("link_id", (await selectLinks(context.supabase)).data?.map((l: any) => l.id) ?? []),
     ]);
     if (linksRes.error) throw new Error(linksRes.error.message);
     if (profileRes.error) throw new Error(profileRes.error.message);
@@ -115,9 +116,15 @@ export const getDashboardData = createServerFn({ method: "GET" })
     }
 
     const clicksByDay: Record<string, number> = {};
+    // Merge archived daily stats with live stats
+    (archivedRes.data ?? []).forEach((row: any) => {
+      const k = row.day;
+      clicksByDay[k] = (clicksByDay[k] ?? 0) + Number(row.human_clicks ?? 0);
+    });
+
     for (let i = 29; i >= 0; i--) {
       const k = new Date(Date.now() - i * 86400000).toISOString().slice(0, 10);
-      clicksByDay[k] = Number(stats.clicksByDay?.[k] ?? 0);
+      clicksByDay[k] = (clicksByDay[k] ?? 0) + Number(stats.clicksByDay?.[k] ?? 0);
     }
 
     return {
