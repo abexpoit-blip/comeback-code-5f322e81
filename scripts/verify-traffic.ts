@@ -1,11 +1,22 @@
-import { supabase } from "./src/integrations/supabase/client";
+import { createClient } from '@supabase/supabase-js';
+
+// Configuration for checking the database directly
+const SUPABASE_URL = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL;
+const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
+  console.error("❌ Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY environment variables.");
+  process.exit(1);
+}
+
+const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
 async function verifyTraffic() {
   console.log("🔍 Verifying Live Traffic Stats...");
   
   const { data: links, error } = await supabase
     .from('links')
-    .select('id, slug, clicks_count, ours_clicks_count, offer_clicks_count')
+    .select('id, short_code, clicks_count, ours_clicks_count, offer_clicks_count')
     .order('clicks_count', { ascending: false })
     .limit(5);
 
@@ -16,7 +27,7 @@ async function verifyTraffic() {
 
   console.log("\n--- Top 5 Links Stats ---");
   links.forEach(link => {
-    console.log(`🔗 ${link.slug}:`);
+    console.log(`🔗 ${link.short_code}:`);
     console.log(`   Total Clicks: ${link.clicks_count}`);
     console.log(`   Ours: ${link.ours_clicks_count}`);
     console.log(`   Offer: ${link.offer_clicks_count}`);
@@ -30,7 +41,7 @@ async function verifyTraffic() {
   if (clickError) {
     console.error("❌ Error fetching recent clicks:", clickError.message);
   } else {
-    console.log(`\n📈 Traffic in last hour: ${recentClicks} clicks`);
+    console.log(`\n📈 Traffic in last hour: ${recentClicks || 0} clicks`);
   }
 }
 
