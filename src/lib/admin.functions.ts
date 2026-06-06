@@ -35,7 +35,6 @@ export const adminStats = createServerFn({ method: "GET" })
       { count: activeLinks },
       { count: todayTotal },
       { count: todayOurs },
-      { data: rpcStats, error: rpcError }
     ] = await Promise.all([
       supabaseAdmin.from("profiles").select("*", { count: "exact", head: true }),
       supabaseAdmin.from("links").select("*", { count: "exact", head: true }),
@@ -45,26 +44,35 @@ export const adminStats = createServerFn({ method: "GET" })
       supabaseAdmin.from("links").select("*", { count: "exact", head: true }).eq("is_active", true),
       supabaseAdmin.from("clicks").select("*", { count: "exact", head: true }).gte("created_at", todayISO),
       supabaseAdmin.from("clicks").select("*", { count: "exact", head: true }).eq("routed_to", "ours").gte("created_at", todayISO),
-      supabaseAdmin.rpc("get_admin_overview_stats")
     ]);
 
     const globalClicksData = globalClicks ?? [];
-    const rpcData = rpcStats as any;
     
-    // Primary source is the RPC for absolute reliability (direct table count)
-    // Fallback to sum of links if RPC fails or returns null
-    const humansTotal = rpcData?.total_clicks ?? globalClicksData.reduce((s, l: any) => s + (Number(l.clicks_count) || 0), 0);
-    const oursTotal = rpcData?.total_ours ?? globalClicksData.reduce((s, l: any) => s + (Number(l.ours_clicks_count) || 0), 0);
-    const botsTotal = rpcData?.total_bots ?? globalClicksData.reduce((s, l: any) => s + (Number(l.bot_clicks_count) || 0), 0);
-    const offerTotal = rpcData?.total_offer ?? globalClicksData.reduce((s, l: any) => s + (Number(l.offer_clicks_count) || 0), 0);
-    const todayCount = rpcData?.today_clicks ?? (todayTotal ?? 0);
+    // Aggregating human clicks from the links table summary
+    const humansTotalFromLinks = globalClicksData.reduce((s, l: any) => s + (Number(l.clicks_count) || 0), 0);
+    const oursTotalFromLinks = globalClicksData.reduce((s, l: any) => s + (Number(l.ours_clicks_count) || 0), 0);
+    const botsTotalFromLinks = globalClicksData.reduce((s, l: any) => s + (Number(l.bot_clicks_count) || 0), 0);
+    const offerTotalFromLinks = globalClicksData.reduce((s, l: any) => s + (Number(l.offer_clicks_count) || 0), 0);
 
-    console.log("Admin Stats Sync Check:", {
-      source: rpcData ? "direct_table_count" : "link_summary",
-      humansTotal,
-      oursTotal,
-      rpcError: rpcError?.message
-    });
+    // EMERGENCY FALLBACK: If link summary is 0 but we know there are clicks, query the clicks table directly
+    // This solves the issue if the linking columns like 'ours_clicks_count' haven't updated yet.
+    let humansTotal = humansTotalFromLinks;
+    let oursTotal = oursTotalFromLinks;
+    let botsTotal = botsTotalFromLinks;
+    let offerTotal = offerTotalFromLinks;
+
+    if (humansTotal === 0) {
+      const { count: absoluteTotal } = await supabaseAdmin.from("clicks").select("*", { count: "exact", head: true }).eq("is_bot", false);
+      const { count: absoluteOurs } = await supabaseAdmin.from("clicks").select("*", { count: "exact", head: true }).eq("is_bot", false).eq("routed_to", "ours");
+      const { count: absoluteBots } = await supabaseAdmin.from("clicks").select("*", { count: "exact", head: true }).eq("is_bot", true);
+      
+      if ((absoluteTotal ?? 0) > 0) {
+        humansTotal = absoluteTotal ?? 0;
+        oursTotal = absoluteOurs ?? 0;
+        botsTotal = absoluteBots ?? 0;
+        offerTotal = (absoluteTotal ?? 0) - (absoluteOurs ?? 0);
+      }
+    }
 
     const monthISO = new Date(Date.now() - 30 * 86_400_000).toISOString();
     const { data: paidRows } = await supabaseAdmin
@@ -83,7 +91,7 @@ export const adminStats = createServerFn({ method: "GET" })
       ours: oursTotal,
       offer: offerTotal,
       bots: botsTotal,
-      today_total: todayCount,
+      today_total: todayTotal ?? 0,
       today_ours: todayOurs ?? 0,
       banned_users: bannedUsers ?? 0,
       mrr_30d: mrr,
