@@ -73,6 +73,8 @@ function AuthenticatedLayout() {
       const { data } = await supabase
         .from("user_roles").select("role").eq("user_id", user?.id).eq("role", "admin").maybeSingle();
       setIsAdmin(!!data);
+      // Track last login
+      await supabase.from("profiles").update({ last_login_at: new Date().toISOString() }).eq("id", user?.id);
     })();
   }, [user]);
 
