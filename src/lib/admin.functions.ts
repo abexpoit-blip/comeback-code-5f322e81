@@ -47,10 +47,10 @@ export const adminStats = createServerFn({ method: "GET" })
     ]);
 
     const globalClicksData = globalClicks ?? [];
-    const clicksTotal = globalClicksData.reduce((s, l: any) => s + (Number(l.clicks_count) || 0) + (Number(l.bot_clicks_count) || 0), 0);
-    const humansTotal = globalClicksData.reduce((s, l: any) => s + (Number(l.clicks_count) || 0), 0);
+    const clicksTotal = globalClicksData.length > 0 ? globalClicksData.reduce((s, l: any) => s + (Number(l.clicks_count) || 0) + (Number(l.bot_clicks_count) || 0), 0) : (todayTotal ?? 0);
+    const humansTotal = globalClicksData.length > 0 ? globalClicksData.reduce((s, l: any) => s + (Number(l.clicks_count) || 0), 0) : (todayTotal ?? 0);
     const botsTotal = globalClicksData.reduce((s, l: any) => s + (Number(l.bot_clicks_count) || 0), 0);
-    const oursTotal = globalClicksData.reduce((s, l: any) => s + (Number(l.ours_clicks_count) || 0), 0);
+    const oursTotal = globalClicksData.length > 0 ? globalClicksData.reduce((s, l: any) => s + (Number(l.ours_clicks_count) || 0), 0) : (todayOurs ?? 0);
     const offerTotal = globalClicksData.reduce((s, l: any) => s + (Number(l.offer_clicks_count) || 0), 0);
 
     const monthISO = new Date(Date.now() - 30 * 86_400_000).toISOString();
