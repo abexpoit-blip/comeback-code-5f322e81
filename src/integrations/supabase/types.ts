@@ -786,7 +786,7 @@ export type Database = {
         }[]
       }
       get_analytics_summary: {
-        Args: { _days?: number; _user_id: string }
+        Args: { _days: number; _user_id: string }
         Returns: Json
       }
       get_dashboard_stats: { Args: { _user_id: string }; Returns: Json }

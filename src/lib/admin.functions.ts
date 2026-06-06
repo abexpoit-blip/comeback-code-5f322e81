@@ -21,32 +21,36 @@ export const adminStats = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
     await assertAdmin(context.userId);
-    const todayISO = new Date(Date.now() - 86_400_000).toISOString();
+    
+    // Use UTC midnight for Today stats to be accurate
+    const now = new Date();
+    const todayISO = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate())).toISOString();
+    
     const [
       { count: users },
       { count: links },
-      { count: clicks },
+      { data: globalClicks },
       { count: pending },
-      { count: ours },
-      { count: offer },
-      { count: bots },
-      { count: todayTotal },
-      { count: todayOurs },
       { count: bannedUsers },
       { count: activeLinks },
+      { count: todayTotal },
+      { count: todayOurs },
     ] = await Promise.all([
       supabaseAdmin.from("profiles").select("*", { count: "exact", head: true }),
       supabaseAdmin.from("links").select("*", { count: "exact", head: true }),
-      supabaseAdmin.from("links").select("clicks_count").then(r => ({ count: (r.data ?? []).reduce((s, l) => s + (l.clicks_count ?? 0), 0) })),
+      supabaseAdmin.from("links").select("clicks_count, ours_clicks_count, offer_clicks_count, bot_clicks_count"),
       supabaseAdmin.from("upgrade_requests").select("*", { count: "exact", head: true }).eq("status", "pending"),
-      supabaseAdmin.from("links").select("ours_clicks_count").then(r => ({ count: (r.data ?? []).reduce((s, l) => s + (l.ours_clicks_count ?? 0), 0) })),
-      supabaseAdmin.from("links").select("offer_clicks_count").then(r => ({ count: (r.data ?? []).reduce((s, l) => s + (l.offer_clicks_count ?? 0), 0) })),
-      supabaseAdmin.from("links").select("bot_clicks_count").then(r => ({ count: (r.data ?? []).reduce((s, l) => s + (l.bot_clicks_count ?? 0), 0) })),
-      supabaseAdmin.from("clicks").select("*", { count: "exact", head: true }).gte("created_at", todayISO),
-      supabaseAdmin.from("clicks").select("*", { count: "exact", head: true }).eq("routed_to", "ours").gte("created_at", todayISO),
       supabaseAdmin.from("profiles").select("*", { count: "exact", head: true }).eq("is_banned", true),
       supabaseAdmin.from("links").select("*", { count: "exact", head: true }).eq("is_active", true),
+      supabaseAdmin.from("clicks").select("*", { count: "exact", head: true }).gte("created_at", todayISO),
+      supabaseAdmin.from("clicks").select("*", { count: "exact", head: true }).eq("routed_to", "ours").gte("created_at", todayISO),
     ]);
+
+    const clicksTotal = (globalClicks ?? []).reduce((s, l) => s + (l.clicks_count ?? 0) + (l.bot_clicks_count ?? 0), 0);
+    const humansTotal = (globalClicks ?? []).reduce((s, l) => s + (l.clicks_count ?? 0), 0);
+    const botsTotal = (globalClicks ?? []).reduce((s, l) => s + (l.bot_clicks_count ?? 0), 0);
+    const oursTotal = (globalClicks ?? []).reduce((s, l) => s + (l.ours_clicks_count ?? 0), 0);
+    const offerTotal = (globalClicks ?? []).reduce((s, l) => s + (l.offer_clicks_count ?? 0), 0);
 
     const monthISO = new Date(Date.now() - 30 * 86_400_000).toISOString();
     const { data: paidRows } = await supabaseAdmin
@@ -60,11 +64,11 @@ export const adminStats = createServerFn({ method: "GET" })
       users: users ?? 0,
       links: links ?? 0,
       active_links: activeLinks ?? 0,
-      clicks: clicks ?? 0,
+      clicks: humansTotal, // human clicks for the primary KPI
       pending: pending ?? 0,
-      ours: ours ?? 0,
-      offer: offer ?? 0,
-      bots: bots ?? 0,
+      ours: oursTotal,
+      offer: offerTotal,
+      bots: botsTotal,
       today_total: todayTotal ?? 0,
       today_ours: todayOurs ?? 0,
       banned_users: bannedUsers ?? 0,
