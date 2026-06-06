@@ -527,7 +527,21 @@ function RevenueTab() {
         </div>
       </Panel>
       <Panel icon={CreditCard} title="Upgrade requests" subtitle="Approve, reject, export to CSV">
-        <div className="mb-4"><Button size="sm" onClick={exportCsv} className="bg-gradient-to-r from-[#FF7E5F] to-[#FEB47B] text-white border-0">Export CSV</Button></div>
+        <div className="mb-4 flex gap-2">
+          <Button size="sm" onClick={exportCsv} className="bg-gradient-to-r from-[#FF7E5F] to-[#FEB47B] text-white border-0">Export CSV</Button>
+          <Button 
+            size="sm" 
+            variant="outline" 
+            onClick={() => {
+              qc.invalidateQueries({ queryKey: ["admin-upgrades"] });
+              toast.success("Refreshing order history...");
+            }} 
+            className="border-[#FFD4BB] flex items-center gap-2"
+          >
+            <RefreshCw className={`w-3 h-3 ${upgrades.isFetching ? "animate-spin" : ""}`} />
+            Refresh
+          </Button>
+        </div>
         <div className="overflow-x-auto -mx-2">
           <table className="w-full text-sm">
             <thead>
