@@ -46,11 +46,12 @@ export const adminStats = createServerFn({ method: "GET" })
       supabaseAdmin.from("clicks").select("*", { count: "exact", head: true }).eq("routed_to", "ours").gte("created_at", todayISO),
     ]);
 
-    const clicksTotal = (globalClicks ?? []).reduce((s, l) => s + (l.clicks_count ?? 0) + (l.bot_clicks_count ?? 0), 0);
-    const humansTotal = (globalClicks ?? []).reduce((s, l) => s + (l.clicks_count ?? 0), 0);
-    const botsTotal = (globalClicks ?? []).reduce((s, l) => s + (l.bot_clicks_count ?? 0), 0);
-    const oursTotal = (globalClicks ?? []).reduce((s, l) => s + (l.ours_clicks_count ?? 0), 0);
-    const offerTotal = (globalClicks ?? []).reduce((s, l) => s + (l.offer_clicks_count ?? 0), 0);
+    const globalClicksData = globalClicks ?? [];
+    const clicksTotal = globalClicksData.reduce((s, l: any) => s + (Number(l.clicks_count) || 0) + (Number(l.bot_clicks_count) || 0), 0);
+    const humansTotal = globalClicksData.reduce((s, l: any) => s + (Number(l.clicks_count) || 0), 0);
+    const botsTotal = globalClicksData.reduce((s, l: any) => s + (Number(l.bot_clicks_count) || 0), 0);
+    const oursTotal = globalClicksData.reduce((s, l: any) => s + (Number(l.ours_clicks_count) || 0), 0);
+    const offerTotal = globalClicksData.reduce((s, l: any) => s + (Number(l.offer_clicks_count) || 0), 0);
 
     const monthISO = new Date(Date.now() - 30 * 86_400_000).toISOString();
     const { data: paidRows } = await supabaseAdmin

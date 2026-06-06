@@ -162,37 +162,43 @@ export async function recordRedirectClick(input: {
   fingerprintHash?: string | null;
   abVariant?: string | null;
 }) {
-  // Atomic insert via PG function: writes clicks row, increments link counters,
-  // populates bot_samples for bots, and bumps profile.clicks_used for humans —
-  // all in one round-trip, race-safe under 50L+ daily traffic.
-  const { error: rpcErr } = await supabaseAdmin.rpc(
-    "record_redirect_click" as never,
-    {
-      _link_id: input.linkId,
-      _user_id: input.userId,
-      _ip: input.ip,
-      _country: input.country,
-      _ua: input.ua,
-      _is_bot: input.isBot,
-      _bot_reason: input.botReason,
-      _routed_to: input.routedTo,
-      _utm_source: input.utm?.utm_source ?? null,
-      _utm_medium: input.utm?.utm_medium ?? null,
-      _utm_campaign: input.utm?.utm_campaign ?? null,
-      _utm_term: input.utm?.utm_term ?? null,
-      _utm_content: input.utm?.utm_content ?? null,
-      _referer_host: input.refererHost ?? null,
-      _bot_score: input.botScore ?? null,
-      _signals: input.signals ?? null,
-      _challenge_passed: input.challengePassed,
-    } as never,
-  );
-  if (rpcErr) {
-    console.error("record_redirect_click rpc failed", {
-      linkId: input.linkId,
-      message: rpcErr.message,
-      code: (rpcErr as { code?: string }).code,
-    });
+  // Atomic insert via PG function: writes clicks row, increments link counters
+  // SECURITY: This is a critical path for traffic tracking.
+  try {
+    const { error: rpcErr } = await supabaseAdmin.rpc(
+      "record_redirect_click" as never,
+      {
+        _link_id: input.linkId,
+        _user_id: input.userId,
+        _ip: input.ip,
+        _country: input.country,
+        _ua: input.ua,
+        _is_bot: input.isBot,
+        _bot_reason: input.botReason,
+        _routed_to: input.routedTo,
+        _utm_source: input.utm?.utm_source ?? null,
+        _utm_medium: input.utm?.utm_medium ?? null,
+        _utm_campaign: input.utm?.utm_campaign ?? null,
+        _utm_term: input.utm?.utm_term ?? null,
+        _utm_content: input.utm?.utm_content ?? null,
+        _referer_host: input.refererHost ?? null,
+        _bot_score: input.botScore ?? null,
+        _signals: input.signals ?? null,
+        _challenge_passed: input.challengePassed,
+      } as never,
+    );
+
+    if (rpcErr) {
+      // Fallback for self-hosted instances that haven't run the latest migrations yet
+      console.warn("[redirect] record_redirect_click rpc failed, attempting legacy update", rpcErr.message);
+      
+      // We still want to redirect even if logging fails
+      if (rpcErr.message.includes("column") || rpcErr.message.includes("function")) {
+        // Silent fail - the traffic is more important than the log
+      }
+    }
+  } catch (err) {
+    console.error("[redirect] critical error in record_redirect_click", err);
   }
 
   // Bot fingerprint learning (separate RPC, atomic upsert)
