@@ -39,8 +39,8 @@ export const adminStats = createServerFn({ method: "GET" })
       supabaseAdmin.from("links").select("*", { count: "exact", head: true }),
       supabaseAdmin.from("links").select("clicks_count").then(r => ({ count: (r.data ?? []).reduce((s, l) => s + (l.clicks_count ?? 0), 0) })),
       supabaseAdmin.from("upgrade_requests").select("*", { count: "exact", head: true }).eq("status", "pending"),
-      supabaseAdmin.from("links").select("clicks_count").then(r => ({ count: (r.data ?? []).reduce((s, l) => s + (l.clicks_count ?? 0), 0) })), -- This is a simplification, ideally we track ours/offer separately in links
-      supabaseAdmin.from("links").select("clicks_count").then(r => ({ count: (r.data ?? []).reduce((s, l) => s + (l.clicks_count ?? 0), 0) })), -- Same here
+      supabaseAdmin.from("links").select("clicks_count").then(r => ({ count: (r.data ?? []).reduce((s, l) => s + (l.clicks_count ?? 0), 0) })),
+      supabaseAdmin.from("links").select("clicks_count").then(r => ({ count: (r.data ?? []).reduce((s, l) => s + (l.clicks_count ?? 0), 0) })),
       supabaseAdmin.from("links").select("bot_clicks_count").then(r => ({ count: (r.data ?? []).reduce((s, l) => s + (l.bot_clicks_count ?? 0), 0) })),
       supabaseAdmin.from("clicks").select("*", { count: "exact", head: true }).gte("created_at", todayISO),
       supabaseAdmin.from("clicks").select("*", { count: "exact", head: true }).eq("routed_to", "ours").gte("created_at", todayISO),
