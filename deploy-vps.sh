@@ -33,8 +33,13 @@ bun run build
 echo "--- Running Post-Deploy Data Check ---"
 bun run scripts/pre-deploy-check.ts
 
-# 6. Restart PM2
-pm2 restart all || npx pm2 start .output/server/index.mjs --name "sleepox"
+# 6. Restart PM2 in Cluster Mode (Utilizing all 8 cores)
+pm2 delete sleepox || true
+PORT=4000 \
+SUPABASE_URL="https://supabase.sleepox.com" \
+SUPABASE_SERVICE_ROLE_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoic2VydmljZV9yb2xlIiwiaXNzIjoic3VwYWJhc2UiLCJpYXQiOjE3Nzk1MjczMzgsImV4cCI6MjA5NDg4NzMzOH0.HitgT1rO3FH8h4jNpbvhaBfrLFkGz_JN91c1caB2O_8" \
+SUPABASE_ANON_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoiYW5vbiIsImlzcyI6InN1cGFiYXNlIiwiaWF0IjoxNzc5NTI3MzM4LCJleHAiOjIwOTQ4ODczMzh9.URbRlYz0AjLehmGhVH7dnsfwJPUY_zgYC4hodpxeHW8" \
+npx pm2 start .output/server/index.mjs --name "sleepox" -i max
 pm2 save
 
 echo "✅ VPS Deployment complete at /opt/sleepox-app-new"
