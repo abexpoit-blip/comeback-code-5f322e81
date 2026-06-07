@@ -28,17 +28,17 @@ async function fetchPlisioOperation(txnId: string, apiKey: string) {
 
 function packageQuota(pkg: { slug?: string | null; click_quota?: number | null; link_limit?: number | null }) {
   const slug = String(pkg.slug ?? "").toLowerCase();
-  // Lifetime Unlimited: NULL quota = Unlimited
+  // Lifetime Unlimited: NULL quota = Unlimited (DB trigger handles NULL safely)
   if (slug === "lifetime" || slug === "unlimited") {
     return { click_quota: null, link_limit: null };
   }
-  // Monthly Pro: 1,000,000 clicks, 500 links
+  // Monthly Pro: 1,000,000 clicks, 50 links
   if (slug === "monthly" || slug === "pro_monthly") {
-    return { click_quota: 1_000_000, link_limit: 500 };
+    return { click_quota: 1_000_000, link_limit: 50 };
   }
-  // Free: 10,000 clicks, 50 links
+  // Free: 10,000 clicks, 1 link
   if (slug === "free" || slug === "starter") {
-    return { click_quota: 10_000, link_limit: 50 };
+    return { click_quota: 10_000, link_limit: 1 };
   }
   return { click_quota: pkg.click_quota ?? null, link_limit: pkg.link_limit ?? null };
 }
