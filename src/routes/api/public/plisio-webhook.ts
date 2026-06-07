@@ -100,11 +100,18 @@ export const Route = createFileRoute("/api/public/plisio-webhook")({
         let userId = "";
         let packageSlug = "";
 
-        let { data: req } = await supabaseAdmin
-          .from("upgrade_requests")
-          .select("id, user_id, package_slug, status")
-          .eq("id", orderNumber)
-          .maybeSingle();
+        let req = null;
+        try {
+          const { data } = await supabaseAdmin
+            .from("upgrade_requests")
+            .select("id, user_id, package_slug, status")
+            .eq("id", orderNumber)
+            .maybeSingle();
+          req = data;
+        } catch (e) {
+          console.error("[plisio] upgrade_requests query failed", e);
+        }
+
 
         if (req) {
           userId = req.user_id;
