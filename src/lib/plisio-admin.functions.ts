@@ -21,10 +21,12 @@ export const adminListPlisioLogs = createServerFn({ method: "GET" })
       
     if (error) throw new Error(error.message);
 
-    // Fetch user emails for the logs that have an order_number (which is the upgrade_request id)
-    const orderIds = Array.from(new Set((logs ?? [])
+    const typedLogs = (logs || []) as any[];
+
+    // Fetch user emails for the logs that have an order_number
+    const orderIds = Array.from(new Set(typedLogs
       .map(l => l.order_number)
-      .filter(id => id && id.length > 20))); // Basic UUID check
+      .filter((id): id is string => !!id && id.length > 20)));
 
     if (orderIds.length > 0) {
       const { data: requests } = await supabaseAdmin
@@ -43,13 +45,14 @@ export const adminListPlisioLogs = createServerFn({ method: "GET" })
         const emailMap = Object.fromEntries((profiles ?? []).map(p => [p.id, p.email]));
         const orderToUserMap = Object.fromEntries((requests ?? []).map(r => [r.id, r.user_id]));
 
-        return (logs ?? []).map(l => ({
+        return typedLogs.map(l => ({
           ...l,
           user_email: l.order_number ? emailMap[orderToUserMap[l.order_number] || ""] : "Unknown"
         }));
       }
     }
 
-    return logs;
+    return typedLogs;
   });
+
 
