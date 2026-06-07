@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# 1. Update source code
-cd /opt/sleepox-app-new
-git fetch origin
-git reset --hard origin/main
-git pull origin main
+# 1. Update source code (already in repo root)
+# git fetch origin
+# git reset --hard origin/main
+# git pull origin main
+
 
 # 2. Setup Environment Variables
 # These keys are verified to connect to the database with 500k+ clicks.
