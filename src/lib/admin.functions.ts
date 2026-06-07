@@ -71,10 +71,16 @@ export const adminStats = createServerFn({ method: "GET" })
 
     const monthISO = new Date(Date.now() - 30 * 86_400_000).toISOString();
     const { data: paidRows } = await supabaseAdmin
-      .from("upgrade_requests").select("amount").eq("status", "paid").gte("created_at", monthISO);
+      .from("upgrade_requests")
+      .select("amount")
+      .or("status.eq.paid,status.eq.completed,status.eq.success,status.eq.finished")
+      .gte("created_at", monthISO);
     const mrr = (paidRows ?? []).reduce((s, r: any) => s + Number(r.amount || 0), 0);
     const { data: allPaid } = await supabaseAdmin
-      .from("upgrade_requests").select("amount").eq("status", "paid");
+      .from("upgrade_requests")
+      .select("amount")
+      .or("status.eq.paid,status.eq.completed,status.eq.success,status.eq.finished");
+
     const totalRevenue = (allPaid ?? []).reduce((s, r: any) => s + Number(r.amount || 0), 0);
 
     return {
@@ -373,8 +379,9 @@ export const adminListUpgradeRequests = createServerFn({ method: "GET" })
 
     const { data, error } = await supabaseAdmin
       .from("upgrade_requests")
-      .select("id, user_id, package_slug, amount, status, plisio_invoice_id, plisio_invoice_url, created_at, updated_at")
+      .select("id, user_id, package_slug, amount, status, plisio_invoice_id, plisio_invoice_url, created_at")
       .order("created_at", { ascending: false })
+
       .limit(500);
     if (error) throw new Error(error.message);
     const ids = Array.from(new Set((data ?? []).map((r: any) => r.user_id)));
