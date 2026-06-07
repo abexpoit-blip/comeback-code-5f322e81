@@ -121,7 +121,7 @@ export const Route = createFileRoute("/api/public/plisio-webhook")({
         // Plisio "completed" === fully paid → store as "paid" so revenue queries
         // (which filter by status="paid") count crypto payments correctly.
         const internalStatus =
-          status === "completed" || status === "mismatch" || status === "finished" ? "paid" :
+          status === "completed" || status === "mismatch" || status === "finished" || status === "success" ? "paid" :
           status === "expired" || status === "cancelled" || status === "error" ? "expired" :
           status;
 
