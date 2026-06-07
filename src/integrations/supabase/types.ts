@@ -620,6 +620,36 @@ export type Database = {
         }
         Relationships: []
       }
+      plisio_event_logs: {
+        Row: {
+          created_at: string | null
+          id: string
+          order_number: string | null
+          processed_at: string | null
+          raw_body: Json | null
+          status: string | null
+          txn_id: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          order_number?: string | null
+          processed_at?: string | null
+          raw_body?: Json | null
+          status?: string | null
+          txn_id?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          order_number?: string | null
+          processed_at?: string | null
+          raw_body?: Json | null
+          status?: string | null
+          txn_id?: string | null
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           avatar_url: string | null
