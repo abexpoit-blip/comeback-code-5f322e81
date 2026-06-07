@@ -26,22 +26,8 @@ async function fetchPlisioOperation(txnId: string, apiKey: string) {
   return null;
 }
 
-function packageQuota(pkg: { slug?: string | null; click_quota?: number | null; link_limit?: number | null }) {
-  const slug = String(pkg.slug ?? "").toLowerCase();
-  // Lifetime Unlimited: NULL quota = Unlimited (DB trigger handles NULL safely)
-  if (slug === "lifetime" || slug === "unlimited") {
-    return { click_quota: null, link_limit: null };
-  }
-  // Monthly Pro: 1,000,000 clicks, 50 links
-  if (slug === "monthly" || slug === "pro_monthly") {
-    return { click_quota: 1_000_000, link_limit: 50 };
-  }
-  // Free: 10,000 clicks, 1 link
-  if (slug === "free" || slug === "starter") {
-    return { click_quota: 10_000, link_limit: 1 };
-  }
-  return { click_quota: pkg.click_quota ?? null, link_limit: pkg.link_limit ?? null };
-}
+// Replaced by database-driven quota lookup in processing block
+
 
 export const Route = createFileRoute("/api/public/plisio-webhook")({
   server: {
@@ -172,17 +158,17 @@ export const Route = createFileRoute("/api/public/plisio-webhook")({
               .from("packages").select("slug, click_quota, link_limit")
               .eq("slug", packageSlug).single();
             if (pkg) {
-              const quota = packageQuota(pkg);
               await supabaseAdmin
                 .from("profiles")
                 .update({
                   plan_slug: pkg.slug,
-                  click_quota: quota.click_quota,
-                  link_limit: quota.link_limit,
+                  click_quota: pkg.click_quota,
+                  link_limit: pkg.link_limit,
                   clicks_used: 0,
                   clicks_period_start: new Date().toISOString(),
                 })
                 .eq("id", userId);
+
               
               try {
                 await supabaseAdmin.from("plisio_event_logs")
