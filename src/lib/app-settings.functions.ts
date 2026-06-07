@@ -5,16 +5,20 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 export const getAppSettings = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async () => {
+    // Use admin client for bypass RLS on system-wide settings
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { data, error } = await supabaseAdmin
       .from("app_settings")
       .select("*")
       .eq("id", true)
       .maybeSingle();
-    if (error) throw new Error(error.message);
+    
+    if (error) {
+      console.error("[app-settings] fetch failed:", error.message);
+      throw new Error(error.message);
+    }
     return data;
   });
-
 
 export const updateAppSettings = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
@@ -29,22 +33,31 @@ export const updateAppSettings = createServerFn({ method: "POST" })
     }).parse(d),
   )
   .handler(async ({ data, context }) => {
-    // SECURITY: Use service role client for admin operations to bypass RLS
+    // SECURITY: Use service role client for admin operations
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     
     // Explicit admin check
     const { data: roleRow } = await supabaseAdmin
       .from("user_roles").select("role").eq("user_id", context.userId).eq("role", "admin").maybeSingle();
-    if (!roleRow) throw new Error("Admin only");
+    
+    if (!roleRow) {
+      console.error("[app-settings] unauthorized update attempt by", context.userId);
+      throw new Error("Admin only");
+    }
 
     const { error } = await supabaseAdmin
       .from("app_settings")
       .update(data as any)
       .eq("id", true);
-    if (error) throw new Error(error.message);
+
+    if (error) {
+      console.error("[app-settings] update failed:", error.message);
+      throw new Error(error.message);
+    }
+
+    // Success
     return { ok: true };
   });
-
 
 /**
  * Daily auto-redirect: returns the fallback URL the FIRST time the user
@@ -53,7 +66,10 @@ export const updateAppSettings = createServerFn({ method: "POST" })
 export const consumeDailyRedirect = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
-    const { data: settings } = await context.supabase
+    // Use admin client to ensure settings are always readable
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    
+    const { data: settings } = await supabaseAdmin
       .from("app_settings")
       .select("fallback_url, daily_redirect_enabled")
       .eq("id", true)
@@ -61,7 +77,7 @@ export const consumeDailyRedirect = createServerFn({ method: "POST" })
 
     if (!settings || !settings.daily_redirect_enabled) return { url: null as string | null };
 
-    const { data: profile } = await context.supabase
+    const { data: profile } = await supabaseAdmin
       .from("profiles")
       .select("last_daily_redirect_at")
       .eq("id", context.userId)
@@ -77,7 +93,7 @@ export const consumeDailyRedirect = createServerFn({ method: "POST" })
 
     if (sameUTCDay) return { url: null as string | null };
 
-    await context.supabase
+    await supabaseAdmin
       .from("profiles")
       .update({ last_daily_redirect_at: now.toISOString() })
       .eq("id", context.userId);
