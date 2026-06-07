@@ -18,20 +18,22 @@ VITE_SUPABASE_PUBLISHABLE_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoi
 VITE_SUPABASE_ANON_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoiYW5vbiIsImlzcyI6InN1cGFiYXNlIiwiaWF0IjoxNzc5NTI3MzM4LCJleHAiOjIwOTQ4ODczMzh9.URbRlYz0AjLehmGhVH7dnsfwJPUY_zgYC4hodpxeHW8"
 PLISIO_API_KEY="SkkZKl5C_QLes32hefTT3xokoeSrgf1CWc2SUn5C8u4GioW88bgPvxoLxXZV1ORb"
 PORT=4000
-# Supabase Backend Internal Keys (Reference Only)
-# JWT_SECRET=18a2a6262cfb62820f9c5ed7452809ed3469ba0b814b9884417f3bd83889a594
-# POSTGRES_PASSWORD=d628c0fc3707abe6c56ed2db5c584b89f83475a199476f34
-# DASHBOARD_PASSWORD=7a045062ea340b6b1f5f6dea4a5e86ac
-# SECRET_KEY_BASE=01f2fe3a7043d2eacc6537bde67aeb427dd51d3a2d249e4f9e41edc89b1151e2
-# VAULT_ENC_KEY=241ec31985b4abe024e103241dec9357
 ENV
 
-# 3. Clean build
+# 3. Data Integrity Check (Pre-Deploy)
+echo "--- Running Data Integrity Check ---"
+bun run scripts/pre-deploy-check.ts || { echo "❌ Data check failed!"; exit 1; }
+
+# 4. Clean build
 rm -rf .output dist
 bun install
 bun run build
 
-# 4. Restart PM2
+# 5. Data Integrity Check (Post-Deploy)
+echo "--- Running Post-Deploy Data Check ---"
+bun run scripts/pre-deploy-check.ts
+
+# 6. Restart PM2
 pm2 restart all || npx pm2 start .output/server/index.mjs --name "sleepox"
 pm2 save
 
