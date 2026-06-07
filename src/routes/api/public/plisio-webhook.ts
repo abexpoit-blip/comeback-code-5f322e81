@@ -75,13 +75,18 @@ export const Route = createFileRoute("/api/public/plisio-webhook")({
         const orderNumber = body.order_number;
         let status = body.status;
 
-        // 1. LOG THE EVENT IMMEDIATELY
-        await supabaseAdmin.from("plisio_event_logs").insert({
-          txn_id: txnId,
-          order_number: orderNumber,
-          status: status,
-          raw_body: body,
-        });
+        // 1. LOG THE EVENT IMMEDIATELY (wrapped in try-catch to prevent schema issues from blocking processing)
+        try {
+          await supabaseAdmin.from("plisio_event_logs").insert({
+            txn_id: txnId,
+            order_number: orderNumber,
+            status: status,
+            raw_body: body,
+          });
+        } catch (logErr) {
+          console.error("[plisio] logging failed", logErr);
+        }
+
 
         // 2. VERIFY
         let verified = false;
@@ -124,12 +129,18 @@ export const Route = createFileRoute("/api/public/plisio-webhook")({
           
           // If Plisio didn't give us an orderNumber (uuid), we might have trouble, 
           // but we can look in our own logs for previous events with this txnId
-          const { data: previousLog } = await supabaseAdmin
-            .from("plisio_event_logs")
-            .select("order_number")
-            .eq("txn_id", txnId)
-            .not("order_number", "is", null)
-            .maybeSingle();
+          let previousLog = null;
+          try {
+            const { data } = await supabaseAdmin
+              .from("plisio_event_logs")
+              .select("order_number")
+              .eq("txn_id", txnId)
+              .not("order_number", "is", null)
+              .maybeSingle();
+            previousLog = data;
+          } catch (e) {}
+
+
           
           const recoveryId = orderNumber || previousLog?.order_number;
           
@@ -173,9 +184,12 @@ export const Route = createFileRoute("/api/public/plisio-webhook")({
                 })
                 .eq("id", userId);
               
-              await supabaseAdmin.from("plisio_event_logs")
-                .update({ processed_at: new Date().toISOString() })
-                .eq("txn_id", txnId);
+              try {
+                await supabaseAdmin.from("plisio_event_logs")
+                  .update({ processed_at: new Date().toISOString() })
+                  .eq("txn_id", txnId);
+              } catch (e) {}
+
             }
           }
         }
