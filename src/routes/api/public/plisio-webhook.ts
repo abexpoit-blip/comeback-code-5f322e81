@@ -155,10 +155,12 @@ export const Route = createFileRoute("/api/public/plisio-webhook")({
 
         // 4. UPDATE ORDER AND APPLY PACKAGE
         if (req) {
+          // We remove updated_at because it might not exist in some DB versions
           await supabaseAdmin
             .from("upgrade_requests")
-            .update({ status: internalStatus, updated_at: new Date().toISOString() })
+            .update({ status: internalStatus })
             .eq("id", req.id);
+
 
           if (internalStatus === "paid" && req.status !== "paid") {
             const { data: pkg } = await supabaseAdmin
