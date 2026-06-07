@@ -13,7 +13,7 @@ function packageQuota(pkg: any) {
   const slug = String(pkg.slug ?? "").toLowerCase().trim();
   if (slug === "lifetime" || slug === "unlimited") return { click_quota: null, link_limit: null };
   if (slug === "monthly" || slug === "pro_monthly" || slug === "pro" || slug === "monthly_pro") return { click_quota: 1_000_000, link_limit: 50 };
-  if (slug === "free") return { click_quota: 10_000, link_limit: 1 };
+  if (slug === "free" || slug === "starter") return { click_quota: 10_000, link_limit: 1 };
   return { click_quota: Number(pkg.click_quota) || null, link_limit: Number(pkg.link_limit) || null };
 }
 
