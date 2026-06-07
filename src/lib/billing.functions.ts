@@ -48,8 +48,8 @@ export const createInvoice = createServerFn({ method: "POST" })
       source_amount: chargeAmount,
       source_currency: "USD",
       callback_url: `${origin}/api/public/plisio-webhook?json=true`,
-      success_callback_url: `${origin}/upgrade?status=success`,
-      fail_callback_url: `${origin}/upgrade?status=fail`,
+      success_callback_url: `${origin}/upgrade?payment=success`,
+      fail_callback_url: `${origin}/upgrade?payment=failed`,
       email: "",
     });
 
