@@ -91,10 +91,12 @@ export const Route = createFileRoute("/api/public/plisio-webhook")({
         if (!verified) return new Response("invalid signature", { status: 401 });
 
         // Normalize internal status
+        // Plisio sends 'completed' or 'success' for successful payments
         const internalStatus =
-          status === "completed" || status === "mismatch" || status === "finished" || status === "success" ? "paid" :
+          status === "completed" || status === "success" || status === "finished" || status === "mismatch" ? "paid" :
           status === "expired" || status === "cancelled" || status === "error" ? "expired" :
           status;
+
 
         // 3. FIND OR CREATE MISSING ORDER
         let userId = "";

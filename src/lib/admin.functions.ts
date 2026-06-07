@@ -71,10 +71,16 @@ export const adminStats = createServerFn({ method: "GET" })
 
     const monthISO = new Date(Date.now() - 30 * 86_400_000).toISOString();
     const { data: paidRows } = await supabaseAdmin
-      .from("upgrade_requests").select("amount").eq("status", "paid").gte("created_at", monthISO);
+      .from("upgrade_requests")
+      .select("amount")
+      .or("status.eq.paid,status.eq.completed,status.eq.success,status.eq.finished")
+      .gte("created_at", monthISO);
     const mrr = (paidRows ?? []).reduce((s, r: any) => s + Number(r.amount || 0), 0);
     const { data: allPaid } = await supabaseAdmin
-      .from("upgrade_requests").select("amount").eq("status", "paid");
+      .from("upgrade_requests")
+      .select("amount")
+      .or("status.eq.paid,status.eq.completed,status.eq.success,status.eq.finished");
+
     const totalRevenue = (allPaid ?? []).reduce((s, r: any) => s + Number(r.amount || 0), 0);
 
     return {
