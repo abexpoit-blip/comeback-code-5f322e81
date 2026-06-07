@@ -1648,7 +1648,7 @@ function PlisioLogsTab() {
           <thead>
             <tr className="text-left text-[10px] font-bold uppercase tracking-widest text-[#7A5C45]">
               <Th>Time</Th>
-              <Th>Order ID</Th>
+              <Th>User / Order</Th>
               <Th>Txn ID</Th>
               <Th>Status</Th>
               <Th>Processed</Th>
@@ -1658,7 +1658,10 @@ function PlisioLogsTab() {
             {logs?.length ? logs.map((log: any) => (
               <tr key={log.id} className="border-t border-[#FFE4D0]/60 hover:bg-[#FF7E5F]/5">
                 <Td className="whitespace-nowrap text-xs">{new Date(log.created_at).toLocaleString()}</Td>
-                <Td className="font-mono text-[10px]">{log.order_number || "—"}</Td>
+                <Td>
+                  <div className="font-bold text-[#2D1B0D]">{log.user_email || "Unknown User"}</div>
+                  <div className="text-[9px] font-mono text-[#A8907A]">{log.order_number || "No Order ID"}</div>
+                </Td>
                 <Td className="font-mono text-[10px]">{log.txn_id || "—"}</Td>
                 <Td><StatusPill status={log.status} /></Td>
                 <Td>
@@ -1676,6 +1679,7 @@ function PlisioLogsTab() {
             )) : (
               <tr><td colSpan={5} className="p-8 text-center text-[#A8907A]">No Plisio events logged yet.</td></tr>
             )}
+
           </tbody>
         </table>
       </div>
