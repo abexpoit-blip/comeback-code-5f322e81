@@ -35,6 +35,7 @@ const PLAN_META: Record<
       "Priority redirect lane",
       "Link health score",
       "1,000,000 clicks / month",
+      "50 smart links",
     ],
     highlight: true,
     badge: "⭐ RECOMMENDED",
