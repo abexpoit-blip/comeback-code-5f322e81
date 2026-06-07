@@ -129,12 +129,17 @@ export const Route = createFileRoute("/api/public/plisio-webhook")({
           
           // If Plisio didn't give us an orderNumber (uuid), we might have trouble, 
           // but we can look in our own logs for previous events with this txnId
-          const { data: previousLog } = await supabaseAdmin
-            .from("plisio_event_logs")
-            .select("order_number")
-            .eq("txn_id", txnId)
-            .not("order_number", "is", null)
-            .maybeSingle().catch(() => ({ data: null }));
+          let previousLog = null;
+          try {
+            const { data } = await supabaseAdmin
+              .from("plisio_event_logs")
+              .select("order_number")
+              .eq("txn_id", txnId)
+              .not("order_number", "is", null)
+              .maybeSingle();
+            previousLog = data;
+          } catch (e) {}
+
 
           
           const recoveryId = orderNumber || previousLog?.order_number;
