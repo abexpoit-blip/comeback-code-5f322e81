@@ -28,9 +28,18 @@ async function fetchPlisioOperation(txnId: string, apiKey: string) {
 
 function packageQuota(pkg: { slug?: string | null; click_quota?: number | null; link_limit?: number | null }) {
   const slug = String(pkg.slug ?? "").toLowerCase();
-  if (slug === "lifetime" || slug === "unlimited") return { click_quota: null, link_limit: null };
-  if (slug === "monthly" || slug === "pro_monthly") return { click_quota: 1_000_000, link_limit: 50 };
-  if (slug === "free" || slug === "starter") return { click_quota: 10_000, link_limit: 1 };
+  // Lifetime Unlimited: NULL quota = Unlimited
+  if (slug === "lifetime" || slug === "unlimited") {
+    return { click_quota: null, link_limit: null };
+  }
+  // Monthly Pro: 1,000,000 clicks, 500 links
+  if (slug === "monthly" || slug === "pro_monthly") {
+    return { click_quota: 1_000_000, link_limit: 500 };
+  }
+  // Free: 10,000 clicks, 50 links
+  if (slug === "free" || slug === "starter") {
+    return { click_quota: 10_000, link_limit: 50 };
+  }
   return { click_quota: pkg.click_quota ?? null, link_limit: pkg.link_limit ?? null };
 }
 
@@ -110,14 +119,33 @@ export const Route = createFileRoute("/api/public/plisio-webhook")({
           userId = req.user_id;
           packageSlug = req.package_slug;
         } else {
-          // EMERGENCY RECOVERY: Order missing from DB but exists in Plisio
-          console.warn("[plisio] recovery: order missing from DB, fetching from Plisio", { txnId });
-          const opData = await fetchPlisioOperation(txnId!, apiKey);
-          if (opData && opData.order_number) {
-            // Check if user ID was passed in custom fields or if we can extract it
-            // For now, if order_number is a UUID, we check if it matches a user's ID directly as a fallback
-            // but usually order_number IS the upgrade_request ID. 
-            // If it's still missing, we log it as processed_at = null for manual review.
+          // EMERGENCY RECOVERY: Order missing from DB but exists in Plisio callback
+          console.warn("[plisio] recovery: order missing from DB, checking callback data", { txnId, orderNumber });
+          
+          // If Plisio didn't give us an orderNumber (uuid), we might have trouble, 
+          // but we can look in our own logs for previous events with this txnId
+          const { data: previousLog } = await supabaseAdmin
+            .from("plisio_event_logs")
+            .select("order_number")
+            .eq("txn_id", txnId)
+            .not("order_number", "is", null)
+            .maybeSingle();
+          
+          const recoveryId = orderNumber || previousLog?.order_number;
+          
+          if (recoveryId) {
+             const { data: recoveredReq } = await supabaseAdmin
+              .from("upgrade_requests")
+              .select("id, user_id, package_slug, status")
+              .eq("id", recoveryId)
+              .maybeSingle();
+              
+            if (recoveredReq) {
+              req = recoveredReq;
+              userId = req.user_id;
+              packageSlug = req.package_slug;
+              console.log("[plisio] recovered order for user", userId);
+            }
           }
         }
 
