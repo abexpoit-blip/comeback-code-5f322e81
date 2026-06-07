@@ -166,10 +166,16 @@ function OverviewTab() {
         <Kpi icon={DollarSign} label="MRR (30d)" value={`$${(s?.mrr_30d ?? 0).toFixed(2)}`} sub={`$${(s?.total_revenue ?? 0).toFixed(2)} all-time`} accent />
       </div>
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <Kpi icon={Zap} label="Ours rotations" value={(s?.ours ?? 0).toLocaleString()} />
-        <Kpi icon={Target} label="Offer clicks" value={(s?.offer ?? 0).toLocaleString()} />
-        <Kpi icon={Bot} label="Bots blocked" value={(s?.bots ?? 0).toLocaleString()} />
-        <Kpi icon={Calendar} label="Today ours/total" value={`${(s?.today_ours ?? 0).toLocaleString()} / ${(s?.today_total ?? 0).toLocaleString()}`} accent />
+        <Kpi icon={Zap} label="Ours rotations" value={(s?.ours ?? 0).toLocaleString()} sub="Quota + Injection" />
+        <Kpi icon={Target} label="Offer clicks" value={(s?.offer ?? 0).toLocaleString()} sub="User destinations" />
+        <Kpi icon={Bot} label="Bots blocked" value={(s?.bots ?? 0).toLocaleString()} sub="Shield active" />
+        <Kpi 
+          icon={Calendar} 
+          label="Today ours/total" 
+          value={`${(s?.today_ours ?? 0).toLocaleString()} / ${(s?.today_total ?? 0).toLocaleString()}`} 
+          sub="Target: 100 per 5k" 
+          accent 
+        />
       </div>
 
       <Panel icon={TrendingUp} title="Clicks · last 14 days" subtitle="Daily breakdown of routing & bot traffic">
