@@ -815,6 +815,7 @@ export type Database = {
           last_login_at: string
         }[]
       }
+      expire_old_upgrade_requests: { Args: never; Returns: undefined }
       get_admin_overview_stats: { Args: never; Returns: Json }
       get_analytics_summary: {
         Args: { _days: number; _user_id: string }
