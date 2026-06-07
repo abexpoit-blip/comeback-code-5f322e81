@@ -26,7 +26,7 @@ import {
   adminListBotRules, adminUpsertBotRule, adminDeleteBotRule,
   adminListCloakingRules, adminUpsertCloakingRule, adminDeleteCloakingRule,
   adminListCountryTiers, adminUpsertCountryTier, adminDeleteCountryTier,
-  adminUserDetail, adminImpersonate,
+  adminUserDetail, adminImpersonate, adminFixUnlimitedMonthly,
   adminListErrors, adminErrorStats, adminResolveError, adminDeleteError, adminClearResolvedErrors,
   adminGetInactiveUsers, adminRunMaintenance, adminDeleteUsers
 } from "@/lib/admin.functions";
