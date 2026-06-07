@@ -12,8 +12,12 @@ echo "--- Building ---"
 bun install
 bun run build
 
-# 3. Restart PM2
+# 3. Restart PM2 (Ensuring Cluster Mode for 8 cores)
 echo "--- Restarting PM2 ---"
-pm2 restart all
+# Deleting and restarting with ecosystem config ensures 'instances: max' is applied
+pm2 delete sleepox || true
+pm2 start ecosystem.config.cjs --env production
+pm2 save
 
-echo "✅ Deployment complete"
+echo "✅ Deployment complete with 8 cores"
+
