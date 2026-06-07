@@ -509,8 +509,20 @@ function RevenueTab() {
   const upgradesFn = useServerFn(adminListUpgradeRequests);
   const decideFn = useServerFn(adminDecideUpgradeRequest);
   const revTsFn = useServerFn(adminRevenueTimeseries);
+  
+  const [range, setRange] = useState<"7d" | "30d" | "90d">("30d");
+  const daysMap = { "7d": 7, "30d": 30, "90d": 90 };
+
   const upgrades = useQuery({ queryKey: ["admin-upgrades"], queryFn: () => upgradesFn() });
-  const revTs = useQuery({ queryKey: ["admin-rev-ts"], queryFn: () => revTsFn() });
+  const revTs = useQuery({ 
+    queryKey: ["admin-rev-ts", range], 
+    queryFn: () => revTsFn({ data: { days: daysMap[range] } }) 
+  });
+  
+  const statsFn = useServerFn(adminStats);
+  const stats = useQuery({ queryKey: ["admin-stats"], queryFn: () => statsFn() });
+  const s = stats.data;
+
   const decideMut = useMutation({
     mutationFn: (v: { id: string; decision: "approve" | "reject" }) => decideFn({ data: v }),
     onSuccess: (_, v) => { toast.success(v.decision === "approve" ? "Approved" : "Rejected"); qc.invalidateQueries({ queryKey: ["admin-upgrades"] }); qc.invalidateQueries({ queryKey: ["admin-stats"] }); qc.invalidateQueries({ queryKey: ["admin-rev-ts"] }); },
@@ -525,21 +537,64 @@ function RevenueTab() {
     URL.revokeObjectURL(url);
   };
 
+  const periodRevenue = (revTs.data ?? []).reduce((acc, curr) => acc + curr.revenue, 0);
+
   return (
     <div className="space-y-6">
-      <Panel icon={DollarSign} title="Revenue · last 30 days">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <Kpi icon={DollarSign} label="Today Revenue" value={`$${(revTs.data?.[revTs.data.length - 1]?.revenue ?? 0).toFixed(2)}`} sub="UTC midnight" accent />
+        <Kpi icon={TrendingUp} label="Yesterday" value={`$${(revTs.data?.[revTs.data.length - 2]?.revenue ?? 0).toFixed(2)}`} sub="Previous 24h" />
+        <Kpi icon={Calendar} label={`Selected Period (${range})`} value={`$${periodRevenue.toFixed(2)}`} sub="Filtered sum" accent />
+        <Kpi icon={Trophy} label="All-time Revenue" value={`$${(s?.total_revenue ?? 0).toFixed(2)}`} sub="Since start" />
+      </div>
+
+      <Panel icon={DollarSign} title="Revenue Analytics" subtitle="View performance trends across different timeframes">
+        <div className="mb-6 flex items-center justify-between">
+          <div className="flex bg-white/60 p-1 rounded-xl border border-[#FFD4BB] w-fit">
+            {(["7d", "30d", "90d"] as const).map((r) => (
+              <button
+                key={r}
+                onClick={() => setRange(r)}
+                className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                  range === r ? "bg-[#FF7E5F] text-white shadow-md" : "text-[#7A5C45] hover:bg-white"
+                }`}
+              >
+                {r.toUpperCase()}
+              </button>
+            ))}
+          </div>
+          <div className="text-right">
+            <div className="text-[10px] uppercase font-bold text-[#A8907A] tracking-wider">Average Daily</div>
+            <div className="text-xl font-bold text-[#2D1B0D]">${(periodRevenue / (daysMap[range] || 1)).toFixed(2)}</div>
+          </div>
+        </div>
         <div className="h-64">
           <ResponsiveContainer>
             <BarChart data={revTs.data ?? []}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#FFD4BB" />
-              <XAxis dataKey="date" tick={{ fontSize: 10 }} />
-              <YAxis tick={{ fontSize: 10 }} />
-              <Tooltip />
-              <Bar dataKey="revenue" fill="#FF7E5F" radius={[8, 8, 0, 0]} />
+              <CartesianGrid strokeDasharray="3 3" stroke="#FFD4BB" vertical={false} />
+              <XAxis 
+                dataKey="date" 
+                tick={{ fontSize: 10, fill: "#7A5C45" }} 
+                axisLine={false}
+                tickLine={false}
+                tickFormatter={(val) => val.split("-").slice(1).join("/")} 
+              />
+              <YAxis 
+                tick={{ fontSize: 10, fill: "#7A5C45" }} 
+                axisLine={false}
+                tickLine={false}
+                tickFormatter={(val) => `$${val}`}
+              />
+              <Tooltip 
+                contentStyle={{ borderRadius: '12px', border: '1px solid #FFD4BB', boxShadow: '0 4px 12px rgba(0,0,0,0.05)' }}
+                formatter={(val: number) => [`$${val.toFixed(2)}`, "Revenue"]}
+              />
+              <Bar dataKey="revenue" fill="#FF7E5F" radius={[6, 6, 0, 0]} barSize={range === '7d' ? 40 : undefined} />
             </BarChart>
           </ResponsiveContainer>
         </div>
       </Panel>
+
       <Panel icon={CreditCard} title="Upgrade requests" subtitle="Approve, reject, export to CSV">
         <div className="mb-4 flex gap-2">
           <Button size="sm" onClick={exportCsv} className="bg-gradient-to-r from-[#FF7E5F] to-[#FEB47B] text-white border-0">Export CSV</Button>
