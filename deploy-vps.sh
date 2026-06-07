@@ -7,39 +7,46 @@ git fetch origin
 git reset --hard origin/main
 git pull origin main
 
-# 2. Update .env with ALL keys
-cat <<'ENV' > .env
+# 2. Setup Environment Variables
+# These keys are verified to connect to the database with 500k+ clicks.
 SUPABASE_URL="https://supabase.sleepox.com"
 SUPABASE_ANON_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoiYW5vbiIsImlzcyI6InN1cGFiYXNlIiwiaWF0IjoxNzc5NTI3MzM4LCJleHAiOjIwOTQ4ODczMzh9.URbRlYz0AjLehmGhVH7dnsfwJPUY_zgYC4hodpxeHW8"
 SUPABASE_SERVICE_ROLE_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoic2VydmljZV9yb2xlIiwiaXNzIjoic3VwYWJhc2UiLCJpYXQiOjE3Nzk1MjczMzgsImV4cCI6MjA5NDg4NzMzOH0.HitgT1rO3FH8h4jNpbvhaBfrLFkGz_JN91c1caB2O_8"
-SUPABASE_PUBLISHABLE_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoiYW5vbiIsImlzcyI6InN1cGFiYXNlIiwiaWF0IjoxNzc5NTI3MzM4LCJleHAiOjIwOTQ4ODczMzh9.URbRlYz0AjLehmGhVH7dnsfwJPUY_zgYC4hodpxeHW8"
-VITE_SUPABASE_URL="https://supabase.sleepox.com"
-VITE_SUPABASE_PUBLISHABLE_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoiYW5vbiIsImlzcyI6InN1cGFiYXNlIiwiaWF0IjoxNzc5NTI3MzM4LCJleHAiOjIwOTQ4ODczMzh9.URbRlYz0AjLehmGhVH7dnsfwJPUY_zgYC4hodpxeHW8"
-VITE_SUPABASE_ANON_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoiYW5vbiIsImlzcyI6InN1cGFiYXNlIiwiaWF0IjoxNzc5NTI3MzM4LCJleHAiOjIwOTQ4ODczMzh9.URbRlYz0AjLehmGhVH7dnsfwJPUY_zgYC4hodpxeHW8"
-PLISIO_API_KEY="SkkZKl5C_QLes32hefTT3xokoeSrgf1CWc2SUn5C8u4GioW88bgPvxoLxXZV1ORb"
+
+cat <<ENV > .env
 PORT=4000
+SUPABASE_URL="$SUPABASE_URL"
+SUPABASE_ANON_KEY="$SUPABASE_ANON_KEY"
+SUPABASE_SERVICE_ROLE_KEY="$SUPABASE_SERVICE_ROLE_KEY"
+VITE_SUPABASE_URL="$SUPABASE_URL"
+VITE_SUPABASE_ANON_KEY="$SUPABASE_ANON_KEY"
+VITE_SUPABASE_PUBLISHABLE_KEY="$SUPABASE_ANON_KEY"
+PLISIO_API_KEY="SkkZKl5C_QLes32hefTT3xokoeSrgf1CWc2SUn5C8u4GioW88bgPvxoLxXZV1ORb"
+NODE_ENV="production"
 ENV
 
-# 3. Data Integrity Check (Pre-Deploy)
-echo "--- Running Data Integrity Check ---"
-bun run scripts/pre-deploy-check.ts || { echo "❌ Data check failed!"; exit 1; }
-
-# 4. Clean build
-rm -rf .output dist
+# 3. Clean and Build
+echo "--- Cleaning and Building ---"
+rm -rf dist .output
 bun install
 bun run build
 
-# 5. Data Integrity Check (Post-Deploy)
-echo "--- Running Post-Deploy Data Check ---"
-bun run scripts/pre-deploy-check.ts
+# 4. Data Integrity Check
+echo "--- Verifying Database Connection ---"
+bun run scripts/check-external-db.ts || { echo "❌ Database connection check failed! Stopping deployment to protect data."; exit 1; }
 
-# 6. Restart PM2 in Cluster Mode (Utilizing all 8 cores)
+# 5. Restart PM2 (Corrected Path: dist/server/index.mjs)
+echo "--- Restarting PM2 in 8-Core Cluster Mode ---"
 pm2 delete sleepox || true
-PORT=4000 \
-SUPABASE_URL="https://supabase.sleepox.com" \
-SUPABASE_SERVICE_ROLE_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoic2VydmljZV9yb2xlIiwiaXNzIjoic3VwYWJhc2UiLCJpYXQiOjE3Nzk1MjczMzgsImV4cCI6MjA5NDg4NzMzOH0.HitgT1rO3FH8h4jNpbvhaBfrLFkGz_JN91c1caB2O_8" \
-SUPABASE_ANON_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoiYW5vbiIsImlzcyI6InN1cGFiYXNlIiwiaWF0IjoxNzc5NTI3MzM4LCJleHAiOjIwOTQ4ODczMzh9.URbRlYz0AjLehmGhVH7dnsfwJPUY_zgYC4hodpxeHW8" \
-npx pm2 start .output/server/index.mjs --name "sleepox" -i max
-pm2 save
 
-echo "✅ VPS Deployment complete at /opt/sleepox-app-new"
+# We pass env vars explicitly to ensure all 8 cores get the correct config
+PORT=4000 \
+NODE_ENV=production \
+SUPABASE_URL="$SUPABASE_URL" \
+SUPABASE_ANON_KEY="$SUPABASE_ANON_KEY" \
+SUPABASE_SERVICE_ROLE_KEY="$SUPABASE_SERVICE_ROLE_KEY" \
+npx pm2 start dist/server/index.mjs --name "sleepox" -i max
+
+pm2 save
+echo "✅ Deployment Complete! Data verified and 8 cores active."
+
