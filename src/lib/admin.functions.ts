@@ -153,16 +153,25 @@ export const adminTopUsers = createServerFn({ method: "GET" })
 
 export const adminRevenueTimeseries = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
-  .handler(async ({ context }) => {
+  .inputValidator((d) => z.object({ days: z.number().optional().default(30) }).parse(d))
+  .handler(async ({ data: input, context }) => {
     await assertAdmin(context.userId);
-    const fromISO = new Date(Date.now() - 30 * 86_400_000).toISOString();
+    const days = input.days;
+    const fromISO = new Date(Date.now() - days * 86_400_000).toISOString();
+    
+    // Updated to include all success statuses
     const { data } = await supabaseAdmin
-      .from("upgrade_requests").select("created_at, amount, status").gte("created_at", fromISO).eq("status", "paid");
+      .from("upgrade_requests")
+      .select("created_at, amount, status")
+      .gte("created_at", fromISO)
+      .or("status.eq.paid,status.eq.completed,status.eq.success,status.eq.finished");
+
     const buckets: Record<string, { date: string; revenue: number; count: number }> = {};
-    for (let i = 29; i >= 0; i--) {
+    for (let i = days - 1; i >= 0; i--) {
       const d = new Date(Date.now() - i * 86_400_000).toISOString().slice(0, 10);
       buckets[d] = { date: d, revenue: 0, count: 0 };
     }
+    
     (data ?? []).forEach((r: any) => {
       const d = (r.created_at as string).slice(0, 10);
       if (!buckets[d]) return;
@@ -171,6 +180,7 @@ export const adminRevenueTimeseries = createServerFn({ method: "GET" })
     });
     return Object.values(buckets);
   });
+
 
 export const adminListUsers = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
