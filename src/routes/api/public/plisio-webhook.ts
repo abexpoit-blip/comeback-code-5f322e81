@@ -134,7 +134,8 @@ export const Route = createFileRoute("/api/public/plisio-webhook")({
             .select("order_number")
             .eq("txn_id", txnId)
             .not("order_number", "is", null)
-            .maybeSingle();
+            .maybeSingle().catch(() => ({ data: null }));
+
           
           const recoveryId = orderNumber || previousLog?.order_number;
           
