@@ -514,6 +514,10 @@ function RevenueTab() {
   const daysMap = { "7d": 7, "30d": 30, "90d": 90 };
 
   const upgrades = useQuery({ queryKey: ["admin-upgrades"], queryFn: () => upgradesFn() });
+  const ipFn = useServerFn(adminGetOutgoingIp);
+  const outgoingIp = useQuery({ queryKey: ["plisio-outgoing-ip"], queryFn: () => ipFn(), staleTime: 5 * 60 * 1000 });
+  const [reverifyResults, setReverifyResults] = useState<Record<string, { ok: boolean; msg: string; ip?: string; http?: number }>>({});
+  const [bulkSummary, setBulkSummary] = useState<{ checked: number; recovered: number; ip: string; last_error: string | null } | null>(null);
   const revTs = useQuery({ 
     queryKey: ["admin-rev-ts", range], 
     queryFn: () => revTsFn({ data: { days: daysMap[range] } }) 
