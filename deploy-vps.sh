@@ -2,10 +2,10 @@
 set -euo pipefail
 
 # 1. Update source code
-if [ -d ".git" ]; then
-    git fetch origin
-    git reset --hard origin/main
-fi
+cd /opt/sleepox-app-new
+git fetch origin
+git reset --hard origin/main
+git pull origin main
 
 # 2. Update .env with ALL keys
 cat <<'ENV' > .env
@@ -22,15 +22,11 @@ ENV
 
 # 3. Clean build
 rm -rf .output dist
+bun install
 bun run build
 
-# 4. Restart with PM2 - EXPLICITLY passing keys to the process environment
-npx pm2 delete sleepox || true
-PORT=4000 \
-SUPABASE_URL="https://supabase.sleepox.com" \
-SUPABASE_SERVICE_ROLE_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoic2VydmljZV9yb2xlIiwiaXNzIjoic3VwYWJhc2UiLCJpYXQiOjE3Nzk1MjczMzgsImV4cCI6MjA5NDg4NzMzOH0.HitgT1rO3FH8h4jNpbvhaBfrLFkGz_JN91c1caB2O_8" \
-SUPABASE_ANON_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoiYW5vbiIsImlzcyI6InN1cGFiYXNlIiwiaWF0IjoxNzc5NTI3MzM4LCJleHAiOjIwOTQ4ODczMzh9.URbRlYz0AjLehmGhVH7dnsfwJPUY_zgYC4hodpxeHW8" \
-npx pm2 start .output/server/index.mjs --name "sleepox"
-npx pm2 save
+# 4. Restart PM2
+pm2 restart all || npx pm2 start .output/server/index.mjs --name "sleepox"
+pm2 save
 
-echo "✅ VPS Deployment complete."
+echo "✅ VPS Deployment complete at /opt/sleepox-app-new"
