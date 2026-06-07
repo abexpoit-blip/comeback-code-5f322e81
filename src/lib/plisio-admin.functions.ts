@@ -71,6 +71,32 @@ export const adminListPlisioLogs = createServerFn({ method: "GET" })
  * Plisio reports the invoice as completed, mark it paid + upgrade the user's
  * package. Recovery path for orders where the webhook never fired.
  */
+/**
+ * Detect the outgoing public IP of the current server (the IP Plisio sees).
+ * Cached for 5 minutes to avoid hammering ipify on every reverify call.
+ */
+let _cachedIp: { ip: string; at: number } | null = null;
+export async function detectOutgoingIp(): Promise<string> {
+  if (_cachedIp && Date.now() - _cachedIp.at < 5 * 60 * 1000) return _cachedIp.ip;
+  try {
+    const r = await fetch("https://api.ipify.org?format=json");
+    const j: any = await r.json().catch(() => null);
+    const ip = j?.ip || "unknown";
+    _cachedIp = { ip, at: Date.now() };
+    return ip;
+  } catch {
+    return "unknown";
+  }
+}
+
+export const adminGetOutgoingIp = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    await assertAdmin(context.userId);
+    const ip = await detectOutgoingIp();
+    return { ip, hint: "Whitelist this IP in your Plisio account → API → Allowed IPs" };
+  });
+
 export const adminReverifyOrder = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d) => d as { order_id: string })
@@ -87,12 +113,23 @@ export const adminReverifyOrder = createServerFn({ method: "POST" })
     if (reqErr || !req) throw new Error("Order not found");
     if (!req.plisio_invoice_id) throw new Error("No Plisio invoice id stored");
 
-    const res = await fetch(
-      `https://api.plisio.net/api/v1/operations/${encodeURIComponent(req.plisio_invoice_id)}?api_key=${encodeURIComponent(apiKey)}`,
-    );
+    const sourceIp = await detectOutgoingIp();
+    const url = `https://api.plisio.net/api/v1/operations/${encodeURIComponent(req.plisio_invoice_id)}?api_key=${encodeURIComponent(apiKey)}`;
+    const res = await fetch(url);
     const json: any = await res.json().catch(() => null);
+    console.log(`[plisio-reverify] order=${req.id} src_ip=${sourceIp} http=${res.status} body=`, JSON.stringify(json));
+
     if (!json || json.status !== "success" || !json.data) {
-      throw new Error(`Plisio lookup failed: ${json?.data?.message || json?.message || `HTTP ${res.status}`}`);
+      const plisioMsg = json?.data?.message || json?.message || `HTTP ${res.status}`;
+      const plisioCode = json?.data?.code ?? json?.code ?? null;
+      const err: any = new Error(
+        `Plisio lookup failed: ${plisioMsg} (source IP: ${sourceIp}, HTTP ${res.status}${plisioCode ? `, code ${plisioCode}` : ""})`
+      );
+      err.source_ip = sourceIp;
+      err.http_status = res.status;
+      err.plisio_code = plisioCode;
+      err.plisio_message = plisioMsg;
+      throw err;
     }
 
     const plisioStatus = json.data.status as string;
@@ -115,14 +152,14 @@ export const adminReverifyOrder = createServerFn({ method: "POST" })
       }
       await supabaseAdmin.from("upgrade_requests")
         .update({ status: "paid" } as any).eq("id", req.id);
-      return { ok: true, action: "upgraded", plisio_status: plisioStatus };
+      return { ok: true, action: "upgraded", plisio_status: plisioStatus, source_ip: sourceIp, http_status: res.status };
     }
     if (isFailed && req.status !== "expired") {
       await supabaseAdmin.from("upgrade_requests")
         .update({ status: "expired" } as any).eq("id", req.id);
-      return { ok: true, action: "marked_expired", plisio_status: plisioStatus };
+      return { ok: true, action: "marked_expired", plisio_status: plisioStatus, source_ip: sourceIp, http_status: res.status };
     }
-    return { ok: true, action: "no_change", plisio_status: plisioStatus, db_status: req.status };
+    return { ok: true, action: "no_change", plisio_status: plisioStatus, db_status: req.status, source_ip: sourceIp, http_status: res.status };
   });
 
 /**
@@ -145,7 +182,9 @@ export const adminBulkReverify = createServerFn({ method: "POST" })
       .not("plisio_invoice_id", "is", null)
       .limit(100);
 
+    const sourceIp = await detectOutgoingIp();
     let recovered = 0, checked = 0;
+    let lastError: string | null = null;
     const details: any[] = [];
 
     for (const req of orders ?? []) {
@@ -155,7 +194,11 @@ export const adminBulkReverify = createServerFn({ method: "POST" })
           `https://api.plisio.net/api/v1/operations/${encodeURIComponent(req.plisio_invoice_id!)}?api_key=${encodeURIComponent(apiKey)}`,
         );
         const json: any = await res.json().catch(() => null);
-        if (json?.status !== "success" || !json.data) continue;
+        if (json?.status !== "success" || !json.data) {
+          lastError = `${json?.data?.message || json?.message || `HTTP ${res.status}`} (code ${json?.data?.code ?? "?"})`;
+          console.warn(`[bulk-reverify] ${req.id} src_ip=${sourceIp} http=${res.status} err=${lastError}`);
+          continue;
+        }
         const plisioStatus = json.data.status as string;
         if (!["completed", "success", "finished", "mismatch"].includes(plisioStatus)) continue;
 
@@ -175,10 +218,11 @@ export const adminBulkReverify = createServerFn({ method: "POST" })
         recovered++;
         details.push({ order: req.id, user: req.user_id, slug: req.package_slug, plisio_status: plisioStatus });
       } catch (e: any) {
+        lastError = e?.message || "unknown";
         console.error("[bulk-reverify] error", req.id, e?.message);
       }
     }
-    return { checked, recovered, details };
+    return { checked, recovered, details, source_ip: sourceIp, last_error: lastError };
   });
 
 
