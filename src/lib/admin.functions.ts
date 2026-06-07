@@ -9,13 +9,8 @@ async function assertAdmin(userId: string) {
   if (!data) throw new Error("Forbidden");
 }
 
-function packageQuota(pkg: any) {
-  const slug = String(pkg.slug ?? "").toLowerCase().trim();
-  if (slug === "lifetime" || slug === "unlimited") return { click_quota: null, link_limit: null };
-  if (slug === "monthly" || slug === "pro_monthly" || slug === "pro" || slug === "monthly_pro") return { click_quota: 1_000_000, link_limit: 50 };
-  if (slug === "free" || slug === "starter") return { click_quota: 10_000, link_limit: 1 };
-  return { click_quota: Number(pkg.click_quota) || null, link_limit: Number(pkg.link_limit) || null };
-}
+// No longer used, pulling directly from package row
+
 
 export const adminStats = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
@@ -227,17 +222,17 @@ export const adminBulkSetPlan = createServerFn({ method: "POST" })
     const { data: pkg } = await supabaseAdmin
       .from("packages").select("*").eq("slug", data.package_slug).maybeSingle();
     if (!pkg) throw new Error("Package not found");
-    const quota = packageQuota(pkg);
     const { error } = await supabaseAdmin
       .from("profiles")
       .update({
         plan_slug: pkg.slug,
-        click_quota: quota.click_quota,
-        link_limit: quota.link_limit,
+        click_quota: pkg.click_quota,
+        link_limit: pkg.link_limit,
         clicks_used: 0,
         clicks_period_start: new Date().toISOString(),
       } as any)
       .in("id", data.ids);
+
     if (error) throw new Error(error.message);
     return { ok: true, updated: data.ids.length };
   });
@@ -282,17 +277,17 @@ export const adminSetUserPlan = createServerFn({ method: "POST" })
     const { data: pkg } = await supabaseAdmin
       .from("packages").select("*").eq("slug", data.package_slug).maybeSingle();
     if (!pkg) throw new Error("Package not found");
-    const quota = packageQuota(pkg);
     const { error } = await supabaseAdmin
       .from("profiles")
       .update({
         plan_slug: pkg.slug,
-        click_quota: quota.click_quota,
-        link_limit: quota.link_limit,
+        click_quota: pkg.click_quota,
+        link_limit: pkg.link_limit,
         clicks_used: 0,
         clicks_period_start: new Date().toISOString(),
       } as any)
       .eq("id", data.user_id);
+
     if (error) throw new Error(error.message);
     return { ok: true };
   });
@@ -331,17 +326,17 @@ export const adminUpsertPackage = createServerFn({ method: "POST" })
   }).parse(d))
   .handler(async ({ data, context }) => {
     await assertAdmin(context.userId);
-    const quota = packageQuota(data);
     const payload: any = {
       slug: data.slug,
       name: data.name,
       price_usd: data.price_usd,
       price_monthly: data.price_usd,
-      click_quota: quota.click_quota,
-      link_limit: quota.link_limit,
+      click_quota: data.click_quota,
+      link_limit: data.link_limit,
       sort_order: data.sort_order,
       is_active: data.is_active,
     };
+
     if (data.id) {
       const { error } = await supabaseAdmin.from("packages").update(payload).eq("id", data.id);
       if (error) throw new Error(error.message);
@@ -411,7 +406,6 @@ export const adminDecideUpgradeRequest = createServerFn({ method: "POST" })
 
     const { data: pkg } = await supabaseAdmin.from("packages").select("*").eq("slug", req.package_slug).maybeSingle();
     if (!pkg) throw new Error("Package not found");
-    const quota = packageQuota(pkg);
 
     const { error: uErr } = await supabaseAdmin
       .from("upgrade_requests").update({ status: "paid" } as any).eq("id", data.id);
@@ -421,12 +415,13 @@ export const adminDecideUpgradeRequest = createServerFn({ method: "POST" })
       .from("profiles")
       .update({
         plan_slug: pkg.slug,
-        click_quota: quota.click_quota,
-        link_limit: quota.link_limit,
+        click_quota: pkg.click_quota,
+        link_limit: pkg.link_limit,
         clicks_used: 0,
         clicks_period_start: new Date().toISOString(),
       } as any)
       .eq("id", req.user_id);
+
     if (pErr) throw new Error(pErr.message);
 
     return { ok: true };
