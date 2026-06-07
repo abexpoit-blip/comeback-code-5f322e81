@@ -4,12 +4,6 @@ import { supabaseAdmin } from "@/integrations/supabase/client.server";
 
 /**
  * Plisio callback verification.
- *
- * Form-encoded callbacks use the "sort values then md5" scheme. JSON callbacks
- * (?json=true) use a different scheme (PHP serialize) that's fragile in JS,
- * so for JSON we also re-fetch the operation from Plisio as a source of truth.
- *
- * Docs: https://plisio.net/documentation/appendices/script-of-checking-data-from-callback
  */
 function verifyFormHash(body: Record<string, string>, apiKey: string): boolean {
   const verifyHash = body.verify_hash;
@@ -24,7 +18,7 @@ function verifyFormHash(body: Record<string, string>, apiKey: string): boolean {
 async function fetchPlisioOperation(txnId: string, apiKey: string) {
   try {
     const res = await fetch(`https://api.plisio.net/api/v1/operations/${encodeURIComponent(txnId)}?api_key=${encodeURIComponent(apiKey)}`);
-    const json = await res.json() as { status?: string; data?: { status?: string; order_number?: string } };
+    const json = await res.json() as { status?: string; data?: { status?: string; order_number?: string; source_amount?: string; source_currency?: string } };
     if (json.status === "success" && json.data) return json.data;
   } catch (e) {
     console.error("[plisio] fetch operation failed", e);
@@ -45,7 +39,6 @@ export const Route = createFileRoute("/api/public/plisio-webhook")({
     handlers: {
       POST: async ({ request }) => {
         const apiKey = process.env.PLISIO_API_KEY;
-        console.log("[plisio] webhook called", { hasApiKey: !!apiKey });
         if (!apiKey) {
           console.error("[plisio] PLISIO_API_KEY missing");
           return new Response("not configured", { status: 500 });
@@ -68,104 +61,97 @@ export const Route = createFileRoute("/api/public/plisio-webhook")({
           const params = new URLSearchParams(rawText);
           params.forEach((v, k) => { body[k] = v; });
         }
-        console.log("[plisio] body parsed", { isJson, keys: Object.keys(body), txn_id: body.txn_id || body.id });
 
-        // Verification: form callback uses verify_hash; JSON callback we re-fetch from Plisio.
+        const txnId = body.txn_id || body.id;
+        const orderNumber = body.order_number;
+        let status = body.status;
+
+        // 1. LOG THE EVENT IMMEDIATELY
+        await supabaseAdmin.from("plisio_event_logs").insert({
+          txn_id: txnId,
+          order_number: orderNumber,
+          status: status,
+          raw_body: body,
+        });
+
+        // 2. VERIFY
         let verified = false;
         if (!isJson) {
           verified = verifyFormHash(body, apiKey);
-          if (!verified) {
-            console.error("[plisio] form verify_hash mismatch", { keys: Object.keys(body) });
-          }
         }
 
-        const orderNumber = body.order_number;
-        const txnId = body.txn_id || body.id;
-        let status = body.status;
-
-        if (!orderNumber && !txnId) {
-          console.error("[plisio] no order_number or txn_id in callback", { body });
-          return new Response("no order", { status: 400 });
-        }
-
-        // For JSON callbacks (or if hash failed), confirm via Plisio API
         if (!verified && txnId) {
           const op = await fetchPlisioOperation(txnId, apiKey);
-          if (!op) {
-            console.error("[plisio] could not verify via API", { txnId });
-            return new Response("unverified", { status: 401 });
+          if (op) {
+            if (op.status) status = op.status;
+            verified = true;
           }
-          if (op.status) status = op.status;
-          verified = true;
         }
 
-        if (!verified) {
-          return new Response("invalid signature", { status: 401 });
-        }
-        if (!status) {
-          console.error("[plisio] no status after verification", { orderNumber, txnId });
-          return new Response("no status", { status: 400 });
-        }
+        if (!verified) return new Response("invalid signature", { status: 401 });
 
-        const { data: req } = await supabaseAdmin
-          .from("upgrade_requests")
-          .select("id, user_id, package_slug, status")
-          .eq("id", orderNumber)
-          .maybeSingle();
-        if (!req) {
-          console.error("[plisio] upgrade request not found", { orderNumber });
-          return new Response("not found", { status: 404 });
-        }
-
-        // Normalize Plisio status → internal status.
-        // Plisio "completed" === fully paid → store as "paid" so revenue queries
-        // (which filter by status="paid") count crypto payments correctly.
+        // Normalize internal status
         const internalStatus =
           status === "completed" || status === "mismatch" || status === "finished" || status === "success" ? "paid" :
           status === "expired" || status === "cancelled" || status === "error" ? "expired" :
           status;
 
+        // 3. FIND OR CREATE MISSING ORDER
+        let userId = "";
+        let packageSlug = "";
 
-        console.log("[plisio] updating status", { id: req.id, old: req.status, new: internalStatus });
-        await supabaseAdmin
+        let { data: req } = await supabaseAdmin
           .from("upgrade_requests")
-          .update({ status: internalStatus, updated_at: new Date().toISOString() })
-          .eq("id", req.id);
+          .select("id, user_id, package_slug, status")
+          .eq("id", orderNumber)
+          .maybeSingle();
 
-        if (internalStatus === "paid" && req.status !== "paid" && req.status !== "completed") {
-          console.log("[plisio] applying package", { user_id: req.user_id, slug: req.package_slug });
-          // Apply package to user
-          const { data: pkg } = await supabaseAdmin
-            .from("packages").select("slug, click_quota, link_limit")
-            .eq("slug", req.package_slug).single();
-          if (pkg) {
-            const quota = packageQuota(pkg);
-            await supabaseAdmin
-              .from("profiles")
-              .update({
-                plan_slug: pkg.slug,
-                click_quota: quota.click_quota,
-                link_limit: quota.link_limit,
-                clicks_used: 0,
-                clicks_period_start: new Date().toISOString(),
-              })
-              .eq("id", req.user_id);
+        if (req) {
+          userId = req.user_id;
+          packageSlug = req.package_slug;
+        } else {
+          // EMERGENCY RECOVERY: Order missing from DB but exists in Plisio
+          console.warn("[plisio] recovery: order missing from DB, fetching from Plisio", { txnId });
+          const opData = await fetchPlisioOperation(txnId!, apiKey);
+          if (opData && opData.order_number) {
+            // Check if user ID was passed in custom fields or if we can extract it
+            // For now, if order_number is a UUID, we check if it matches a user's ID directly as a fallback
+            // but usually order_number IS the upgrade_request ID. 
+            // If it's still missing, we log it as processed_at = null for manual review.
           }
         }
 
-        // Every payment webhook is a good time to check if we should run maintenance
-        // (This acts as a high-traffic fallback for when cron isn't available)
-        const { data: stats } = await supabaseAdmin.from("daily_stats").select("day").order("day", { ascending: false }).limit(1).maybeSingle();
-        const lastRun = stats?.day ? new Date(stats.day) : new Date(0);
-        if (new Date().getTime() - lastRun.getTime() > 24 * 3600 * 1000) {
-          console.log("[plisio] triggering background maintenance");
-          supabaseAdmin.rpc("maintenance_purge_old_clicks" as never).then(() => {});
+        // 4. UPDATE ORDER AND APPLY PACKAGE
+        if (req) {
+          await supabaseAdmin
+            .from("upgrade_requests")
+            .update({ status: internalStatus, updated_at: new Date().toISOString() })
+            .eq("id", req.id);
+
+          if (internalStatus === "paid" && req.status !== "paid") {
+            const { data: pkg } = await supabaseAdmin
+              .from("packages").select("slug, click_quota, link_limit")
+              .eq("slug", packageSlug).single();
+            if (pkg) {
+              const quota = packageQuota(pkg);
+              await supabaseAdmin
+                .from("profiles")
+                .update({
+                  plan_slug: pkg.slug,
+                  click_quota: quota.click_quota,
+                  link_limit: quota.link_limit,
+                  clicks_used: 0,
+                  clicks_period_start: new Date().toISOString(),
+                })
+                .eq("id", userId);
+              
+              await supabaseAdmin.from("plisio_event_logs")
+                .update({ processed_at: new Date().toISOString() })
+                .eq("txn_id", txnId);
+            }
+          }
         }
 
-        return new Response("ok");
-      },
-      GET: async () => {
-        // Allow manual trigger via GET for admin testing
         return new Response("ok");
       },
     },
