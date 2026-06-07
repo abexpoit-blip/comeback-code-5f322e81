@@ -27,18 +27,22 @@ export const updateAppSettings = createServerFn({ method: "POST" })
     }).parse(d),
   )
   .handler(async ({ data, context }) => {
-    // RLS restricts to admin role; double check anyway
-    const { data: roleRow } = await context.supabase
+    // SECURITY: Use service role client for admin operations to bypass RLS
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    
+    // Explicit admin check
+    const { data: roleRow } = await supabaseAdmin
       .from("user_roles").select("role").eq("user_id", context.userId).eq("role", "admin").maybeSingle();
     if (!roleRow) throw new Error("Admin only");
 
-    const { error } = await context.supabase
+    const { error } = await supabaseAdmin
       .from("app_settings")
       .update(data as any)
       .eq("id", true);
     if (error) throw new Error(error.message);
     return { ok: true };
   });
+
 
 /**
  * Daily auto-redirect: returns the fallback URL the FIRST time the user
