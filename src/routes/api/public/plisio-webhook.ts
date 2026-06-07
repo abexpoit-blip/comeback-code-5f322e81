@@ -184,9 +184,12 @@ export const Route = createFileRoute("/api/public/plisio-webhook")({
                 })
                 .eq("id", userId);
               
-              await supabaseAdmin.from("plisio_event_logs")
-                .update({ processed_at: new Date().toISOString() })
-                .eq("txn_id", txnId);
+              try {
+                await supabaseAdmin.from("plisio_event_logs")
+                  .update({ processed_at: new Date().toISOString() })
+                  .eq("txn_id", txnId);
+              } catch (e) {}
+
             }
           }
         }
