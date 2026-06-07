@@ -335,7 +335,25 @@ function UsersTab() {
           <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search by email, plan, id…" className={`${inputCls} pl-10`} />
         </div>
         <span className="text-xs text-[#7A5C45]">{selected.size} selected</span>
+        <Button
+          size="sm"
+          variant="outline"
+          className="border-[#FFD4BB] ml-auto"
+          onClick={async () => {
+            if (!confirm("Fix all Monthly users with unlimited / wrong quota? This re-applies the Monthly package limits.")) return;
+            try {
+              const r = await adminFixUnlimitedMonthly();
+              toast.success(`Fixed ${r.fixed} of ${r.scanned} monthly users`);
+              invalidate();
+            } catch (e: any) {
+              toast.error(e.message ?? "Failed");
+            }
+          }}
+        >
+          <RotateCcw className="w-3 h-3 mr-1" />Bulk Fix Monthly Quota
+        </Button>
       </div>
+
 
       {selected.size > 0 && (
         <div className="mb-4 p-3 rounded-2xl bg-gradient-to-r from-[#FF7E5F]/10 to-[#FEB47B]/10 border border-[#FFD4BB] flex flex-wrap items-center gap-2">
