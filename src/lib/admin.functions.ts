@@ -17,6 +17,14 @@ export const adminStats = createServerFn({ method: "GET" })
   .handler(async ({ context }) => {
     await assertAdmin(context.userId);
     
+    // Auto-expire old pending requests (> 30 minutes) to keep counts accurate
+    const expiryCutoff = new Date(Date.now() - 30 * 60 * 1000).toISOString();
+    await supabaseAdmin
+      .from("upgrade_requests")
+      .update({ status: "expired" } as any)
+      .eq("status", "pending")
+      .lt("created_at", expiryCutoff);
+
     // Use UTC midnight for Today stats to be accurate
     const now = new Date();
     const todayISO = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate())).toISOString();
