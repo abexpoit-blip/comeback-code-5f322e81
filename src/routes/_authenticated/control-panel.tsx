@@ -1630,3 +1630,55 @@ function MaintenanceTab() {
     </div>
   );
 }
+
+function PlisioLogsTab() {
+  const listFn = useServerFn(adminListPlisioLogs);
+  const { data: logs, isLoading, refetch } = useQuery({ queryKey: ["admin-plisio-logs"], queryFn: () => listFn() });
+
+  return (
+    <Panel icon={CreditCard} title="Plisio Webhook Logs" subtitle="Every incoming event from Plisio is logged here for debugging.">
+      <div className="mb-4">
+        <Button size="sm" variant="outline" onClick={() => refetch()} className="border-[#FFD4BB]">
+          <RefreshCw className={`w-3 h-3 mr-2 ${isLoading ? "animate-spin" : ""}`} />
+          Refresh Logs
+        </Button>
+      </div>
+      <div className="overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="text-left text-[10px] font-bold uppercase tracking-widest text-[#7A5C45]">
+              <Th>Time</Th>
+              <Th>Order ID</Th>
+              <Th>Txn ID</Th>
+              <Th>Status</Th>
+              <Th>Processed</Th>
+            </tr>
+          </thead>
+          <tbody>
+            {logs?.length ? logs.map((log: any) => (
+              <tr key={log.id} className="border-t border-[#FFE4D0]/60 hover:bg-[#FF7E5F]/5">
+                <Td className="whitespace-nowrap text-xs">{new Date(log.created_at).toLocaleString()}</Td>
+                <Td className="font-mono text-[10px]">{log.order_number || "—"}</Td>
+                <Td className="font-mono text-[10px]">{log.txn_id || "—"}</Td>
+                <Td><StatusPill status={log.status} /></Td>
+                <Td>
+                  {log.processed_at ? (
+                    <span className="text-emerald-600 flex items-center gap-1 font-bold text-[10px]">
+                      <CheckCircle2 className="w-3 h-3" /> {new Date(log.processed_at).toLocaleTimeString()}
+                    </span>
+                  ) : (
+                    <span className="text-amber-600 flex items-center gap-1 font-bold text-[10px]">
+                      <Clock className="w-3 h-3" /> Waiting/Failed
+                    </span>
+                  )}
+                </Td>
+              </tr>
+            )) : (
+              <tr><td colSpan={5} className="p-8 text-center text-[#A8907A]">No Plisio events logged yet.</td></tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+    </Panel>
+  );
+}
