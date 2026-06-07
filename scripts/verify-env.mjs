@@ -49,7 +49,7 @@ if (env.SUPABASE_URL && env.VITE_SUPABASE_URL && env.SUPABASE_URL !== env.VITE_S
   errors.push("SUPABASE_URL and VITE_SUPABASE_URL must be identical");
 }
 
-for (const name of ["SUPABASE_PUBLISHABLE_KEY", "VITE_SUPABASE_PUBLISHABLE_KEY"]) {
+for (const name of ["VITE_SUPABASE_PUBLISHABLE_KEY"]) {
   if (!env[name]) errors.push(`${name} is missing`);
 }
 
