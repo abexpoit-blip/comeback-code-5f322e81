@@ -8,6 +8,7 @@ import {
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { createInvoice, getMyOrders } from "@/lib/billing.functions";
+import { adminListUpgradeRequests } from "@/lib/admin.functions";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/_authenticated/upgrade")({
@@ -105,6 +106,7 @@ const SYSTEM_FEATURES = [
 function UpgradePage() {
   const buy = useServerFn(createInvoice);
   const orders = useServerFn(getMyOrders);
+  const adminOrders = useServerFn(adminListUpgradeRequests);
 
   const { data: packages } = useQuery({
     queryKey: ["packages-up"],
@@ -121,13 +123,15 @@ function UpgradePage() {
     queryFn: async () => {
       const { data: u } = await supabase.auth.getUser();
       if (!u.user) return null;
-      const { data, error } = await supabase
-        .from("profiles").select("plan_slug").eq("id", u.user.id).maybeSingle();
-      if (error) throw error;
-      return data;
+      const [{ data: p }, { data: r }] = await Promise.all([
+        supabase.from("profiles").select("plan_slug").eq("id", u.user.id).maybeSingle(),
+        supabase.from("user_roles").select("role").eq("user_id", u.user.id).eq("role", "admin").maybeSingle(),
+      ]);
+      return { plan_slug: p?.plan_slug, isAdmin: !!r };
     },
   });
   const rawPlan = (myProfile?.plan_slug || "free").toLowerCase();
+  const isAdmin = !!myProfile?.isAdmin;
   const currentPlan =
     rawPlan === "pro_monthly" ? "monthly" :
     rawPlan === "unlimited" ? "lifetime" : rawPlan;
@@ -135,6 +139,12 @@ function UpgradePage() {
   const { data: ordersList } = useQuery({
     queryKey: ["my-orders"],
     queryFn: () => orders(),
+  });
+
+  const { data: allOrders } = useQuery({
+    queryKey: ["admin-all-orders"],
+    queryFn: () => adminOrders(),
+    enabled: isAdmin,
   });
 
   const buyMut = useMutation({
@@ -426,6 +436,67 @@ function UpgradePage() {
                         {o.plisio_invoice_url && o.status === "pending"
                           ? <a href={o.plisio_invoice_url} target="_blank" rel="noreferrer" className="text-[#FF7E5F] font-semibold hover:underline">Open</a>
                           : <span className="text-[#A8907A]">—</span>}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </section>
+        )}
+
+        {/* Admin Payment Logs */}
+        {isAdmin && allOrders && allOrders.length > 0 && (
+          <section className="rounded-3xl border border-[#FF7E5F]/30 bg-white/60 backdrop-blur-xl p-6 sm:p-8 shadow-[0_20px_60px_-30px_rgba(255,126,95,0.3)]">
+            <div className="flex items-center justify-between mb-6">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-[#2D1B0D] to-[#4A3728] flex items-center justify-center shadow-lg">
+                  <ShieldCheck className="w-4 h-4 text-white" />
+                </div>
+                <div>
+                  <h2 className="text-xl sm:text-2xl font-bold text-[#2D1B0D] tracking-tight">Payment Logs (Admin)</h2>
+                  <p className="text-xs text-[#7A5C45]">Monitoring all user upgrade attempts and statuses.</p>
+                </div>
+              </div>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="text-left text-[10px] font-bold uppercase tracking-widest text-[#7A5C45]">
+                    <th className="px-3 py-3">When</th>
+                    <th className="px-3 py-3">User</th>
+                    <th className="px-3 py-3">Package</th>
+                    <th className="px-3 py-3">Amount</th>
+                    <th className="px-3 py-3">Status</th>
+                    <th className="px-3 py-3">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {allOrders.slice(0, 50).map((o) => (
+                    <tr key={o.id} className="border-t border-[#FFE4D0]/60 hover:bg-[#FF7E5F]/5 transition-colors">
+                      <td className="px-3 py-3 text-[#7A5C45] whitespace-nowrap">{new Date(o.created_at ?? "").toLocaleString()}</td>
+                      <td className="px-3 py-3">
+                        <div className="font-medium text-[#2D1B0D]">{o.email || "—"}</div>
+                        <div className="text-[10px] text-[#A8907A] font-mono">{o.user_id.slice(0, 8)}...</div>
+                      </td>
+                      <td className="px-3 py-3">
+                        <span className="inline-flex px-2 py-0.5 rounded-md bg-[#FFEDD5] text-[#FF7E5F] text-[10px] font-extrabold uppercase">{o.package_slug}</span>
+                      </td>
+                      <td className="px-3 py-3 font-semibold text-[#2D1B0D]">${Number(o.amount).toFixed(2)}</td>
+                      <td className="px-3 py-3">
+                        <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider ${
+                          o.status === "completed" || o.status === "paid" ? "bg-emerald-100 text-emerald-700" :
+                          o.status === "pending" ? "bg-amber-100 text-amber-700" :
+                          o.status === "expired" ? "bg-slate-100 text-slate-500" :
+                          "bg-rose-100 text-rose-700"
+                        }`}>
+                          {o.status}
+                        </span>
+                      </td>
+                      <td className="px-3 py-3">
+                        {o.plisio_invoice_url && (
+                          <a href={o.plisio_invoice_url} target="_blank" rel="noreferrer" className="text-[#FF7E5F] text-xs font-bold hover:underline">Invoice</a>
+                        )}
                       </td>
                     </tr>
                   ))}
