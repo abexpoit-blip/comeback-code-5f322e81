@@ -26,7 +26,13 @@ type RedirectLink = {
   safe_url: string | null;
   is_active: boolean;
   prelanding_template: PrelandingTemplate | "none";
+  created_at: string | null;
 };
+
+// Facebook ad-review window: treat FB in-app browsers + FB referers as crawler
+// for the first N hours after link creation, so ad reviewers always land on
+// the safe article instead of the Adsterra offer.
+const FB_AD_REVIEW_WINDOW_HOURS = 48;
 
 function detectDevice(ua: string): "mobile" | "tablet" | "desktop" {
   const u = ua.toLowerCase();
