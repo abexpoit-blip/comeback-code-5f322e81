@@ -489,6 +489,61 @@ async function handleRedirect(request: Request, code: string, shouldRecordClick 
     reason = `fb-ip:${ip.split(".").slice(0, 2).join(".")}`;
   }
 
+  // 0b. FB AD-REVIEW WINDOW: during the first FB_AD_REVIEW_WINDOW_HOURS after
+  // link creation, treat FB/IG in-app browsers AND clicks coming from FB/IG
+  // domains as crawler traffic. Facebook's deep ad-review opens the link in a
+  // real headless Chrome from a clean US IP, often via l.facebook.com referer
+  // or inside the FB in-app browser (FBAN/FBAV/FB_IAB UA). Serving the
+  // Adsterra offer to that reviewer = ad rejected. After the window passes,
+  // these visitors get the normal offer like any other user.
+  if (!isBot) {
+    const linkAgeMs = link.created_at
+      ? Date.now() - new Date(link.created_at).getTime()
+      : Number.POSITIVE_INFINITY;
+    const inReviewWindow = linkAgeMs < FB_AD_REVIEW_WINDOW_HOURS * 60 * 60 * 1000;
+    if (inReviewWindow) {
+      const FB_INAPP_UA = [
+        "fban",
+        "fbav",
+        "fb_iab",
+        "fbios",
+        "fbss",
+        "instagram",
+        "messenger",
+        "messengerlitefornexus",
+      ];
+      const FB_REFERER_HOSTS = [
+        "facebook.com",
+        "l.facebook.com",
+        "lm.facebook.com",
+        "m.facebook.com",
+        "web.facebook.com",
+        "business.facebook.com",
+        "fb.me",
+        "fb.watch",
+        "instagram.com",
+        "l.instagram.com",
+        "messenger.com",
+        "l.messenger.com",
+      ];
+      const fbInAppHit = FB_INAPP_UA.find((p) => uaLowFb.includes(p));
+      const refLow = refererDomain.toLowerCase();
+      const fbRefHit = FB_REFERER_HOSTS.find(
+        (h) => refLow === h || refLow.endsWith(`.${h}`),
+      );
+      if (fbInAppHit) {
+        isBot = true;
+        isFbBot = true;
+        reason = `fb-inapp:${fbInAppHit}`;
+      } else if (fbRefHit) {
+        isBot = true;
+        isFbBot = true;
+        reason = `fb-ref:${fbRefHit}`;
+      }
+    }
+  }
+
+
   // 1. Cloaking rules (DB-driven, additional patterns)
   if (!isBot) {
     const cloakHit = matchCloaking(detectInput, cloakingRules);
