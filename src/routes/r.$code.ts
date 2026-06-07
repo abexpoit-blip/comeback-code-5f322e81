@@ -287,6 +287,7 @@ export async function lookupRedirectLink(
       safe_url: safe || SAFE_FALLBACK,
       is_active: isActive,
       prelanding_template: validTpl,
+      created_at: (row.created_at as string | null) ?? null,
     },
   };
 }
