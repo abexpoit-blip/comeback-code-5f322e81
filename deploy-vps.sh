@@ -39,14 +39,15 @@ bun run scripts/check-external-db.ts || { echo "❌ Database connection check fa
 echo "--- Restarting PM2 in 8-Core Cluster Mode ---"
 pm2 delete sleepox || true
 
-# We pass env vars explicitly to ensure all 8 cores get the correct config
+# Explicitly use --instances max to trigger Cluster Mode
 PORT=4000 \
 NODE_ENV=production \
 SUPABASE_URL="$SUPABASE_URL" \
 SUPABASE_ANON_KEY="$SUPABASE_ANON_KEY" \
 SUPABASE_SERVICE_ROLE_KEY="$SUPABASE_SERVICE_ROLE_KEY" \
-npx pm2 start dist/server/index.mjs --name "sleepox" -i max
+pm2 start dist/server/index.mjs --name "sleepox" --instances max
 
 pm2 save
-echo "✅ Deployment Complete! Data verified and 8 cores active."
+echo "✅ Deployment Complete! 8 cores are now active in cluster mode."
+
 
