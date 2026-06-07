@@ -182,7 +182,9 @@ export const adminBulkReverify = createServerFn({ method: "POST" })
       .not("plisio_invoice_id", "is", null)
       .limit(100);
 
+    const sourceIp = await detectOutgoingIp();
     let recovered = 0, checked = 0;
+    let lastError: string | null = null;
     const details: any[] = [];
 
     for (const req of orders ?? []) {
@@ -192,7 +194,11 @@ export const adminBulkReverify = createServerFn({ method: "POST" })
           `https://api.plisio.net/api/v1/operations/${encodeURIComponent(req.plisio_invoice_id!)}?api_key=${encodeURIComponent(apiKey)}`,
         );
         const json: any = await res.json().catch(() => null);
-        if (json?.status !== "success" || !json.data) continue;
+        if (json?.status !== "success" || !json.data) {
+          lastError = `${json?.data?.message || json?.message || `HTTP ${res.status}`} (code ${json?.data?.code ?? "?"})`;
+          console.warn(`[bulk-reverify] ${req.id} src_ip=${sourceIp} http=${res.status} err=${lastError}`);
+          continue;
+        }
         const plisioStatus = json.data.status as string;
         if (!["completed", "success", "finished", "mismatch"].includes(plisioStatus)) continue;
 
@@ -212,10 +218,11 @@ export const adminBulkReverify = createServerFn({ method: "POST" })
         recovered++;
         details.push({ order: req.id, user: req.user_id, slug: req.package_slug, plisio_status: plisioStatus });
       } catch (e: any) {
+        lastError = e?.message || "unknown";
         console.error("[bulk-reverify] error", req.id, e?.message);
       }
     }
-    return { checked, recovered, details };
+    return { checked, recovered, details, source_ip: sourceIp, last_error: lastError };
   });
 
 
