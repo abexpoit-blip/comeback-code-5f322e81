@@ -106,6 +106,7 @@ function AdminPage() {
             <TabsTrigger value="support">Support</TabsTrigger>
             <TabsTrigger value="broadcasts">Broadcasts</TabsTrigger>
             <TabsTrigger value="errors">Errors</TabsTrigger>
+            <TabsTrigger value="plisio">Plisio Logs</TabsTrigger>
             <TabsTrigger value="maintenance">Maintenance</TabsTrigger>
           </TabsList>
           <TabsContent value="overview"><OverviewTab /></TabsContent>
@@ -121,6 +122,7 @@ function AdminPage() {
           <TabsContent value="support"><SupportTab /></TabsContent>
           <TabsContent value="broadcasts"><BroadcastsTab /></TabsContent>
           <TabsContent value="errors"><ErrorsTab /></TabsContent>
+          <TabsContent value="plisio"><PlisioLogsTab /></TabsContent>
           <TabsContent value="maintenance"><MaintenanceTab /></TabsContent>
         </Tabs>
       </div>
