@@ -372,7 +372,7 @@ function UsersTab() {
                   </select>
                 </Td>
                 <Td className="text-[#7A5C45]">{u.links_used} / {u.link_limit == null ? "∞" : u.link_limit}</Td>
-                <Td className="text-[#7A5C45]">{u.clicks_used.toLocaleString()}{u.click_quota ? ` / ${u.click_quota.toLocaleString()}` : " / ∞"}</Td>
+                <Td className="text-[#7A5C45]">{u.clicks_used.toLocaleString()}{u.click_quota == null ? " / ∞" : ` / ${u.click_quota.toLocaleString()}`}</Td>
                 <Td><span className="inline-flex px-2 py-0.5 rounded-md bg-gradient-to-r from-[#FF7E5F]/15 to-[#FEB47B]/15 text-[#FF7E5F] text-xs font-bold">{(u.ours_clicks ?? 0).toLocaleString()}</span></Td>
                 <Td>{u.is_banned ? <span className="text-rose-600 font-semibold">Banned</span> : <span className="text-emerald-600 font-semibold">Active</span>}</Td>
                 <Td>
@@ -760,7 +760,7 @@ function PackagesTab() {
               </div>
               <span className="text-2xl font-extrabold text-[#FF7E5F]">${Number(p.price_usd).toFixed(2)}</span>
             </div>
-            <div className="mt-2 text-xs text-[#7A5C45]">{p.click_quota?.toLocaleString() ?? "∞"} clicks · {p.link_limit ?? "∞"} links</div>
+            <div className="mt-2 text-xs text-[#7A5C45]">{p.click_quota == null ? "∞" : p.click_quota.toLocaleString()} clicks · {p.link_limit == null ? "∞" : p.link_limit} links</div>
             <div className="mt-3 flex gap-2">
               <Button size="sm" variant="outline" onClick={() => setEdit({ id: p.id, slug: p.slug, name: p.name, price_usd: Number(p.price_usd), click_quota: p.click_quota, link_limit: p.link_limit, sort_order: p.sort_order, is_active: p.is_active })} className="border-[#FFD4BB]">Edit</Button>
               <Button size="sm" variant="outline" onClick={() => { if (confirm(`Delete ${p.name}?`)) delMut.mutate({ id: p.id }); }} className="border-rose-300 text-rose-600"><Trash2 className="w-3 h-3" /></Button>

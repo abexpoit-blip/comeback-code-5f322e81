@@ -99,8 +99,8 @@ function DashboardPage() {
 
   const clickQuota = profile?.click_quota ?? null;
   const clicksUsed = Number(profile?.clicks_used ?? 0);
-  const quotaPct = clickQuota ? Math.min(100, Math.round((clicksUsed / clickQuota) * 100)) : 0;
-  const quotaLabel = clickQuota ? `${fmtCompact(clicksUsed)} / ${fmtCompact(clickQuota)}` : "Unlimited";
+  const quotaPct = clickQuota == null ? 0 : Math.min(100, Math.round((clicksUsed / clickQuota) * 100));
+  const quotaLabel = clickQuota == null ? "Unlimited" : `${fmtCompact(clicksUsed)} / ${fmtCompact(clickQuota)}`;
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();

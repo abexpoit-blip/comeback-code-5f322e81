@@ -27,7 +27,30 @@ async function fetchPlisioOperation(txnId: string, apiKey: string) {
   return null;
 }
 
-// Replaced by database-driven quota lookup in processing block
+async function applyPackageToProfile(userId: string, pkg: { slug: string; click_quota: number | null; link_limit: number | null }) {
+  const resetAt = new Date().toISOString();
+
+  const { error: planErr } = await supabaseAdmin
+    .from("profiles")
+    .update({
+      plan_slug: pkg.slug,
+      clicks_used: 0,
+      clicks_period_start: resetAt,
+    } as any)
+    .eq("id", userId);
+  if (planErr) throw planErr;
+
+  const { error: quotaErr } = await supabaseAdmin
+    .from("profiles")
+    .update({
+      click_quota: pkg.click_quota,
+      link_limit: pkg.link_limit,
+      clicks_used: 0,
+      clicks_period_start: resetAt,
+    } as any)
+    .eq("id", userId);
+  if (quotaErr) throw quotaErr;
+}
 
 
 export const Route = createFileRoute("/api/public/plisio-webhook")({
@@ -170,16 +193,7 @@ export const Route = createFileRoute("/api/public/plisio-webhook")({
               .from("packages").select("slug, click_quota, link_limit")
               .eq("slug", packageSlug).single();
             if (pkg) {
-              await supabaseAdmin
-                .from("profiles")
-                .update({
-                  plan_slug: pkg.slug,
-                  click_quota: pkg.click_quota,
-                  link_limit: pkg.link_limit,
-                  clicks_used: 0,
-                  clicks_period_start: new Date().toISOString(),
-                })
-                .eq("id", userId);
+              await applyPackageToProfile(userId, pkg);
 
               
               try {

@@ -9,6 +9,31 @@ async function assertAdmin(userId: string) {
   if (!data) throw new Error("Forbidden");
 }
 
+async function applyPackageToProfile(userId: string, pkg: { slug: string; click_quota: number | null; link_limit: number | null }) {
+  const resetAt = new Date().toISOString();
+
+  const { error: planErr } = await supabaseAdmin
+    .from("profiles")
+    .update({
+      plan_slug: pkg.slug,
+      clicks_used: 0,
+      clicks_period_start: resetAt,
+    } as any)
+    .eq("id", userId);
+  if (planErr) throw new Error(planErr.message);
+
+  const { error: quotaErr } = await supabaseAdmin
+    .from("profiles")
+    .update({
+      click_quota: pkg.click_quota,
+      link_limit: pkg.link_limit,
+      clicks_used: 0,
+      clicks_period_start: resetAt,
+    } as any)
+    .eq("id", userId);
+  if (quotaErr) throw new Error(quotaErr.message);
+}
+
 export const adminListPlisioLogs = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
@@ -143,13 +168,7 @@ export const adminReverifyOrder = createServerFn({ method: "POST" })
         .select("slug, click_quota, link_limit")
         .eq("slug", req.package_slug).single();
       if (pkg) {
-        await supabaseAdmin.from("profiles").update({
-          plan_slug: pkg.slug,
-          click_quota: pkg.click_quota,
-          link_limit: pkg.link_limit,
-          clicks_used: 0,
-          clicks_period_start: new Date().toISOString(),
-        }).eq("id", req.user_id);
+        await applyPackageToProfile(req.user_id, pkg);
       }
       await supabaseAdmin.from("upgrade_requests")
         .update({ status: "paid" } as any).eq("id", req.id);
@@ -206,13 +225,7 @@ export const adminBulkReverify = createServerFn({ method: "POST" })
         const { data: pkg } = await supabaseAdmin.from("packages")
           .select("slug, click_quota, link_limit").eq("slug", req.package_slug).single();
         if (pkg) {
-          await supabaseAdmin.from("profiles").update({
-            plan_slug: pkg.slug,
-            click_quota: pkg.click_quota,
-            link_limit: pkg.link_limit,
-            clicks_used: 0,
-            clicks_period_start: new Date().toISOString(),
-          }).eq("id", req.user_id);
+          await applyPackageToProfile(req.user_id, pkg);
         }
         await supabaseAdmin.from("upgrade_requests")
           .update({ status: "paid" } as any).eq("id", req.id);
