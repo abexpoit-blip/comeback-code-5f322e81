@@ -1,6 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
+import { fetchIpv4 } from "@/lib/fetch-ipv4";
 
 async function assertAdmin(userId: string) {
   const { data } = await supabaseAdmin
@@ -79,7 +80,7 @@ let _cachedIp: { ip: string; at: number } | null = null;
 export async function detectOutgoingIp(): Promise<string> {
   if (_cachedIp && Date.now() - _cachedIp.at < 5 * 60 * 1000) return _cachedIp.ip;
   try {
-    const r = await fetch("https://api.ipify.org?format=json");
+    const r = await fetchIpv4("https://api.ipify.org?format=json");
     const j: any = await r.json().catch(() => null);
     const ip = j?.ip || "unknown";
     _cachedIp = { ip, at: Date.now() };
@@ -115,7 +116,7 @@ export const adminReverifyOrder = createServerFn({ method: "POST" })
 
     const sourceIp = await detectOutgoingIp();
     const url = `https://api.plisio.net/api/v1/operations/${encodeURIComponent(req.plisio_invoice_id)}?api_key=${encodeURIComponent(apiKey)}`;
-    const res = await fetch(url);
+    const res = await fetchIpv4(url);
     const json: any = await res.json().catch(() => null);
     console.log(`[plisio-reverify] order=${req.id} src_ip=${sourceIp} http=${res.status} body=`, JSON.stringify(json));
 
@@ -190,7 +191,7 @@ export const adminBulkReverify = createServerFn({ method: "POST" })
     for (const req of orders ?? []) {
       checked++;
       try {
-        const res = await fetch(
+        const res = await fetchIpv4(
           `https://api.plisio.net/api/v1/operations/${encodeURIComponent(req.plisio_invoice_id!)}?api_key=${encodeURIComponent(apiKey)}`,
         );
         const json: any = await res.json().catch(() => null);

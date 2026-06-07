@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { createHash } from "crypto";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
+import { fetchIpv4 } from "@/lib/fetch-ipv4";
 
 /**
  * Plisio callback verification.
@@ -17,7 +18,7 @@ function verifyFormHash(body: Record<string, string>, apiKey: string): boolean {
 
 async function fetchPlisioOperation(txnId: string, apiKey: string) {
   try {
-    const res = await fetch(`https://api.plisio.net/api/v1/operations/${encodeURIComponent(txnId)}?api_key=${encodeURIComponent(apiKey)}`);
+    const res = await fetchIpv4(`https://api.plisio.net/api/v1/operations/${encodeURIComponent(txnId)}?api_key=${encodeURIComponent(apiKey)}`);
     const json = await res.json() as { status?: string; data?: { status?: string; order_number?: string; source_amount?: string; source_currency?: string } };
     if (json.status === "success" && json.data) return json.data;
   } catch (e) {
