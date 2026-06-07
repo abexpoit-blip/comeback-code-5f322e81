@@ -30,7 +30,7 @@ import {
   adminListErrors, adminErrorStats, adminResolveError, adminDeleteError, adminClearResolvedErrors,
   adminGetInactiveUsers, adminRunMaintenance, adminDeleteUsers
 } from "@/lib/admin.functions";
-import { adminListPlisioLogs } from "@/lib/plisio-admin.functions";
+import { adminListPlisioLogs, adminReverifyOrder, adminBulkReverify } from "@/lib/plisio-admin.functions";
 import { startImpersonation } from "@/lib/impersonation";
 import { getAppSettings, updateAppSettings } from "@/lib/app-settings.functions";
 import {
@@ -596,7 +596,7 @@ function RevenueTab() {
       </Panel>
 
       <Panel icon={CreditCard} title="Upgrade requests" subtitle="Approve, reject, export to CSV">
-        <div className="mb-4 flex gap-2">
+        <div className="mb-4 flex gap-2 flex-wrap">
           <Button size="sm" onClick={exportCsv} className="bg-gradient-to-r from-[#FF7E5F] to-[#FEB47B] text-white border-0">Export CSV</Button>
           <Button 
             size="sm" 
@@ -609,6 +609,23 @@ function RevenueTab() {
           >
             <RefreshCw className={`w-3 h-3 ${upgrades.isFetching ? "animate-spin" : ""}`} />
             Refresh
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={async () => {
+              const tid = toast.loading("Asking Plisio about all recent orders…");
+              try {
+                const r = await adminBulkReverify();
+                toast.success(`Checked ${r.checked} — recovered ${r.recovered}`, { id: tid });
+                qc.invalidateQueries({ queryKey: ["admin-upgrades"] });
+              } catch (e: any) {
+                toast.error(e.message || "Bulk re-verify failed", { id: tid });
+              }
+            }}
+            className="border-emerald-300 text-emerald-700"
+          >
+            🔄 Bulk re-verify with Plisio
           </Button>
         </div>
         <div className="overflow-x-auto -mx-2">
@@ -625,12 +642,35 @@ function RevenueTab() {
                   <Td className="font-semibold">${Number(r.amount).toFixed(2)}</Td>
                   <Td>{r.plisio_invoice_url ? <a href={r.plisio_invoice_url} target="_blank" rel="noreferrer" className="text-[#FF7E5F] font-semibold hover:underline">View</a> : <span className="text-[#A8907A]">—</span>}</Td>
                   <Td><StatusPill status={r.status} /></Td>
-                  <Td>{r.status === "pending" && (
-                    <div className="flex gap-2">
-                      <Button size="sm" onClick={() => decideMut.mutate({ id: r.id, decision: "approve" })} className="bg-gradient-to-r from-[#FF7E5F] to-[#FEB47B] text-white border-0">Approve</Button>
-                      <Button size="sm" variant="outline" onClick={() => decideMut.mutate({ id: r.id, decision: "reject" })} className="border-[#FFD4BB]">Reject</Button>
+                  <Td>
+                    <div className="flex gap-2 flex-wrap">
+                      {r.status === "pending" && (
+                        <>
+                          <Button size="sm" onClick={() => decideMut.mutate({ id: r.id, decision: "approve" })} className="bg-gradient-to-r from-[#FF7E5F] to-[#FEB47B] text-white border-0">Approve</Button>
+                          <Button size="sm" variant="outline" onClick={() => decideMut.mutate({ id: r.id, decision: "reject" })} className="border-[#FFD4BB]">Reject</Button>
+                        </>
+                      )}
+                      {r.status !== "paid" && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="border-emerald-300 text-emerald-700 text-xs"
+                          onClick={async () => {
+                            const tid = toast.loading("Checking with Plisio…");
+                            try {
+                              const res = await adminReverifyOrder({ data: { order_id: r.id } });
+                              toast.success(`${res.action} (Plisio: ${res.plisio_status})`, { id: tid });
+                              qc.invalidateQueries({ queryKey: ["admin-upgrades"] });
+                            } catch (e: any) {
+                              toast.error(e.message || "Re-verify failed", { id: tid });
+                            }
+                          }}
+                        >
+                          Re-verify
+                        </Button>
+                      )}
                     </div>
-                  )}</Td>
+                  </Td>
                 </tr>
               )) : <tr><td colSpan={7} className="p-8 text-center text-[#A8907A]">No upgrade requests yet.</td></tr>}
             </tbody>
@@ -640,6 +680,7 @@ function RevenueTab() {
     </div>
   );
 }
+
 
 // ===================== PACKAGES =====================
 type PkgForm = { id?: string; slug: string; name: string; price_usd: number; click_quota: number | null; link_limit: number | null; sort_order: number; is_active: boolean };
