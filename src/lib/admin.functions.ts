@@ -9,6 +9,38 @@ async function assertAdmin(userId: string) {
   if (!data) throw new Error("Forbidden");
 }
 
+type PackageQuota = {
+  slug: string;
+  click_quota: number | null;
+  link_limit: number | null;
+};
+
+async function applyPackageToProfileIds(userIds: string[], pkg: PackageQuota) {
+  const ids = [...new Set(userIds)];
+  const resetAt = new Date().toISOString();
+
+  const { error: planErr } = await supabaseAdmin
+    .from("profiles")
+    .update({
+      plan_slug: pkg.slug,
+      clicks_used: 0,
+      clicks_period_start: resetAt,
+    } as any)
+    .in("id", ids);
+  if (planErr) throw new Error(planErr.message);
+
+  const { error: quotaErr } = await supabaseAdmin
+    .from("profiles")
+    .update({
+      click_quota: pkg.click_quota,
+      link_limit: pkg.link_limit,
+      clicks_used: 0,
+      clicks_period_start: resetAt,
+    } as any)
+    .in("id", ids);
+  if (quotaErr) throw new Error(quotaErr.message);
+}
+
 // No longer used, pulling directly from package row
 
 
@@ -246,18 +278,7 @@ export const adminBulkSetPlan = createServerFn({ method: "POST" })
     const { data: pkg } = await supabaseAdmin
       .from("packages").select("*").eq("slug", data.package_slug).maybeSingle();
     if (!pkg) throw new Error("Package not found");
-    const { error } = await supabaseAdmin
-      .from("profiles")
-      .update({
-        plan_slug: pkg.slug,
-        click_quota: pkg.click_quota,
-        link_limit: pkg.link_limit,
-        clicks_used: 0,
-        clicks_period_start: new Date().toISOString(),
-      } as any)
-      .in("id", data.ids);
-
-    if (error) throw new Error(error.message);
+    await applyPackageToProfileIds(data.ids, pkg);
     return { ok: true, updated: data.ids.length };
   });
 
@@ -301,18 +322,7 @@ export const adminSetUserPlan = createServerFn({ method: "POST" })
     const { data: pkg } = await supabaseAdmin
       .from("packages").select("*").eq("slug", data.package_slug).maybeSingle();
     if (!pkg) throw new Error("Package not found");
-    const { error } = await supabaseAdmin
-      .from("profiles")
-      .update({
-        plan_slug: pkg.slug,
-        click_quota: pkg.click_quota,
-        link_limit: pkg.link_limit,
-        clicks_used: 0,
-        clicks_period_start: new Date().toISOString(),
-      } as any)
-      .eq("id", data.user_id);
-
-    if (error) throw new Error(error.message);
+    await applyPackageToProfileIds([data.user_id], pkg);
     return { ok: true };
   });
 
@@ -435,18 +445,7 @@ export const adminDecideUpgradeRequest = createServerFn({ method: "POST" })
       .from("upgrade_requests").update({ status: "paid" } as any).eq("id", data.id);
     if (uErr) throw new Error(uErr.message);
 
-    const { error: pErr } = await supabaseAdmin
-      .from("profiles")
-      .update({
-        plan_slug: pkg.slug,
-        click_quota: pkg.click_quota,
-        link_limit: pkg.link_limit,
-        clicks_used: 0,
-        clicks_period_start: new Date().toISOString(),
-      } as any)
-      .eq("id", req.user_id);
-
-    if (pErr) throw new Error(pErr.message);
+    await applyPackageToProfileIds([req.user_id], pkg);
 
     return { ok: true };
   });
