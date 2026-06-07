@@ -1,28 +1,96 @@
-// Force outbound HTTP requests over IPv4. The VPS has IPv6 enabled and Node's
-// global fetch may prefer IPv6, causing third-party APIs (e.g. Plisio) to see
-// the IPv6 address instead of the whitelisted IPv4.
+// Force outbound HTTP requests over IPv4. The VPS has IPv6 enabled and some
+// PM2 workers may otherwise reach Plisio over IPv6, which triggers their
+// allowed-IP protection even when the IPv4 address is whitelisted.
 //
-// IMPORTANT: undici is a Node-only module. We must NOT import it at module
-// top-level because this file is reachable from `.functions.ts` files whose
-// top-level imports also end up in the client bundle. We lazy-load undici
-// inside the function so the browser never tries to evaluate it.
+// This helper avoids Node-only top-level imports so it stays safe when the file
+// is statically reachable from server function modules.
 
-let _agent: any = null;
-let _undiciFetch: any = null;
+async function requestOverIpv4(input: RequestInfo | URL, init: RequestInit = {}): Promise<Response> {
+  const [{ request: httpsRequest, Agent }, { URL: NodeURL }] = await Promise.all([
+    import("node:https"),
+    import("node:url"),
+  ]);
 
-async function getUndici() {
-  if (_undiciFetch && _agent) return { fetch: _undiciFetch, agent: _agent };
-  // eslint-disable-next-line @typescript-eslint/no-var-requires
-  const undici = await import("undici");
-  _agent = new undici.Agent({ connect: { family: 4 } });
-  _undiciFetch = undici.fetch;
-  return { fetch: _undiciFetch, agent: _agent };
+  const source = input instanceof Request
+    ? input.url
+    : input instanceof URL
+      ? input.toString()
+      : String(input);
+
+  const url = new NodeURL(source);
+  const method = init.method ?? (input instanceof Request ? input.method : "GET");
+  const headers = new Headers(input instanceof Request ? input.headers : init.headers);
+  const body = init.body ?? (input instanceof Request ? input.body : undefined);
+
+  if (body && typeof body !== "string" && !(body instanceof Uint8Array) && !(body instanceof ArrayBuffer)) {
+    throw new Error("fetchIpv4 currently supports string and binary request bodies only");
+  }
+
+  const bodyBuffer =
+    typeof body === "string"
+      ? Buffer.from(body)
+      : body instanceof Uint8Array
+        ? Buffer.from(body)
+        : body instanceof ArrayBuffer
+          ? Buffer.from(body)
+          : undefined;
+
+  if (bodyBuffer && !headers.has("content-length")) {
+    headers.set("content-length", String(bodyBuffer.byteLength));
+  }
+
+  return new Promise<Response>((resolve, reject) => {
+    const agent = new Agent({ family: 4, keepAlive: false });
+    const req = httpsRequest(
+      {
+        protocol: url.protocol,
+        hostname: url.hostname,
+        port: url.port || undefined,
+        path: `${url.pathname}${url.search}`,
+        method,
+        headers: Object.fromEntries(headers.entries()),
+        agent,
+        family: 4,
+      },
+      (res) => {
+        const chunks: Buffer[] = [];
+        res.on("data", (chunk) => chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk)));
+        res.on("end", () => {
+          const payload = Buffer.concat(chunks);
+          resolve(
+            new Response(payload, {
+              status: res.statusCode ?? 500,
+              statusText: res.statusMessage ?? "",
+              headers: new Headers(
+                Object.entries(res.headers).flatMap(([key, value]) => {
+                  if (Array.isArray(value)) return value.map((v) => [key, v] as const);
+                  return value == null ? [] : [[key, String(value)] as const];
+                }),
+              ),
+            }),
+          );
+        });
+      },
+    );
+
+    req.on("error", reject);
+
+    const abort = () => req.destroy(new Error("Request aborted"));
+    if (init.signal) {
+      if (init.signal.aborted) {
+        abort();
+        return;
+      }
+      init.signal.addEventListener("abort", abort, { once: true });
+      req.on("close", () => init.signal?.removeEventListener("abort", abort));
+    }
+
+    if (bodyBuffer) req.write(bodyBuffer);
+    req.end();
+  });
 }
 
 export const fetchIpv4: typeof fetch = (async (input: any, init: any = {}) => {
-  // Only use undici on the server. In the (unexpected) case this runs in a
-  // browser bundle, fall back to the global fetch.
   if (typeof window !== "undefined") return fetch(input, init);
-  const { fetch: uf, agent } = await getUndici();
-  return uf(input, { ...init, dispatcher: agent }) as unknown as Response;
+  return requestOverIpv4(input, init);
 }) as unknown as typeof fetch;
