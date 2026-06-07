@@ -30,7 +30,7 @@ import {
   adminListErrors, adminErrorStats, adminResolveError, adminDeleteError, adminClearResolvedErrors,
   adminGetInactiveUsers, adminRunMaintenance, adminDeleteUsers
 } from "@/lib/admin.functions";
-import { adminListPlisioLogs } from "@/lib/plisio-admin.functions";
+import { adminListPlisioLogs, adminReverifyOrder, adminBulkReverify } from "@/lib/plisio-admin.functions";
 import { startImpersonation } from "@/lib/impersonation";
 import { getAppSettings, updateAppSettings } from "@/lib/app-settings.functions";
 import {
