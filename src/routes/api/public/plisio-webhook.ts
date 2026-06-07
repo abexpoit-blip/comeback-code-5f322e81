@@ -75,13 +75,18 @@ export const Route = createFileRoute("/api/public/plisio-webhook")({
         const orderNumber = body.order_number;
         let status = body.status;
 
-        // 1. LOG THE EVENT IMMEDIATELY
-        await supabaseAdmin.from("plisio_event_logs").insert({
-          txn_id: txnId,
-          order_number: orderNumber,
-          status: status,
-          raw_body: body,
-        });
+        // 1. LOG THE EVENT IMMEDIATELY (wrapped in try-catch to prevent schema issues from blocking processing)
+        try {
+          await supabaseAdmin.from("plisio_event_logs").insert({
+            txn_id: txnId,
+            order_number: orderNumber,
+            status: status,
+            raw_body: body,
+          });
+        } catch (logErr) {
+          console.error("[plisio] logging failed", logErr);
+        }
+
 
         // 2. VERIFY
         let verified = false;
