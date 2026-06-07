@@ -95,6 +95,15 @@ export const createInvoice = createServerFn({ method: "POST" })
 export const getMyOrders = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
+    // Auto-expire old pending requests (> 30 minutes)
+    const expiryCutoff = new Date(Date.now() - 30 * 60 * 1000).toISOString();
+    await supabaseAdmin
+      .from("upgrade_requests")
+      .update({ status: "expired" } as any)
+      .eq("user_id", context.userId)
+      .eq("status", "pending")
+      .lt("created_at", expiryCutoff);
+
     const { data, error } = await context.supabase
       .from("upgrade_requests")
       .select("*")
