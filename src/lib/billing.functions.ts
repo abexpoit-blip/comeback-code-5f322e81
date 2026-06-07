@@ -2,6 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
+import { fetchIpv4 } from "@/lib/fetch-ipv4";
 
 /**
  * Create a Plisio invoice for the selected package and return the checkout URL.
@@ -59,7 +60,7 @@ export const createInvoice = createServerFn({ method: "POST" })
     let res: Response;
     let raw = "";
     try {
-      res = await fetch(`https://api.plisio.net/api/v1/invoices/new?${params}`, { signal: ctrl.signal });
+      res = await fetchIpv4(`https://api.plisio.net/api/v1/invoices/new?${params}`, { signal: ctrl.signal });
       raw = await res.text();
     } catch (e: any) {
       clearTimeout(timer);
