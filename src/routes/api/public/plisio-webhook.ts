@@ -36,7 +36,7 @@ function packageQuota(pkg: { slug?: string | null; click_quota?: number | null; 
   const slug = String(pkg.slug ?? "").toLowerCase();
   if (slug === "lifetime" || slug === "unlimited") return { click_quota: null, link_limit: null };
   if (slug === "monthly" || slug === "pro_monthly") return { click_quota: 1_000_000, link_limit: 50 };
-  if (slug === "free") return { click_quota: 10_000, link_limit: 1 };
+  if (slug === "free" || slug === "starter") return { click_quota: 10_000, link_limit: 1 };
   return { click_quota: pkg.click_quota ?? null, link_limit: pkg.link_limit ?? null };
 }
 
