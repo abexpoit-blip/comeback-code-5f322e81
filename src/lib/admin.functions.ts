@@ -373,8 +373,9 @@ export const adminListUpgradeRequests = createServerFn({ method: "GET" })
 
     const { data, error } = await supabaseAdmin
       .from("upgrade_requests")
-      .select("id, user_id, package_slug, amount, status, plisio_invoice_id, plisio_invoice_url, created_at, updated_at")
+      .select("id, user_id, package_slug, amount, status, plisio_invoice_id, plisio_invoice_url, created_at")
       .order("created_at", { ascending: false })
+
       .limit(500);
     if (error) throw new Error(error.message);
     const ids = Array.from(new Set((data ?? []).map((r: any) => r.user_id)));
