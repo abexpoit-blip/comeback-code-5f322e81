@@ -378,9 +378,8 @@ export const adminListUpgradeRequests = createServerFn({ method: "GET" })
   .handler(async ({ context }) => {
     await assertAdmin(context.userId);
     
-    // Auto-expire very old pending requests (> 24 hours) to keep list clean
-    // Removed the aggressive 35-min expiry which was hiding active orders
-    const expiryCutoff = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+    // Auto-expire old pending requests (> 30 minutes) as requested
+    const expiryCutoff = new Date(Date.now() - 30 * 60 * 1000).toISOString();
     await supabaseAdmin
       .from("upgrade_requests")
       .update({ status: "expired" } as any)
