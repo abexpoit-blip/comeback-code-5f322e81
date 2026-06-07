@@ -600,6 +600,33 @@ function RevenueTab() {
       </Panel>
 
       <Panel icon={CreditCard} title="Upgrade requests" subtitle="Approve, reject, export to CSV">
+        {/* Plisio diagnostic banner: outgoing IP to whitelist + last bulk run summary */}
+        <div className="mb-4 rounded-xl border border-[#FFD4BB] bg-gradient-to-r from-amber-50 to-orange-50 px-3 py-2 text-xs text-[#7A5C45] flex flex-wrap items-center gap-x-4 gap-y-1">
+          <span className="font-bold uppercase tracking-wider text-[10px] text-[#A8907A]">Plisio source IP</span>
+          {outgoingIp.isLoading ? (
+            <span className="italic">detecting…</span>
+          ) : (
+            <>
+              <code className="font-mono font-bold text-[#2D1B0D] bg-white px-2 py-0.5 rounded border border-[#FFD4BB] select-all">
+                {outgoingIp.data?.ip || "unknown"}
+              </code>
+              <button
+                onClick={() => { navigator.clipboard.writeText(outgoingIp.data?.ip || ""); toast.success("IP copied"); }}
+                className="text-[#FF7E5F] hover:underline"
+              >Copy</button>
+              <span className="text-[#7A5C45]">→ Whitelist this in Plisio → API → Allowed IPs to fix “Invalid IP”.</span>
+            </>
+          )}
+          {bulkSummary && (
+            <div className="w-full mt-1 pt-1 border-t border-[#FFD4BB]/60">
+              <span className="font-bold">Last bulk run:</span> checked {bulkSummary.checked}, recovered {bulkSummary.recovered}
+              {bulkSummary.last_error && (
+                <span className="text-rose-600"> · last error: <code className="font-mono">{bulkSummary.last_error}</code></span>
+              )}
+            </div>
+          )}
+        </div>
+
         <div className="mb-4 flex gap-2 flex-wrap">
           <Button size="sm" onClick={exportCsv} className="bg-gradient-to-r from-[#FF7E5F] to-[#FEB47B] text-white border-0">Export CSV</Button>
           <Button 
@@ -621,7 +648,12 @@ function RevenueTab() {
               const tid = toast.loading("Asking Plisio about all recent orders…");
               try {
                 const r = await adminBulkReverify();
-                toast.success(`Checked ${r.checked} — recovered ${r.recovered}`, { id: tid });
+                setBulkSummary({ checked: r.checked, recovered: r.recovered, ip: r.source_ip, last_error: r.last_error });
+                if (r.last_error) {
+                  toast.error(`Checked ${r.checked}, recovered ${r.recovered}. Plisio: ${r.last_error} (src ${r.source_ip})`, { id: tid });
+                } else {
+                  toast.success(`Checked ${r.checked} — recovered ${r.recovered} (src ${r.source_ip})`, { id: tid });
+                }
                 qc.invalidateQueries({ queryKey: ["admin-upgrades"] });
               } catch (e: any) {
                 toast.error(e.message || "Bulk re-verify failed", { id: tid });
@@ -638,14 +670,24 @@ function RevenueTab() {
               <tr className="text-left text-[10px] font-bold uppercase tracking-widest text-[#7A5C45]"><Th>When</Th><Th>User</Th><Th>Package</Th><Th>Amount</Th><Th>Invoice</Th><Th>Status</Th><Th></Th></tr>
             </thead>
             <tbody>
-              {upgrades.data?.length ? upgrades.data.map((r) => (
+              {upgrades.data?.length ? upgrades.data.map((r) => {
+                const rv = reverifyResults[r.id];
+                return (
                 <tr key={r.id} className="border-t border-[#FFE4D0]/60">
                   <Td className="whitespace-nowrap text-[#7A5C45] text-xs">{new Date(r.created_at).toLocaleString()}</Td>
                   <Td>{r.email || r.user_id.slice(0, 8)}</Td>
                   <Td><Pill>{r.package_slug}</Pill></Td>
                   <Td className="font-semibold">${Number(r.amount).toFixed(2)}</Td>
                   <Td>{r.plisio_invoice_url ? <a href={r.plisio_invoice_url} target="_blank" rel="noreferrer" className="text-[#FF7E5F] font-semibold hover:underline">View</a> : <span className="text-[#A8907A]">—</span>}</Td>
-                  <Td><StatusPill status={r.status} /></Td>
+                  <Td>
+                    <StatusPill status={r.status} />
+                    {rv && (
+                      <div className={`mt-1 text-[10px] font-mono leading-tight ${rv.ok ? "text-emerald-700" : "text-rose-600"}`}>
+                        {rv.ok ? "✓ " : "✗ "}{rv.msg}
+                        {rv.ip && <div className="text-[#A8907A]">src: {rv.ip}{rv.http ? ` · HTTP ${rv.http}` : ""}</div>}
+                      </div>
+                    )}
+                  </Td>
                   <Td>
                     <div className="flex gap-2 flex-wrap">
                       {r.status === "pending" && (
@@ -663,10 +705,13 @@ function RevenueTab() {
                             const tid = toast.loading("Checking with Plisio…");
                             try {
                               const res = await adminReverifyOrder({ data: { order_id: r.id } });
-                              toast.success(`${res.action} (Plisio: ${res.plisio_status})`, { id: tid });
+                              setReverifyResults((p) => ({ ...p, [r.id]: { ok: true, msg: `${res.action} · Plisio: ${res.plisio_status}`, ip: res.source_ip, http: res.http_status } }));
+                              toast.success(`${res.action} (Plisio: ${res.plisio_status}) — src ${res.source_ip}`, { id: tid });
                               qc.invalidateQueries({ queryKey: ["admin-upgrades"] });
                             } catch (e: any) {
-                              toast.error(e.message || "Re-verify failed", { id: tid });
+                              const msg = e?.message || "Re-verify failed";
+                              setReverifyResults((p) => ({ ...p, [r.id]: { ok: false, msg, ip: e?.source_ip, http: e?.http_status } }));
+                              toast.error(msg, { id: tid, duration: 8000 });
                             }
                           }}
                         >
@@ -676,7 +721,8 @@ function RevenueTab() {
                     </div>
                   </Td>
                 </tr>
-              )) : <tr><td colSpan={7} className="p-8 text-center text-[#A8907A]">No upgrade requests yet.</td></tr>}
+                );
+              }) : <tr><td colSpan={7} className="p-8 text-center text-[#A8907A]">No upgrade requests yet.</td></tr>}
             </tbody>
           </table>
         </div>
