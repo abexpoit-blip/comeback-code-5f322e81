@@ -282,6 +282,35 @@ export const adminBulkSetPlan = createServerFn({ method: "POST" })
     return { ok: true, updated: data.ids.length };
   });
 
+// Bulk fix: monthly users whose click_quota or link_limit ended up as NULL (unlimited bug)
+// or whose quotas exceed the configured monthly package limits. Re-applies the monthly package.
+export const adminFixUnlimitedMonthly = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    await assertAdmin(context.userId);
+    const { data: pkg } = await supabaseAdmin
+      .from("packages").select("*").eq("slug", "monthly").maybeSingle();
+    if (!pkg) throw new Error("Monthly package not found");
+
+    const { data: rows, error: selErr } = await supabaseAdmin
+      .from("profiles")
+      .select("id, click_quota, link_limit")
+      .eq("plan_slug", "monthly");
+    if (selErr) throw new Error(selErr.message);
+
+    const targetClicks = pkg.click_quota;
+    const targetLinks = pkg.link_limit;
+    const affected = (rows ?? []).filter((r: any) => {
+      const cqBad = r.click_quota == null || (targetClicks != null && r.click_quota !== targetClicks);
+      const llBad = r.link_limit == null || (targetLinks != null && r.link_limit !== targetLinks);
+      return cqBad || llBad;
+    }).map((r: any) => r.id);
+
+    if (affected.length === 0) return { ok: true, fixed: 0, scanned: rows?.length ?? 0 };
+    await applyPackageToProfileIds(affected, pkg);
+    return { ok: true, fixed: affected.length, scanned: rows?.length ?? 0 };
+  });
+
 export const adminUserDetail = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d) => z.object({ id: z.string().uuid() }).parse(d))
