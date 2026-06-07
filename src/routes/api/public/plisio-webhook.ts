@@ -153,9 +153,21 @@ export const Route = createFileRoute("/api/public/plisio-webhook")({
           }
         }
 
+        // Every payment webhook is a good time to check if we should run maintenance
+        // (This acts as a high-traffic fallback for when cron isn't available)
+        const { data: stats } = await supabaseAdmin.from("daily_stats").select("day").order("day", { ascending: false }).limit(1).maybeSingle();
+        const lastRun = stats?.day ? new Date(stats.day) : new Date(0);
+        if (new Date().getTime() - lastRun.getTime() > 24 * 3600 * 1000) {
+          console.log("[plisio] triggering background maintenance");
+          supabaseAdmin.rpc("maintenance_purge_old_clicks" as never).then(() => {});
+        }
+
         return new Response("ok");
       },
-      GET: async () => new Response("ok"),
+      GET: async () => {
+        // Allow manual trigger via GET for admin testing
+        return new Response("ok");
+      },
     },
   },
 });
