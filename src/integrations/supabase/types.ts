@@ -67,6 +67,10 @@ export type Database = {
           injection_count: number | null
           injection_threshold: number | null
           our_adsterra_url: string | null
+          signup_blocklist_enabled: boolean
+          signup_gmail_only: boolean
+          signup_ip_max_per_day: number
+          signup_protection_enabled: boolean
           updated_at: string | null
         }
         Insert: {
@@ -77,6 +81,10 @@ export type Database = {
           injection_count?: number | null
           injection_threshold?: number | null
           our_adsterra_url?: string | null
+          signup_blocklist_enabled?: boolean
+          signup_gmail_only?: boolean
+          signup_ip_max_per_day?: number
+          signup_protection_enabled?: boolean
           updated_at?: string | null
         }
         Update: {
@@ -87,7 +95,26 @@ export type Database = {
           injection_count?: number | null
           injection_threshold?: number | null
           our_adsterra_url?: string | null
+          signup_blocklist_enabled?: boolean
+          signup_gmail_only?: boolean
+          signup_ip_max_per_day?: number
+          signup_protection_enabled?: boolean
           updated_at?: string | null
+        }
+        Relationships: []
+      }
+      blocked_email_domains: {
+        Row: {
+          created_at: string
+          domain: string
+        }
+        Insert: {
+          created_at?: string
+          domain: string
+        }
+        Update: {
+          created_at?: string
+          domain?: string
         }
         Relationships: []
       }
@@ -737,6 +764,33 @@ export type Database = {
           label?: string | null
           pattern?: string
           trust_score?: number | null
+        }
+        Relationships: []
+      }
+      signup_attempts: {
+        Row: {
+          created_at: string
+          email: string | null
+          id: string
+          ip: string | null
+          reason: string | null
+          success: boolean
+        }
+        Insert: {
+          created_at?: string
+          email?: string | null
+          id?: string
+          ip?: string | null
+          reason?: string | null
+          success?: boolean
+        }
+        Update: {
+          created_at?: string
+          email?: string | null
+          id?: string
+          ip?: string | null
+          reason?: string | null
+          success?: boolean
         }
         Relationships: []
       }
