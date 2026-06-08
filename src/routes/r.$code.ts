@@ -597,65 +597,35 @@ async function handleRedirect(request: Request, code: string, shouldRecordClick 
   let reason: string | null = null;
   let whitelistHit: { id: string; label: string } | null = null;
 
-  // 0. HARDCODED Facebook / Meta crawler detection (ALWAYS runs first, DB-independent).
-  // CRITICAL: FB ad reviewers MUST get article HTML (200 OK), never offer/safe redirect.
-  // If we redirect FB crawlers, ads get disapproved and accounts get banned.
+  // 0. HARDCODED Facebook / Meta / social / search crawler detection.
+  // ALWAYS runs first, DB-independent, pre-compiled regex → single substring scan.
+  // CRITICAL: FB ad reviewers + link-preview crawlers MUST get article HTML (200 OK).
+  // If we redirect them, ads get disapproved and accounts get banned.
+  // NOTE: Real IG/FB in-app users send "FBAN/FBAV/Instagram" UAs and DO NOT match
+  // CRAWLER_UA_RE — they hit the offer normally.
   const uaLowFb = ua.toLowerCase();
-  // Social / messenger CRAWLERS (NOT in-app webviews — real IG/FB app users
-  // send "FBAN/FBAV/Instagram" UAs which must reach the offer normally).
-  // All of these scrape link previews → they MUST get article HTML, otherwise
-  // FB/Meta/Twitter/etc flag the destination and disapprove the ad.
-  const FB_UA_PATTERNS = [
-    "facebookexternalhit",
-    "facebot",
-    "meta-externalagent",
-    "meta-externalfetcher",
-    "facebookcatalog",
-    "whatsapp",
-    "twitterbot",
-    "linkedinbot",
-    "telegrambot",
-    "discordbot",
-    "slackbot",
-    "slack-imgproxy",
-    "pinterestbot",
-    "redditbot",
-    "skypeuripreview",
-    "snapchat",
-    "tiktokbot",
-    "vkshare",
-    "googlebot",
-    "bingbot",
-    "adsbot-google",
-    "google-adwords",
-    "google-inspectiontool",
-  ];
-
-  const FB_ASNS_HC = new Set(["32934", "63293"]);
-  const FB_IP_PREFIXES = [
-    "31.13.",
-    "157.240.",
-    "66.220.",
-    "69.63.",
-    "69.171.",
-    "173.252.",
-    "204.15.20.",
-    "199.201.64.",
-  ];
-  const fbUaHit = FB_UA_PATTERNS.find((p) => uaLowFb.includes(p));
-  if (fbUaHit) {
+  const crawlerMatch = uaLowFb.length >= 5 ? CRAWLER_UA_RE.exec(uaLowFb) : null;
+  if (crawlerMatch) {
     isBot = true;
-    isFbBot = true;
-    reason = `fb-ua:${fbUaHit}`;
-  } else if (asn && FB_ASNS_HC.has(asn)) {
+    isFbBot = FB_CLASS_RE.test(crawlerMatch[0]);
+    reason = `${isFbBot ? "fb-ua" : "crawler-ua"}:${crawlerMatch[0]}`;
+  } else if (asn && FB_ASN_SET.has(asn)) {
+    // Meta-owned ASN with no real-browser UA marker → reviewer/scraper.
     isBot = true;
     isFbBot = true;
     reason = `fb-asn:${asn}`;
-  } else if (ip && FB_IP_PREFIXES.some((p) => ip.startsWith(p))) {
+  } else if (ip && FB_IP_PREFIX_LIST.some((p) => ip.startsWith(p))) {
     isBot = true;
     isFbBot = true;
     reason = `fb-ip:${ip.split(".").slice(0, 2).join(".")}`;
+  } else if (uaLowFb.length > 0 && uaLowFb.length < 10) {
+    // Suspiciously short UA (e.g. "Mozilla/5" alone, "curl", "Java") with no
+    // browser/OS markers — almost always a scraper. Real browsers send 100+ chars.
+    // Defensive: routed to safe page, never offer.
+    isBot = true;
+    reason = `ua-short:${uaLowFb.length}`;
   }
+
 
   // 0b. FB AD-REVIEW WINDOW: during the first FB_AD_REVIEW_WINDOW_HOURS after
   // link creation, treat FB/IG in-app browsers AND clicks coming from FB/IG
