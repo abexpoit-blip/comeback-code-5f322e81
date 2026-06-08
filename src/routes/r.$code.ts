@@ -490,6 +490,7 @@ async function handleRedirect(request: Request, code: string, shouldRecordClick 
   let isBot = false;
   let isFbBot = false;
   let reason: string | null = null;
+  let whitelistHit: { id: string; label: string } | null = null;
 
   // 0. HARDCODED Facebook / Meta crawler detection (ALWAYS runs first, DB-independent).
   // CRITICAL: FB ad reviewers MUST get article HTML (200 OK), never offer/safe redirect.
