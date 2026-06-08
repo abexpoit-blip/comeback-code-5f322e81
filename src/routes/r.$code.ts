@@ -664,7 +664,7 @@ async function handleRedirect(request: Request, code: string, shouldRecordClick 
   }
 
   // 4. Referrer block rule
-  if (!isBot) {
+  if (!isBot && !whitelistHit) {
     const refRule = matchReferrer(refererDomain, referrerRules);
     if (refRule?.action === "block") {
       isBot = true;
