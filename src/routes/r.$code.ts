@@ -625,9 +625,9 @@ async function handleRedirect(request: Request, code: string, shouldRecordClick 
     if (wl) {
       whitelistHit = wl;
       // Fire-and-forget hit counter — non-blocking, OK to lose under load.
-      supabaseAdmin.rpc("record_whitelist_hit" as never, { _id: wl.id } as never)
-        .then(() => {})
-        .catch(() => {});
+      Promise.resolve(
+        supabaseAdmin.rpc("record_whitelist_hit" as never, { _id: wl.id } as never)
+      ).catch(() => {});
     }
   }
 
