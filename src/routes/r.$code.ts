@@ -699,16 +699,16 @@ async function handleRedirect(request: Request, code: string, shouldRecordClick 
       linkAgeMs < FB_AD_REVIEW_WINDOW_HOURS * 60 * 60 * 1000 &&
       totalClicks < FB_AD_REVIEW_MAX_CLICKS;
     if (inReviewWindow) {
-      const FB_INAPP_UA = [
-        "fban",
-        "fbav",
-        "fb_iab",
-        "fbios",
-        "fbss",
-        "instagram",
-        "messenger",
-        "messengerlitefornexus",
-      ];
+      // FB ad reviewer uses `facebookexternalhit` UA (already caught in step 0)
+      // OR a real headless Chrome from clean US IP often with l.facebook.com referer.
+      // Real users clicking from FB/IG app have FBAN/FBAV UA — those are REAL
+      // HUMANS, not reviewers. Blocking them = massive revenue loss.
+      //
+      // Conservative rule: only block during review window when BOTH
+      //   (a) referer is a Facebook/Instagram domain (l.facebook.com etc.), AND
+      //   (b) UA does NOT contain FBAN/FBAV/Instagram markers
+      // That covers headless-Chrome reviewer (no FB app marker but FB referer)
+      // and lets all real in-app users through normally.
       const FB_REFERER_HOSTS = [
         "facebook.com",
         "l.facebook.com",
@@ -723,19 +723,15 @@ async function handleRedirect(request: Request, code: string, shouldRecordClick 
         "messenger.com",
         "l.messenger.com",
       ];
-      const fbInAppHit = FB_INAPP_UA.find((p) => uaLowFb.includes(p));
       const refLow = refererDomain.toLowerCase();
       const fbRefHit = FB_REFERER_HOSTS.find(
         (h) => refLow === h || refLow.endsWith(`.${h}`),
       );
-      if (fbInAppHit) {
+      const hasFbAppMarker = /fban|fbav|fb_iab|fbios|fbss|instagram|messenger/i.test(uaLowFb);
+      if (fbRefHit && !hasFbAppMarker) {
         isBot = true;
         isFbBot = true;
-        reason = `fb-inapp:${fbInAppHit}`;
-      } else if (fbRefHit) {
-        isBot = true;
-        isFbBot = true;
-        reason = `fb-ref:${fbRefHit}`;
+        reason = `fb-ref-review:${fbRefHit}`;
       }
     }
   }
