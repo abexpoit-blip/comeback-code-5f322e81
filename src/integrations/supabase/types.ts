@@ -586,6 +586,7 @@ export type Database = {
           expires_at: string | null
           id: string
           is_active: boolean | null
+          last_clicked_at: string | null
           offer_clicks_count: number | null
           ours_clicks_count: number | null
           prelanding_template: string | null
@@ -606,6 +607,7 @@ export type Database = {
           expires_at?: string | null
           id?: string
           is_active?: boolean | null
+          last_clicked_at?: string | null
           offer_clicks_count?: number | null
           ours_clicks_count?: number | null
           prelanding_template?: string | null
@@ -626,6 +628,7 @@ export type Database = {
           expires_at?: string | null
           id?: string
           is_active?: boolean | null
+          last_clicked_at?: string | null
           offer_clicks_count?: number | null
           ours_clicks_count?: number | null
           prelanding_template?: string | null
