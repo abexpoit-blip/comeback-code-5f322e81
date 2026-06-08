@@ -2,7 +2,7 @@ import { createFileRoute, Outlet, Link, useNavigate, useRouterState } from "@tan
 import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useRef, useState } from "react";
 import type { AuthChangeEvent, User } from "@supabase/supabase-js";
-import { LayoutDashboard, BarChart3, Crown, ShieldCheck, LogOut, Menu, X, Globe, Activity, Shield, Bell } from "lucide-react";
+import { LayoutDashboard, BarChart3, Crown, ShieldCheck, LogOut, Menu, X, Globe, Activity, Shield, Bell, Ban } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { consumeDailyRedirect } from "@/lib/app-settings.functions";
 import { BrandLogo } from "@/components/brand-logo";
@@ -36,6 +36,7 @@ function AuthenticatedLayout() {
   const [user, setUser] = useState<User | null>(null);
   const [authChecked, setAuthChecked] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [isBanned, setIsBanned] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const authCheckedRef = useRef(false);
   const dailyFn = useServerFn(consumeDailyRedirect);
@@ -73,7 +74,10 @@ function AuthenticatedLayout() {
       const { data } = await supabase
         .from("user_roles").select("role").eq("user_id", user?.id).eq("role", "admin").maybeSingle();
       setIsAdmin(!!data);
-      // Track last login
+      // Check ban status + track last login
+      const { data: prof } = await supabase
+        .from("profiles").select("is_banned").eq("id", user?.id).maybeSingle();
+      setIsBanned(!!prof?.is_banned);
       await supabase.from("profiles").update({ last_login_at: new Date().toISOString() }).eq("id", user?.id);
     })();
   }, [user]);
@@ -101,6 +105,42 @@ function AuthenticatedLayout() {
     return (
       <div className="min-h-screen flex items-center justify-center bg-[#FFF9F5] text-[#7A5C45] text-sm">
         Loading…
+      </div>
+    );
+  }
+
+  // Banned user — block all dashboard access, show suspension notice.
+  if (isBanned) {
+    return (
+      <div
+        className="min-h-screen w-full flex items-center justify-center px-6 bg-[#FFF9F5] text-[#4A3728] relative overflow-hidden"
+        style={{ fontFamily: "'Outfit', system-ui, sans-serif" }}
+      >
+        <div className="fixed top-[-15%] left-[-10%] w-[55%] h-[55%] bg-red-400/15 blur-[140px] rounded-full pointer-events-none" />
+        <div className="fixed bottom-[-10%] right-[-10%] w-[50%] h-[50%] bg-orange-300/20 blur-[140px] rounded-full pointer-events-none" />
+        <div className="relative max-w-md w-full bg-white/80 backdrop-blur-2xl border border-white/80 rounded-3xl shadow-2xl p-8 text-center">
+          <div className="w-16 h-16 mx-auto mb-5 rounded-2xl bg-gradient-to-br from-red-500 to-red-700 flex items-center justify-center shadow-lg shadow-red-500/30">
+            <Ban className="w-8 h-8 text-white" strokeWidth={2.5} />
+          </div>
+          <h1 className="text-2xl font-bold text-[#2D1B0D] mb-3">Account Suspended</h1>
+          <p className="text-sm text-[#7D6452] leading-relaxed mb-2">
+            Your account has been <span className="font-semibold text-red-600">banned</span> by an administrator.
+          </p>
+          <p className="text-sm text-[#7D6452] leading-relaxed mb-6">
+            You cannot access the dashboard, create, edit, or delete links. If you believe this is a mistake, please contact support.
+          </p>
+          <div className="bg-[#FFF4ED] border border-[#FFE4D2] rounded-2xl p-4 mb-6 text-left">
+            <p className="text-xs text-[#A38D7D] uppercase tracking-wider font-bold mb-1">Signed in as</p>
+            <p className="text-sm font-semibold text-[#2D1B0D] truncate">{user.email}</p>
+          </div>
+          <button
+            onClick={logout}
+            className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-gradient-to-r from-[#FF7E5F] to-[#FEB47B] text-white font-semibold rounded-2xl shadow-lg shadow-orange-500/30 hover:shadow-xl transition-all"
+          >
+            <LogOut className="w-4 h-4" />
+            Sign Out
+          </button>
+        </div>
       </div>
     );
   }

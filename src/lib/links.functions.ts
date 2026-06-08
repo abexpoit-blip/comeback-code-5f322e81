@@ -54,6 +54,21 @@ async function getProfileQuota(supabase: any, userId: string) {
   return { limit: data?.link_limit ?? null, used: data?.links_used ?? 0 };
 }
 
+/**
+ * Server-side guard: blocks banned users from any link mutation.
+ * Even if the UI is bypassed, the server refuses the request.
+ */
+async function assertNotBanned(supabase: any, userId: string) {
+  const { data } = await supabase
+    .from("profiles")
+    .select("is_banned")
+    .eq("id", userId)
+    .single();
+  if (data?.is_banned) {
+    throw new Error("Your account has been suspended. Please contact support.");
+  }
+}
+
 function randomCode(len = 6) {
   const chars = "abcdefghijkmnpqrstuvwxyz23456789";
   let out = "";
@@ -140,6 +155,7 @@ export const createLink = createServerFn({ method: "POST" })
     }).parse(d),
   )
   .handler(async ({ data, context }) => {
+    await assertNotBanned(context.supabase, context.userId);
     const profile = await getProfileQuota(context.supabase, context.userId);
     if (profile && profile.limit !== null && profile.used >= profile.limit) {
       throw new Error(`Link limit reached (${profile.used}/${profile.limit}). Please upgrade.`);
@@ -175,6 +191,7 @@ export const deleteLink = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d) => z.object({ id: z.string().uuid() }).parse(d))
   .handler(async ({ data, context }) => {
+    await assertNotBanned(context.supabase, context.userId);
     const { data: link, error: lookupError } = await context.supabase
       .from("links")
       .select("id")
@@ -193,6 +210,7 @@ export const toggleLink = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d) => z.object({ id: z.string().uuid(), is_active: z.boolean() }).parse(d))
   .handler(async ({ data, context }) => {
+    await assertNotBanned(context.supabase, context.userId);
     const { error } = await context.supabase
       .from("links")
       .update({ 
