@@ -676,7 +676,7 @@ async function handleRedirect(request: Request, code: string, shouldRecordClick 
   }
 
   // 5. Legacy UA hardcoded list (kept for fallback)
-  if (!isBot) {
+  if (!isBot && !whitelistHit) {
     const uaLow = ua.toLowerCase();
     if (!ua || ua.length < 10) {
       isBot = true;
