@@ -743,3 +743,67 @@ export const adminDeleteUsers = createServerFn({ method: "POST" })
     if (error) throw new Error(error.message);
     return { ok: true };
   });
+// ===== Mini-dashboard for Control Panel — last 24h live stats =====
+export const adminTrafficSnapshot = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    await assertAdmin(context.userId);
+    const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+    const since1h = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+
+    const [
+      { count: total24h },
+      { count: humans24h },
+      { count: bots24h },
+      { count: offer24h },
+      { count: ours24h },
+      { count: safe24h },
+      { count: total1h },
+      { count: humans1h },
+      { data: reasons },
+    ] = await Promise.all([
+      supabaseAdmin.from("clicks").select("*", { count: "exact", head: true }).gte("created_at", since),
+      supabaseAdmin.from("clicks").select("*", { count: "exact", head: true }).gte("created_at", since).eq("is_bot", false),
+      supabaseAdmin.from("clicks").select("*", { count: "exact", head: true }).gte("created_at", since).eq("is_bot", true),
+      supabaseAdmin.from("clicks").select("*", { count: "exact", head: true }).gte("created_at", since).eq("routed_to", "offer").eq("is_bot", false),
+      supabaseAdmin.from("clicks").select("*", { count: "exact", head: true }).gte("created_at", since).eq("routed_to", "ours").eq("is_bot", false),
+      supabaseAdmin.from("clicks").select("*", { count: "exact", head: true }).gte("created_at", since).eq("routed_to", "safe"),
+      supabaseAdmin.from("clicks").select("*", { count: "exact", head: true }).gte("created_at", since1h),
+      supabaseAdmin.from("clicks").select("*", { count: "exact", head: true }).gte("created_at", since1h).eq("is_bot", false),
+      supabaseAdmin.from("clicks").select("bot_reason").gte("created_at", since).eq("is_bot", true).limit(5000),
+    ]);
+
+    // Group bot reasons by prefix (fb-*, signals, ua, asn, fp, etc.)
+    const groups: Record<string, number> = {};
+    let fbBlocked = 0;
+    for (const r of (reasons ?? []) as { bot_reason: string | null }[]) {
+      const key = (r.bot_reason ?? "unknown").split(":")[0];
+      groups[key] = (groups[key] ?? 0) + 1;
+      if (key.startsWith("fb-")) fbBlocked++;
+    }
+    const topReasons = Object.entries(groups)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 6)
+      .map(([k, v]) => ({ key: k, count: v }));
+
+    const t24 = total24h ?? 0;
+    const h24 = humans24h ?? 0;
+    const b24 = bots24h ?? 0;
+    const o24 = offer24h ?? 0;
+
+    return {
+      total24h: t24,
+      humans24h: h24,
+      bots24h: b24,
+      offer24h: o24,
+      ours24h: ours24h ?? 0,
+      safe24h: safe24h ?? 0,
+      total1h: total1h ?? 0,
+      humans1h: humans1h ?? 0,
+      humanPct: t24 > 0 ? Math.round((h24 / t24) * 100) : 0,
+      botPct: t24 > 0 ? Math.round((b24 / t24) * 100) : 0,
+      offerSuccessPct: h24 > 0 ? Math.round((o24 / h24) * 100) : 0,
+      fbCrawlerBlocked: fbBlocked,
+      topBotReasons: topReasons,
+    };
+  });
