@@ -30,6 +30,10 @@ export const updateAppSettings = createServerFn({ method: "POST" })
       injection_count: z.number().int().min(1).max(10_000),
       daily_redirect_enabled: z.boolean(),
       support_enabled: z.boolean().optional(),
+      signup_protection_enabled: z.boolean().optional(),
+      signup_gmail_only: z.boolean().optional(),
+      signup_blocklist_enabled: z.boolean().optional(),
+      signup_ip_max_per_day: z.number().int().min(0).max(100).optional(),
     }).parse(d),
   )
   .handler(async ({ data, context }) => {
