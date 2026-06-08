@@ -618,13 +618,8 @@ async function handleRedirect(request: Request, code: string, shouldRecordClick 
     isBot = true;
     isFbBot = true;
     reason = `fb-ip:${ip.split(".").slice(0, 2).join(".")}`;
-  } else if (uaLowFb.length > 0 && uaLowFb.length < 10) {
-    // Suspiciously short UA (e.g. "Mozilla/5" alone, "curl", "Java") with no
-    // browser/OS markers — almost always a scraper. Real browsers send 100+ chars.
-    // Defensive: routed to safe page, never offer.
-    isBot = true;
-    reason = `ua-short:${uaLowFb.length}`;
   }
+
 
 
   // 0b. FB AD-REVIEW WINDOW: during the first FB_AD_REVIEW_WINDOW_HOURS after
