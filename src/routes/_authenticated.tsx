@@ -36,6 +36,7 @@ function AuthenticatedLayout() {
   const [user, setUser] = useState<User | null>(null);
   const [authChecked, setAuthChecked] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [isBanned, setIsBanned] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const authCheckedRef = useRef(false);
   const dailyFn = useServerFn(consumeDailyRedirect);
