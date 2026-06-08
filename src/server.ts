@@ -42,7 +42,9 @@ function applySecurityHeaders(request: Request, response: Response): Response {
     headers.set("x-frame-options", "SAMEORIGIN");
   }
 
-  return new Response(response.body, {
+  const nullBodyStatus = response.status === 204 || response.status === 205 || response.status === 304;
+
+  return new Response(nullBodyStatus ? null : response.body, {
     status: response.status,
     statusText: response.statusText,
     headers,
