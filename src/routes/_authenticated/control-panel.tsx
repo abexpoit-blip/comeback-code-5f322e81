@@ -993,6 +993,16 @@ function TrafficTab() {
       </div>
 
       <div className="mt-8 pt-6 border-t border-[#FFD4BB]">
+        <h3 className="text-sm font-bold uppercase tracking-widest text-[#FF7E5F] mb-1">FB Ad-Review Protection</h3>
+        <p className="text-xs text-[#7A5C45] mb-4">নতুন লিংকের প্রথম ৬ ঘন্টা বা ২৫ ক্লিক পর্যন্ত FB/IG in-app browser-কে safe page দেখায় (ad reviewer যেন offer না দেখে)। <b>Ad approved হয়ে campaign run হলে এটা OFF করে দিন</b> — সব FB user offer পাবে, traffic 100% count হবে।</p>
+        <label className="flex items-center gap-3 cursor-pointer p-3 rounded-xl bg-white/60 border border-[#FFD4BB]">
+          <input type="checkbox" checked={fbReviewOn} onChange={(e) => setFbReviewOn(e.target.checked)} className="w-5 h-5 accent-[#FF7E5F]" />
+          <span className="text-sm font-semibold">🛡️ Enable FB Ad-Review Protection (turn OFF after ad approved)</span>
+        </label>
+      </div>
+
+
+      <div className="mt-8 pt-6 border-t border-[#FFD4BB]">
         <h3 className="text-sm font-bold uppercase tracking-widest text-[#FF7E5F] mb-1">Signup Protection</h3>
         <p className="text-xs text-[#7A5C45] mb-4">Master switch must be ON for any rule below to apply. Default OFF — turn ON when you're ready.</p>
         <div className="grid gap-4 sm:grid-cols-2">
