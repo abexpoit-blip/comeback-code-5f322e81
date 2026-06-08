@@ -936,20 +936,21 @@ async function handleRedirect(request: Request, code: string, shouldRecordClick 
         country: country || null,
         ua: ua || null,
         isBot,
-        botReason: reason,
+        botReason: whitelistHit ? `whitelist:${whitelistHit.label}` : reason,
         routedTo,
         utm,
         refererHost: refererDomain || null,
         botScore: isBot ? Math.max(80, signals.score) : signals.score,
         challengePassed: !isBot,
         signals: {
-          source: isBot ? "blocked" : "instant",
+          source: isBot ? "blocked" : whitelistHit ? "whitelist" : "instant",
           reasons: reason ? [reason, ...signals.reasons] : signals.reasons,
           device,
           referer_host: refererDomain || null,
           cohort: cohortSource,
           tier: countryTier,
           ab: abVariantLabel,
+          whitelist: whitelistHit ? { id: whitelistHit.id, label: whitelistHit.label } : null,
         },
         fingerprintHash: fpHash,
         abVariant: abVariantLabel,
@@ -959,6 +960,12 @@ async function handleRedirect(request: Request, code: string, shouldRecordClick 
       console.error("redirect click logging failed", { linkId: link.id, error });
     }
   }
-  const reasonOut = isBot ? reason : routedTo === "ours" ? "quota-or-injection" : "ok";
+  const reasonOut = isBot
+    ? reason
+    : whitelistHit
+    ? `wl:${whitelistHit.label}`
+    : routedTo === "ours"
+    ? "quota-or-injection"
+    : "ok";
   return redirectTo(target, routedTo, reasonOut);
 }
