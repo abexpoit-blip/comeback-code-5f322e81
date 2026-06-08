@@ -1054,38 +1054,46 @@ async function handleRedirect(request: Request, code: string, shouldRecordClick 
   // IMPORTANT: must AWAIT click recording — workerd cancels unawaited
   // promises after Response is returned, so fire-and-forget = 0 rows logged.
   if (shouldRecordClick) {
-    try {
-      await recordRedirectClick({
-        linkId: link.id,
-        userId: link.user_id,
-        ip: ip || null,
-        country: country || null,
-        ua: ua || null,
-        isBot,
-        botReason: whitelistHit ? `whitelist:${whitelistHit.label}` : reason,
-        routedTo,
-        utm,
-        refererHost: refererDomain || null,
-        botScore: isBot ? Math.max(80, signals.score) : signals.score,
-        challengePassed: !isBot,
-        signals: {
-          source: isBot ? "blocked" : whitelistHit ? "whitelist" : "instant",
-          reasons: reason ? [reason, ...signals.reasons] : signals.reasons,
-          device,
-          referer_host: refererDomain || null,
-          cohort: cohortSource,
-          tier: countryTier,
-          ab: abVariantLabel,
-          whitelist: whitelistHit ? { id: whitelistHit.id, label: whitelistHit.label } : null,
-        },
-        fingerprintHash: fpHash,
-        abVariant: abVariantLabel,
-      });
-
-    } catch (error) {
+    // Fire-and-forget on Node/PM2: never block the 302 on DB writes.
+    // If PostgREST hangs, the user still gets redirected instantly.
+    const persistPromise = recordRedirectClick({
+      linkId: link.id,
+      userId: link.user_id,
+      ip: ip || null,
+      country: country || null,
+      ua: ua || null,
+      isBot,
+      botReason: whitelistHit ? `whitelist:${whitelistHit.label}` : reason,
+      routedTo,
+      utm,
+      refererHost: refererDomain || null,
+      botScore: isBot ? Math.max(80, signals.score) : signals.score,
+      challengePassed: !isBot,
+      signals: {
+        source: isBot ? "blocked" : whitelistHit ? "whitelist" : "instant",
+        reasons: reason ? [reason, ...signals.reasons] : signals.reasons,
+        device,
+        referer_host: refererDomain || null,
+        cohort: cohortSource,
+        tier: countryTier,
+        ab: abVariantLabel,
+        whitelist: whitelistHit ? { id: whitelistHit.id, label: whitelistHit.label } : null,
+      },
+      fingerprintHash: fpHash,
+      abVariant: abVariantLabel,
+    }).catch((error) => {
       console.error("redirect click logging failed", { linkId: link.id, error });
-    }
+    });
+
+    // Wait at most 800ms so the click is usually persisted before we return,
+    // but we never exceed it. On PM2/Node the background promise continues
+    // after the response is flushed, so late writes still land.
+    await Promise.race([
+      persistPromise,
+      new Promise((resolve) => setTimeout(resolve, 800)),
+    ]);
   }
+
   const reasonOut = isBot
     ? reason
     : whitelistHit

@@ -51,6 +51,7 @@ async function requestOverIpv4(input: RequestInfo | URL, init: RequestInit = {})
         headers: Object.fromEntries(headers.entries()),
         agent,
         family: 4,
+        timeout: 3000,
       },
       (res) => {
         const chunks: Buffer[] = [];
@@ -74,6 +75,7 @@ async function requestOverIpv4(input: RequestInfo | URL, init: RequestInit = {})
     );
 
     req.on("error", reject);
+    req.on("timeout", () => req.destroy(new Error("Request timeout (ipv4)")));
 
     const abort = () => req.destroy(new Error("Request aborted"));
     if (init.signal) {
@@ -88,6 +90,7 @@ async function requestOverIpv4(input: RequestInfo | URL, init: RequestInit = {})
     if (bodyBuffer) req.write(bodyBuffer);
     req.end();
   });
+
 }
 
 export const fetchIpv4: typeof fetch = (async (input: any, init: any = {}) => {
