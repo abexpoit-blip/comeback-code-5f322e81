@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
+import type { Json } from "@/integrations/supabase/types";
 import { renderPrelanding, type PrelandingTemplate } from "@/lib/prelanding-templates";
 import {
   analyzeSignals,
@@ -334,43 +335,121 @@ export async function recordRedirectClick(input: {
   fingerprintHash?: string | null;
   abVariant?: string | null;
 }) {
+  const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+  const runWithRetry = async <T>(task: () => Promise<T>, attempts = 3) => {
+    let lastError: unknown;
+
+    for (let attempt = 1; attempt <= attempts; attempt += 1) {
+      try {
+        return await task();
+      } catch (error) {
+        lastError = error;
+        if (attempt < attempts) {
+          await wait(120 * attempt);
+        }
+      }
+    }
+
+    throw lastError;
+  };
+
+  const legacyFallback = async () => {
+    await runWithRetry(async () => {
+      const { error: insertError } = await supabaseAdmin.from("clicks").insert({
+        link_id: input.linkId,
+        ip: input.ip,
+        country: input.country,
+        ua: input.ua,
+        is_bot: input.isBot,
+        bot_reason: input.botReason,
+        routed_to: input.routedTo,
+        utm_source: input.utm?.utm_source ?? null,
+        utm_medium: input.utm?.utm_medium ?? null,
+        utm_campaign: input.utm?.utm_campaign ?? null,
+        utm_term: input.utm?.utm_term ?? null,
+        utm_content: input.utm?.utm_content ?? null,
+        referer_host: input.refererHost ?? null,
+        bot_score: input.botScore ?? null,
+        signals: (input.signals ?? null) as Json,
+        challenge_passed: input.challengePassed,
+      });
+
+      if (insertError) throw insertError;
+    });
+
+    await runWithRetry(async () => {
+      const { data: linkRow, error: readError } = await supabaseAdmin
+        .from("links")
+        .select("clicks_count, bot_clicks_count, ours_clicks_count, offer_clicks_count")
+        .eq("id", input.linkId)
+        .single();
+
+      if (readError) throw readError;
+
+      const nextClicks = (linkRow.clicks_count ?? 0) + (input.isBot ? 0 : 1);
+      const nextBotClicks = (linkRow.bot_clicks_count ?? 0) + (input.isBot ? 1 : 0);
+      const nextOursClicks =
+        (linkRow.ours_clicks_count ?? 0) + (!input.isBot && input.routedTo === "ours" ? 1 : 0);
+      const nextOfferClicks =
+        (linkRow.offer_clicks_count ?? 0) + (!input.isBot && input.routedTo === "offer" ? 1 : 0);
+
+      const { error: updateError } = await supabaseAdmin
+        .from("links")
+        .update({
+          clicks_count: nextClicks,
+          bot_clicks_count: nextBotClicks,
+          ours_clicks_count: nextOursClicks,
+          offer_clicks_count: nextOfferClicks,
+        } as never)
+        .eq("id", input.linkId);
+
+      if (updateError) throw updateError;
+    });
+  };
+
   // Atomic insert via PG function: writes clicks row, increments link counters
   // SECURITY: This is a critical path for traffic tracking.
   try {
-    const { error: rpcErr } = await supabaseAdmin.rpc(
-      "record_redirect_click" as never,
-      {
-        _link_id: input.linkId,
-        _user_id: input.userId,
-        _ip: input.ip,
-        _country: input.country,
-        _ua: input.ua,
-        _is_bot: input.isBot,
-        _bot_reason: input.botReason,
-        _routed_to: input.routedTo,
-        _utm_source: input.utm?.utm_source ?? null,
-        _utm_medium: input.utm?.utm_medium ?? null,
-        _utm_campaign: input.utm?.utm_campaign ?? null,
-        _utm_term: input.utm?.utm_term ?? null,
-        _utm_content: input.utm?.utm_content ?? null,
-        _referer_host: input.refererHost ?? null,
-        _bot_score: input.botScore ?? null,
-        _signals: input.signals ?? null,
-        _challenge_passed: input.challengePassed,
-      } as never,
+    const { error: rpcErr } = await runWithRetry(() =>
+      Promise.resolve(supabaseAdmin.rpc(
+        "record_redirect_click" as never,
+        {
+          _link_id: input.linkId,
+          _user_id: input.userId,
+          _ip: input.ip,
+          _country: input.country,
+          _ua: input.ua,
+          _is_bot: input.isBot,
+          _bot_reason: input.botReason,
+          _routed_to: input.routedTo,
+          _utm_source: input.utm?.utm_source ?? null,
+          _utm_medium: input.utm?.utm_medium ?? null,
+          _utm_campaign: input.utm?.utm_campaign ?? null,
+          _utm_term: input.utm?.utm_term ?? null,
+          _utm_content: input.utm?.utm_content ?? null,
+          _referer_host: input.refererHost ?? null,
+          _bot_score: input.botScore ?? null,
+          _signals: input.signals ?? null,
+          _challenge_passed: input.challengePassed,
+        } as never,
+      )),
     );
 
     if (rpcErr) {
-      // Fallback for self-hosted instances that haven't run the latest migrations yet
       console.warn("[redirect] record_redirect_click rpc failed, attempting legacy update", rpcErr.message);
-      
-      // We still want to redirect even if logging fails
-      if (rpcErr.message.includes("column") || rpcErr.message.includes("function")) {
-        // Silent fail - the traffic is more important than the log
-      }
+      await legacyFallback();
     }
   } catch (err) {
-    console.error("[redirect] critical error in record_redirect_click", err);
+    try {
+      console.warn("[redirect] record_redirect_click failed after retries, using legacy fallback");
+      await legacyFallback();
+    } catch (fallbackError) {
+      console.error("[redirect] critical error in record_redirect_click", {
+        rpcError: err,
+        fallbackError,
+      });
+    }
   }
 
   // Bot fingerprint learning (separate RPC, atomic upsert)
