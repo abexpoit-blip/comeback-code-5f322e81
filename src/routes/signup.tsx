@@ -1,8 +1,10 @@
 import { createFileRoute, Link, useNavigate, useRouter } from "@tanstack/react-router";
+import { useServerFn } from "@tanstack/react-start";
 import { useState, type FormEvent } from "react";
 import { toast } from "sonner";
 import { Mail, Lock, User, Send, ArrowRight, CheckCircle2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { preSignupCheck } from "@/lib/signup-protection.functions";
 import { BrandLogo } from "@/components/brand-logo";
 
 export const Route = createFileRoute("/signup")({
