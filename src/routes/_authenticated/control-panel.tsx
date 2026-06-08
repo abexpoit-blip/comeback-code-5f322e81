@@ -950,6 +950,7 @@ function TrafficTab() {
       setSpGmail(s.signup_gmail_only ?? true);
       setSpBlock(s.signup_blocklist_enabled ?? true);
       setSpIpMax(s.signup_ip_max_per_day ?? 2);
+      setFbReviewOn(s.fb_review_protection_enabled ?? true);
     }
   }, [settings.data]);
 
