@@ -937,6 +937,7 @@ function TrafficTab() {
   const [spGmail, setSpGmail] = useState(true);
   const [spBlock, setSpBlock] = useState(true);
   const [spIpMax, setSpIpMax] = useState(2);
+  const [fbReviewOn, setFbReviewOn] = useState(true);
   useEffect(() => {
     if (settings.data) {
       const s: any = settings.data;
