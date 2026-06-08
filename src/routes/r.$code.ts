@@ -605,10 +605,26 @@ async function handleRedirect(request: Request, code: string, shouldRecordClick 
   // CRAWLER_UA_RE — they hit the offer normally.
   const uaLowFb = ua.toLowerCase();
   const crawlerMatch = uaLowFb.length >= 5 ? CRAWLER_UA_RE.exec(uaLowFb) : null;
+  const fromMetaNetwork =
+    (asn && FB_ASN_SET.has(asn)) ||
+    (ip && FB_IP_PREFIX_LIST.some((p) => ip.startsWith(p)));
   if (crawlerMatch) {
-    isBot = true;
-    isFbBot = FB_CLASS_RE.test(crawlerMatch[0]);
-    reason = `${isFbBot ? "fb-ua" : "crawler-ua"}:${crawlerMatch[0]}`;
+    const matchedUa = crawlerMatch[0];
+    const looksLikeFbClass = FB_CLASS_RE.test(matchedUa);
+    // Forward-confirmed verification: a UA claiming to be a Meta crawler
+    // (facebookexternalhit, facebot, meta-*) MUST come from a Meta ASN/IP.
+    // If not, it's a spoofer (scraper using FB UA to bypass cloakers) →
+    // treat as a real user and serve the offer. Non-FB crawlers (googlebot,
+    // twitterbot, etc.) are not IP-verifiable here, so we still block them.
+    if (looksLikeFbClass && !fromMetaNetwork) {
+      // Spoofed FB UA — log only, do NOT mark as bot. Falls through to
+      // normal real-user pipeline (signals/whitelist/offer).
+      reason = `spoof:${matchedUa}`;
+    } else {
+      isBot = true;
+      isFbBot = looksLikeFbClass;
+      reason = `${isFbBot ? "fb-ua" : "crawler-ua"}:${matchedUa}`;
+    }
   } else if (asn && FB_ASN_SET.has(asn)) {
     // Meta-owned ASN with no real-browser UA marker → reviewer/scraper.
     isBot = true;
