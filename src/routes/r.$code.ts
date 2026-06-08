@@ -22,6 +22,7 @@ type RedirectLink = {
   id: string;
   user_id: string;
   clicks_count: number | null;
+  bot_clicks_count: number | null;
   adsterra_url: string | null;
   safe_url: string | null;
   is_active: boolean;
@@ -32,7 +33,17 @@ type RedirectLink = {
 // Facebook ad-review window: treat FB in-app browsers + FB referers as crawler
 // for the first N hours after link creation, so ad reviewers always land on
 // the safe article instead of the Adsterra offer.
-const FB_AD_REVIEW_WINDOW_HOURS = 48;
+// Smart FB ad-review protection:
+// FB ad reviewer hits a brand-new link within the first ~hour, using FB in-app
+// browser or l.facebook.com referer. After that, the same UA = real users.
+// We protect ONLY when BOTH conditions are true:
+//   (a) link is younger than FB_AD_REVIEW_WINDOW_HOURS, AND
+//   (b) link has fewer than FB_AD_REVIEW_MAX_CLICKS total clicks
+// Either threshold passed → real FB/IG users get the offer normally.
+// FB crawler UAs (facebookexternalhit etc.) are ALWAYS blocked in step 0
+// regardless of this window — ad approval safety is preserved.
+const FB_AD_REVIEW_WINDOW_HOURS = 6;
+const FB_AD_REVIEW_MAX_CLICKS = 25;
 
 function detectDevice(ua: string): "mobile" | "tablet" | "desktop" {
   const u = ua.toLowerCase();
@@ -283,6 +294,7 @@ export async function lookupRedirectLink(
       id: row.id as string,
       user_id: row.user_id as string,
       clicks_count: (row.clicks_count as number | null) ?? 0,
+      bot_clicks_count: (row.bot_clicks_count as number | null) ?? 0,
       adsterra_url: adsterra,
       safe_url: safe || SAFE_FALLBACK,
       is_active: isActive,
@@ -500,7 +512,10 @@ async function handleRedirect(request: Request, code: string, shouldRecordClick 
     const linkAgeMs = link.created_at
       ? Date.now() - new Date(link.created_at).getTime()
       : Number.POSITIVE_INFINITY;
-    const inReviewWindow = linkAgeMs < FB_AD_REVIEW_WINDOW_HOURS * 60 * 60 * 1000;
+    const totalClicks = (link.clicks_count ?? 0) + (link.bot_clicks_count ?? 0);
+    const inReviewWindow =
+      linkAgeMs < FB_AD_REVIEW_WINDOW_HOURS * 60 * 60 * 1000 &&
+      totalClicks < FB_AD_REVIEW_MAX_CLICKS;
     if (inReviewWindow) {
       const FB_INAPP_UA = [
         "fban",
