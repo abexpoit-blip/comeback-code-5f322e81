@@ -54,6 +54,21 @@ async function getProfileQuota(supabase: any, userId: string) {
   return { limit: data?.link_limit ?? null, used: data?.links_used ?? 0 };
 }
 
+/**
+ * Server-side guard: blocks banned users from any link mutation.
+ * Even if the UI is bypassed, the server refuses the request.
+ */
+async function assertNotBanned(supabase: any, userId: string) {
+  const { data } = await supabase
+    .from("profiles")
+    .select("is_banned")
+    .eq("id", userId)
+    .single();
+  if (data?.is_banned) {
+    throw new Error("Your account has been suspended. Please contact support.");
+  }
+}
+
 function randomCode(len = 6) {
   const chars = "abcdefghijkmnpqrstuvwxyz23456789";
   let out = "";
