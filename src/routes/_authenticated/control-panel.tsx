@@ -1029,8 +1029,57 @@ function TrafficTab() {
 
       <div className="mt-6"><Button onClick={() => saveMut.mutate()} disabled={saveMut.isPending} className="bg-gradient-to-r from-[#FF7E5F] to-[#FEB47B] text-white border-0"><Sparkles className="w-4 h-4 mr-1.5" />{saveMut.isPending ? "Saving…" : "Save settings"}</Button></div>
     </Panel>
+    </>
   );
 }
+
+// ===================== TRAFFIC SNAPSHOT (mini live dashboard) =====================
+function TrafficSnapshotPanel() {
+  const snapFn = useServerFn(adminTrafficSnapshot);
+  const snap = useQuery({
+    queryKey: ["admin-traffic-snapshot"],
+    queryFn: () => snapFn(),
+    refetchInterval: 15000, // live: refresh every 15s
+  });
+  const d = snap.data;
+  return (
+    <Panel icon={TrendingUp} title="Live Traffic Snapshot (last 24h)" subtitle="Real-time auto-refresh every 15s">
+      {!d ? (
+        <div className="text-sm text-[#7A5C45]">Loading…</div>
+      ) : (
+        <>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <Kpi icon={MousePointerClick} label="Total clicks 24h" value={d.total24h.toLocaleString()} sub={`${d.total1h.toLocaleString()} in last 1h`} />
+            <Kpi icon={Users} label="Real users (humans)" value={`${d.humans24h.toLocaleString()}`} sub={`${d.humanPct}% of total`} accent />
+            <Kpi icon={Bot} label="Bots blocked" value={d.bots24h.toLocaleString()} sub={`${d.botPct}% of total`} />
+            <Kpi icon={Target} label="Offer success" value={`${d.offerSuccessPct}%`} sub={`${d.offer24h.toLocaleString()} hit offer`} />
+          </div>
+          <div className="mt-4 grid grid-cols-2 md:grid-cols-4 gap-3">
+            <Stat label="Offer (real)" value={d.offer24h.toLocaleString()} />
+            <Stat label="Our Adsterra" value={d.ours24h.toLocaleString()} />
+            <Stat label="Safe / blocked" value={d.safe24h.toLocaleString()} />
+            <Stat label="FB crawler blocked" value={d.fbCrawlerBlocked.toLocaleString()} />
+          </div>
+          {d.botPct > 40 && (
+            <div className="mt-4 p-3 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 text-xs flex gap-2 items-start">
+              <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
+              <div>
+                Bot rate <b>{d.botPct}%</b> — যদি FB campaign চলছে তাহলে নিচে <b>FB Ad-Review Protection</b> OFF করুন। Top bot reasons:&nbsp;
+                {d.topBotReasons.map((r) => `${r.key}(${r.count})`).join(", ")}
+              </div>
+            </div>
+          )}
+          {d.botPct <= 40 && d.topBotReasons.length > 0 && (
+            <div className="mt-4 text-xs text-[#7A5C45]">
+              <b>Top bot reasons:</b> {d.topBotReasons.map((r) => `${r.key} (${r.count})`).join(" · ")}
+            </div>
+          )}
+        </>
+      )}
+    </Panel>
+  );
+}
+
 
 // ===================== shared UI =====================
 const inputCls = "w-full bg-white/70 border border-[#FFD4BB] rounded-xl px-4 py-2.5 text-sm text-[#2D1B0D] placeholder:text-[#A8907A] focus:outline-none focus:border-[#FF7E5F] focus:bg-white/90 transition-all";
