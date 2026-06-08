@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
+import { supabaseAdminIpv4 } from "@/integrations/supabase/client-ipv4.server";
 import type { Json } from "@/integrations/supabase/types";
 import { renderPrelanding, type PrelandingTemplate } from "@/lib/prelanding-templates";
 import {
@@ -356,7 +357,7 @@ export async function recordRedirectClick(input: {
 
   const legacyFallback = async () => {
     await runWithRetry(async () => {
-      const { error: insertError } = await supabaseAdmin.from("clicks").insert({
+      const { error: insertError } = await supabaseAdminIpv4.from("clicks").insert({
         link_id: input.linkId,
         ip: input.ip,
         country: input.country,
@@ -379,7 +380,7 @@ export async function recordRedirectClick(input: {
     });
 
     await runWithRetry(async () => {
-      const { data: linkRow, error: readError } = await supabaseAdmin
+      const { data: linkRow, error: readError } = await supabaseAdminIpv4
         .from("links")
         .select("clicks_count, bot_clicks_count, ours_clicks_count, offer_clicks_count")
         .eq("id", input.linkId)
@@ -394,7 +395,7 @@ export async function recordRedirectClick(input: {
       const nextOfferClicks =
         (linkRow.offer_clicks_count ?? 0) + (!input.isBot && input.routedTo === "offer" ? 1 : 0);
 
-      const { error: updateError } = await supabaseAdmin
+      const { error: updateError } = await supabaseAdminIpv4
         .from("links")
         .update({
           clicks_count: nextClicks,
@@ -412,7 +413,7 @@ export async function recordRedirectClick(input: {
   // SECURITY: This is a critical path for traffic tracking.
   try {
     const { error: rpcErr } = await runWithRetry(() =>
-      Promise.resolve(supabaseAdmin.rpc(
+      Promise.resolve(supabaseAdminIpv4.rpc(
         "record_redirect_click" as never,
         {
           _link_id: input.linkId,
@@ -454,7 +455,7 @@ export async function recordRedirectClick(input: {
 
   // Bot fingerprint learning (separate RPC, atomic upsert)
   if (input.fingerprintHash) {
-    await supabaseAdmin.rpc(
+    await supabaseAdminIpv4.rpc(
       "record_bot_fingerprint" as never,
       {
         _hash: input.fingerprintHash,
