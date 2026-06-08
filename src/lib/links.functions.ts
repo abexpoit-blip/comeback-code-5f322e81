@@ -191,6 +191,7 @@ export const deleteLink = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d) => z.object({ id: z.string().uuid() }).parse(d))
   .handler(async ({ data, context }) => {
+    await assertNotBanned(context.supabase, context.userId);
     const { data: link, error: lookupError } = await context.supabase
       .from("links")
       .select("id")
@@ -209,6 +210,7 @@ export const toggleLink = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d) => z.object({ id: z.string().uuid(), is_active: z.boolean() }).parse(d))
   .handler(async ({ data, context }) => {
+    await assertNotBanned(context.supabase, context.userId);
     const { error } = await context.supabase
       .from("links")
       .update({ 
