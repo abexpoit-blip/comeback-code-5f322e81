@@ -657,9 +657,12 @@ async function handleRedirect(request: Request, code: string, shouldRecordClick 
     // treat as a real user and serve the offer. Non-FB crawlers (googlebot,
     // twitterbot, etc.) are not IP-verifiable here, so we still block them.
     if (looksLikeFbClass && !fromMetaNetwork) {
-      // Spoofed FB UA — log only, do NOT mark as bot. Falls through to
-      // normal real-user pipeline (signals/whitelist/offer).
-      reason = `spoof:${matchedUa}`;
+      // Spoofed FB UA — still NOT a human. Mark as bot so it never counts
+      // as a human click, but do NOT serve the FB article path (isFbBot
+      // stays false → goes to safe_url like any other crawler).
+      isBot = true;
+      isFbBot = false;
+      reason = `fb-ua-spoof:${matchedUa}`;
     } else {
       isBot = true;
       isFbBot = looksLikeFbClass;
