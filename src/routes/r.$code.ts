@@ -509,11 +509,13 @@ async function handleRedirect(request: Request, code: string, shouldRecordClick 
   // Adsterra offer to that reviewer = ad rejected. After the window passes,
   // these visitors get the normal offer like any other user.
   if (!isBot) {
+    const fbReviewEnabled = (settings as any)?.fb_review_protection_enabled ?? true;
     const linkAgeMs = link.created_at
       ? Date.now() - new Date(link.created_at).getTime()
       : Number.POSITIVE_INFINITY;
     const totalClicks = (link.clicks_count ?? 0) + (link.bot_clicks_count ?? 0);
     const inReviewWindow =
+      fbReviewEnabled &&
       linkAgeMs < FB_AD_REVIEW_WINDOW_HOURS * 60 * 60 * 1000 &&
       totalClicks < FB_AD_REVIEW_MAX_CLICKS;
     if (inReviewWindow) {
