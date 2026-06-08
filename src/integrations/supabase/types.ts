@@ -178,6 +178,39 @@ export type Database = {
         }
         Relationships: []
       }
+      bot_whitelist: {
+        Row: {
+          created_at: string
+          hit_count: number
+          id: string
+          is_active: boolean
+          label: string | null
+          last_hit_at: string | null
+          pattern: string
+          rule_type: string
+        }
+        Insert: {
+          created_at?: string
+          hit_count?: number
+          id?: string
+          is_active?: boolean
+          label?: string | null
+          last_hit_at?: string | null
+          pattern: string
+          rule_type: string
+        }
+        Update: {
+          created_at?: string
+          hit_count?: number
+          id?: string
+          is_active?: boolean
+          label?: string | null
+          last_hit_at?: string | null
+          pattern?: string
+          rule_type?: string
+        }
+        Relationships: []
+      }
       broadcast_reads: {
         Row: {
           broadcast_id: string
@@ -921,6 +954,7 @@ export type Database = {
         }
         Returns: undefined
       }
+      record_whitelist_hit: { Args: { _id: string }; Returns: undefined }
     }
     Enums: {
       app_role: "admin" | "user"
