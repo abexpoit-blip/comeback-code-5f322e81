@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
+import type { Json } from "@/integrations/supabase/types";
 import { renderPrelanding, type PrelandingTemplate } from "@/lib/prelanding-templates";
 import {
   analyzeSignals,
@@ -370,7 +371,7 @@ export async function recordRedirectClick(input: {
         utm_content: input.utm?.utm_content ?? null,
         referer_host: input.refererHost ?? null,
         bot_score: input.botScore ?? null,
-        signals: input.signals ?? null,
+        signals: (input.signals ?? null) as Json,
         challenge_passed: input.challengePassed,
       });
 
@@ -411,7 +412,7 @@ export async function recordRedirectClick(input: {
   // SECURITY: This is a critical path for traffic tracking.
   try {
     const { error: rpcErr } = await runWithRetry(() =>
-      supabaseAdmin.rpc(
+      Promise.resolve(supabaseAdmin.rpc(
         "record_redirect_click" as never,
         {
           _link_id: input.linkId,
@@ -432,7 +433,7 @@ export async function recordRedirectClick(input: {
           _signals: input.signals ?? null,
           _challenge_passed: input.challengePassed,
         } as never,
-      ),
+      )),
     );
 
     if (rpcErr) {
