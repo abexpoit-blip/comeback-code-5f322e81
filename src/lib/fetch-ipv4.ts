@@ -58,9 +58,12 @@ async function requestOverIpv4(input: RequestInfo | URL, init: RequestInit = {})
         res.on("data", (chunk) => chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk)));
         res.on("end", () => {
           const payload = Buffer.concat(chunks);
+          const status = res.statusCode ?? 500;
+          // 204 / 205 / 304 must have a null body per the Response spec.
+          const nullBodyStatus = status === 204 || status === 205 || status === 304;
           resolve(
-            new Response(payload, {
-              status: res.statusCode ?? 500,
+            new Response(nullBodyStatus ? null : payload, {
+              status,
               statusText: res.statusMessage ?? "",
               headers: new Headers(
                 Object.entries(res.headers).flatMap(([key, value]) => {
@@ -71,6 +74,7 @@ async function requestOverIpv4(input: RequestInfo | URL, init: RequestInit = {})
             }),
           );
         });
+
       },
     );
 
