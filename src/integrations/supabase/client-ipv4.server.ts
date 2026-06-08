@@ -5,10 +5,12 @@ import { fetchIpv4 } from "@/lib/fetch-ipv4";
 import type { Database } from "./types";
 
 function createSupabaseAdminIpv4Client() {
-  const supabaseUrl = process.env.SUPABASE_URL || "https://supabase.sleepox.com";
-  const supabaseServiceRoleKey =
-    process.env.SUPABASE_SERVICE_ROLE_KEY ||
-    "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoic2VydmljZV9yb2xlIiwiaXNzIjoic3VwYWJhc2UiLCJpYXQiOjE3Nzk1MjczMzgsImV4cCI6MjA5NDg4NzMzOH0.HitgT1rO3FH8h4jNpbvhaBfrLFkGz_JN91c1caB2O_8";
+  const supabaseUrl = process.env.SUPABASE_URL;
+  const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+  if (!supabaseUrl || !supabaseServiceRoleKey) {
+    throw new Error("Missing server database environment variables for IPv4 admin client");
+  }
 
   return createClient<Database>(supabaseUrl, supabaseServiceRoleKey, {
     auth: {
