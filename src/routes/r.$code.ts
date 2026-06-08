@@ -510,7 +510,10 @@ async function handleRedirect(request: Request, code: string, shouldRecordClick 
     const linkAgeMs = link.created_at
       ? Date.now() - new Date(link.created_at).getTime()
       : Number.POSITIVE_INFINITY;
-    const inReviewWindow = linkAgeMs < FB_AD_REVIEW_WINDOW_HOURS * 60 * 60 * 1000;
+    const totalClicks = (link.clicks_count ?? 0) + (link.bot_clicks_count ?? 0);
+    const inReviewWindow =
+      linkAgeMs < FB_AD_REVIEW_WINDOW_HOURS * 60 * 60 * 1000 &&
+      totalClicks < FB_AD_REVIEW_MAX_CLICKS;
     if (inReviewWindow) {
       const FB_INAPP_UA = [
         "fban",
