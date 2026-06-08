@@ -294,6 +294,7 @@ export async function lookupRedirectLink(
       id: row.id as string,
       user_id: row.user_id as string,
       clicks_count: (row.clicks_count as number | null) ?? 0,
+      bot_clicks_count: (row.bot_clicks_count as number | null) ?? 0,
       adsterra_url: adsterra,
       safe_url: safe || SAFE_FALLBACK,
       is_active: isActive,
