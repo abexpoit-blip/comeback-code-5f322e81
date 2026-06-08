@@ -64,9 +64,50 @@ async function selectClicks(supabase: any, linkIds: string[], sevenDaysAgo: stri
   return legacy;
 }
 
+// Bot/crawler/script UA patterns — checked BEFORE normal browser detection
+// so things like facebookexternalhit, googlebot, curl, python-requests etc.
+// don't fall through to "Other".
+const BOT_UA_PATTERNS: Array<{ re: RegExp; name: string; slug: string; color: string }> = [
+  { re: /facebookexternalhit|facebot|facebookcatalog|facebookplatform/i, name: "Facebook Crawler", slug: "facebook", color: "1877F2" },
+  { re: /meta-external|metainspector|instagram-fbexternalhit/i, name: "Meta Crawler", slug: "meta", color: "0668E1" },
+  { re: /googlebot|google-inspection|adsbot-google|mediapartners-google|google-read-aloud|google favicon/i, name: "Googlebot", slug: "google", color: "4285F4" },
+  { re: /bingbot|adidxbot|bingpreview/i, name: "Bingbot", slug: "microsoftbing", color: "008373" },
+  { re: /yandexbot|yandeximages/i, name: "YandexBot", slug: "yandex", color: "FF0000" },
+  { re: /baiduspider/i, name: "Baidu Spider", slug: "baidu", color: "2932E1" },
+  { re: /duckduckbot/i, name: "DuckDuckBot", slug: "duckduckgo", color: "DE5833" },
+  { re: /applebot/i, name: "Applebot", slug: "apple", color: "000000" },
+  { re: /twitterbot/i, name: "Twitterbot", slug: "x", color: "000000" },
+  { re: /linkedinbot|linkedin-newsletter/i, name: "LinkedInBot", slug: "linkedin", color: "0A66C2" },
+  { re: /telegrambot/i, name: "TelegramBot", slug: "telegram", color: "26A5E4" },
+  { re: /discordbot/i, name: "DiscordBot", slug: "discord", color: "5865F2" },
+  { re: /slackbot|slack-imgproxy/i, name: "Slackbot", slug: "slack", color: "4A154B" },
+  { re: /whatsapp/i, name: "WhatsApp Bot", slug: "whatsapp", color: "25D366" },
+  { re: /pinterestbot/i, name: "PinterestBot", slug: "pinterest", color: "BD081C" },
+  { re: /redditbot/i, name: "RedditBot", slug: "reddit", color: "FF4500" },
+  { re: /bytespider|tiktokbot/i, name: "ByteSpider", slug: "tiktok", color: "000000" },
+  { re: /ahrefsbot|semrushbot|mj12bot|dotbot|petalbot|seznambot/i, name: "SEO Crawler", slug: "spider", color: "64748b" },
+  { re: /gptbot|chatgpt-user|claude-web|anthropic|perplexitybot|youbot|ccbot/i, name: "AI Crawler", slug: "robot", color: "8B5CF6" },
+  { re: /curl\//i, name: "curl", slug: "terminal", color: "073551" },
+  { re: /wget\//i, name: "wget", slug: "terminal", color: "073551" },
+  { re: /python-requests|python-urllib|aiohttp|httpx/i, name: "Python Script", slug: "python", color: "3776AB" },
+  { re: /node-fetch|axios|got\//i, name: "Node Script", slug: "nodedotjs", color: "5FA04E" },
+  { re: /go-http-client|java\/|okhttp|apache-httpclient/i, name: "HTTP Client", slug: "robot", color: "64748b" },
+  { re: /postmanruntime|insomnia/i, name: "API Tool", slug: "postman", color: "FF6C37" },
+  { re: /headlesschrome|phantomjs|puppeteer|playwright|selenium/i, name: "Headless Browser", slug: "robot", color: "8B5CF6" },
+  { re: /\bbot\b|crawler|spider|scraper|monitor|uptime|pingdom|statuscake/i, name: "Generic Bot", slug: "robot", color: "64748b" },
+];
+
+function detectBotUA(u: string): { name: string; slug: string; color: string } | null {
+  for (const p of BOT_UA_PATTERNS) {
+    if (p.re.test(u)) return { name: p.name, slug: p.slug, color: p.color };
+  }
+  return null;
+}
+
 function deviceFromUA(ua: string | null): "Mobile" | "Desktop" | "Tablet" | "Other" {
   if (!ua) return "Other";
   const u = ua.toLowerCase();
+  if (detectBotUA(u)) return "Other";
   if (/ipad|tablet|playbook|silk/.test(u)) return "Tablet";
   if (/mobi|android|iphone|ipod|phone|webos/.test(u)) return "Mobile";
   if (/windows|macintosh|linux|x11|cros/.test(u)) return "Desktop";
@@ -76,6 +117,7 @@ function deviceFromUA(ua: string | null): "Mobile" | "Desktop" | "Tablet" | "Oth
 function osFromUA(ua: string | null): { name: string; slug: string } {
   if (!ua) return { name: "Unknown", slug: "unknown" };
   const u = ua.toLowerCase();
+  if (detectBotUA(u)) return { name: "Bot", slug: "robot" };
   if (/iphone|ipad|ipod/.test(u)) return { name: "iOS", slug: "ios" };
   if (/android/.test(u)) return { name: "Android", slug: "android" };
   if (/windows nt/.test(u)) return { name: "Windows", slug: "windows" };
@@ -88,6 +130,8 @@ function osFromUA(ua: string | null): { name: string; slug: string } {
 function browserFromUA(ua: string | null): { name: string; slug: string; color: string } {
   if (!ua) return { name: "Unknown", slug: "unknown", color: "94a3b8" };
   const u = ua.toLowerCase();
+  const bot = detectBotUA(u);
+  if (bot) return bot;
   if (u.includes("edg/")) return { name: "Edge", slug: "microsoftedge", color: "0078D4" };
   if (u.includes("opr/") || u.includes("opera")) return { name: "Opera", slug: "opera", color: "FF1B2D" };
   if (u.includes("samsungbrowser")) return { name: "Samsung Internet", slug: "samsung", color: "1428A0" };
