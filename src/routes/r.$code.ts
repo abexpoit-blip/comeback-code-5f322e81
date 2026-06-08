@@ -67,6 +67,7 @@ const globalCache = {
   settings: null as any,
   cloaking: [] as any[],
   referrer: [] as any[],
+  whitelist: [] as Array<{ id: string; rule_type: string; pattern: string; label: string | null }>,
   tiers: new Map<string, number>(),
   lastFetch: 0,
 };
@@ -77,15 +78,17 @@ async function refreshGlobalCache() {
   if (now - globalCache.lastFetch < CACHE_TTL && globalCache.settings) return;
 
   try {
-    const [s, c, r, t] = await Promise.all([
+    const [s, c, r, t, w] = await Promise.all([
       supabaseAdmin.from("app_settings").select("*").eq("id", true).maybeSingle(),
       supabaseAdmin.from("cloaking_rules").select("*").eq("is_active", true).order("priority"),
       supabaseAdmin.from("referrer_rules").select("*").eq("is_active", true),
       supabaseAdmin.from("country_tiers").select("country_code, tier"),
+      supabaseAdmin.from("bot_whitelist" as never).select("id, rule_type, pattern, label").eq("is_active", true),
     ]);
     if (s.data) globalCache.settings = s.data;
     if (c.data) globalCache.cloaking = c.data;
     if (r.data) globalCache.referrer = r.data;
+    if ((w as any).data) globalCache.whitelist = (w as any).data as any;
     if (t.data) {
       globalCache.tiers.clear();
       t.data.forEach((row: any) => globalCache.tiers.set(row.country_code.toUpperCase(), row.tier));
@@ -94,6 +97,44 @@ async function refreshGlobalCache() {
   } catch (e) {
     console.error("[cache] failed to refresh global config", e);
   }
+}
+
+// Whitelist matcher — returns matching rule if request signature is explicitly
+// trusted (real-user ASN/UA/Referrer combos). FB crawler block runs BEFORE
+// this, so whitelist can never bypass ad-safety protection.
+function matchWhitelist(
+  rules: Array<{ id: string; rule_type: string; pattern: string; label: string | null }>,
+  ctx: { ua: string; asn: string | null; ip: string | null; ref: string; country: string | null },
+): { id: string; label: string } | null {
+  const uaLow = ctx.ua.toLowerCase();
+  const refLow = ctx.ref.toLowerCase();
+  for (const r of rules) {
+    const p = (r.pattern || "").toLowerCase().trim();
+    if (!p) continue;
+    let hit = false;
+    if (r.rule_type === "ua") hit = uaLow.includes(p);
+    else if (r.rule_type === "asn") hit = !!ctx.asn && ctx.asn === p;
+    else if (r.rule_type === "ip") hit = !!ctx.ip && ctx.ip.startsWith(p);
+    else if (r.rule_type === "ref") hit = refLow === p || refLow.endsWith(`.${p}`);
+    else if (r.rule_type === "combo") {
+      // Format: ua=fban&asn=32934&ref=facebook.com&ip=157.240.&country=us
+      // ALL listed conditions must match (case-insensitive).
+      const parts = p.split("&").map((x) => x.trim()).filter(Boolean);
+      hit = parts.length > 0 && parts.every((kv) => {
+        const [k, ...rest] = kv.split("=");
+        const v = rest.join("=").trim();
+        if (!v) return false;
+        if (k === "ua") return uaLow.includes(v);
+        if (k === "asn") return ctx.asn === v;
+        if (k === "ip") return !!ctx.ip && ctx.ip.startsWith(v);
+        if (k === "ref") return refLow === v || refLow.endsWith(`.${v}`);
+        if (k === "country") return (ctx.country || "").toLowerCase() === v;
+        return false;
+      });
+    }
+    if (hit) return { id: r.id, label: r.label || `${r.rule_type}:${p}` };
+  }
+  return null;
 }
 
 // ------- IP → Country lookup (workerd-compatible, no native deps) -------
