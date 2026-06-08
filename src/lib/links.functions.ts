@@ -155,6 +155,7 @@ export const createLink = createServerFn({ method: "POST" })
     }).parse(d),
   )
   .handler(async ({ data, context }) => {
+    await assertNotBanned(context.supabase, context.userId);
     const profile = await getProfileQuota(context.supabase, context.userId);
     if (profile && profile.limit !== null && profile.used >= profile.limit) {
       throw new Error(`Link limit reached (${profile.used}/${profile.limit}). Please upgrade.`);
