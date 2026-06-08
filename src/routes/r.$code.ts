@@ -22,6 +22,7 @@ type RedirectLink = {
   id: string;
   user_id: string;
   clicks_count: number | null;
+  bot_clicks_count: number | null;
   adsterra_url: string | null;
   safe_url: string | null;
   is_active: boolean;
