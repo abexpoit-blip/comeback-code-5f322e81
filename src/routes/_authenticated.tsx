@@ -74,7 +74,10 @@ function AuthenticatedLayout() {
       const { data } = await supabase
         .from("user_roles").select("role").eq("user_id", user?.id).eq("role", "admin").maybeSingle();
       setIsAdmin(!!data);
-      // Track last login
+      // Check ban status + track last login
+      const { data: prof } = await supabase
+        .from("profiles").select("is_banned").eq("id", user?.id).maybeSingle();
+      setIsBanned(!!prof?.is_banned);
       await supabase.from("profiles").update({ last_login_at: new Date().toISOString() }).eq("id", user?.id);
     })();
   }, [user]);
