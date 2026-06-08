@@ -611,9 +611,28 @@ async function handleRedirect(request: Request, code: string, shouldRecordClick 
     }
   }
 
+  // 0c. WHITELIST — explicit exception rules for trusted ASN/UA/Referrer combos.
+  // Runs AFTER FB crawler block so ad safety is never bypassed. If matched,
+  // we skip all subsequent bot detection and force routing as a real user.
+  if (!isBot && globalCache.whitelist.length > 0) {
+    const wl = matchWhitelist(globalCache.whitelist, {
+      ua,
+      asn,
+      ip: ip || null,
+      ref: refererDomain,
+      country: country || null,
+    });
+    if (wl) {
+      whitelistHit = wl;
+      // Fire-and-forget hit counter — non-blocking, OK to lose under load.
+      supabaseAdmin.rpc("record_whitelist_hit" as never, { _id: wl.id } as never)
+        .then(() => {})
+        .catch(() => {});
+    }
+  }
 
   // 1. Cloaking rules (DB-driven, additional patterns)
-  if (!isBot) {
+  if (!isBot && !whitelistHit) {
     const cloakHit = matchCloaking(detectInput, cloakingRules);
     if (cloakHit && cloakHit.rule.action === "safe") {
       isBot = true;
