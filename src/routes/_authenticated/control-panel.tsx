@@ -980,6 +980,9 @@ function TrafficTab() {
 
 
   return (
+    <>
+      <TrafficSnapshotPanel />
+      <div className="h-6" />
     <Panel icon={Settings2} title="Traffic & Monetization">
       <div className="grid gap-5 sm:grid-cols-2">
         <Field label="Fallback / Daily redirect URL"><input value={fallbackUrl} onChange={(e) => setFallbackUrl(e.target.value)} className={inputCls} /></Field>
