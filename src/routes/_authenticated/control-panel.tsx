@@ -966,6 +966,7 @@ function TrafficTab() {
         signup_gmail_only: spGmail,
         signup_blocklist_enabled: spBlock,
         signup_ip_max_per_day: Number(spIpMax),
+        fb_review_protection_enabled: fbReviewOn,
       };
       // Only include support_enabled if it exists in the database record
       if ('support_enabled' in (settings.data || {})) {
