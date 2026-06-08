@@ -649,7 +649,7 @@ async function handleRedirect(request: Request, code: string, shouldRecordClick 
   }
 
   // 2. Auto-blacklist (learned fingerprints)
-  if (!isBot && fpRow?.auto_blocked) {
+  if (!isBot && !whitelistHit && fpRow?.auto_blocked) {
     isBot = true;
     reason = "fp:auto-blocked";
   }
@@ -658,7 +658,7 @@ async function handleRedirect(request: Request, code: string, shouldRecordClick 
   // with quirky headers — true headless tools score 80+ via the "headless-ua"
   // bonus alone, so legitimate clicks no longer trip on header combos.)
   const signals = analyzeSignals(detectInput);
-  if (!isBot && signals.score >= 80) {
+  if (!isBot && !whitelistHit && signals.score >= 80) {
     isBot = true;
     reason = `signals:${signals.reasons.slice(0, 2).join(",")}`;
   }
