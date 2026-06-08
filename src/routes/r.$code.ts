@@ -54,6 +54,111 @@ type RedirectLink = {
 const FB_AD_REVIEW_WINDOW_HOURS = 6;
 const FB_AD_REVIEW_MAX_CLICKS = 25;
 
+// ============================================================================
+// CRAWLER / LINK-PREVIEW BOT DETECTION (module-scope, pre-compiled, O(1) test)
+// ============================================================================
+// CRITICAL: These bots MUST get article HTML (200 OK), never offer/safe redirect.
+// If we redirect link-preview crawlers, FB/Meta ads get disapproved + account bans.
+//
+// Sources: https://developers.facebook.com/docs/sharing/webmasters/web-crawlers/
+//          (last verified 2026-06)
+// Each pattern is a lowercase substring of the UA string.
+const FB_META_UA = [
+  // Official Meta crawlers (https://developers.facebook.com/docs/sharing/webmasters/web-crawlers/)
+  "facebookexternalhit",   // primary link-preview scraper for FB/IG/Messenger
+  "facebot",                // legacy FB crawler
+  "facebookcatalog",        // FB Catalog / Commerce crawler
+  "facebookplatform",       // FB Platform debugger
+  "meta-externalagent",     // AI/training crawler
+  "meta-externalfetcher",   // on-demand AI fetcher (bypasses robots.txt)
+  "meta-externalads",       // ads quality crawler (NEW 2025)
+  "meta-webindexer",        // Meta AI search indexer (NEW 2025)
+  "metainspector",          // OG debugger
+  "instagram-fbexternalhit",// IG-specific OG fetcher
+];
+const SOCIAL_PREVIEW_UA = [
+  // Other social/messenger link-preview crawlers
+  "whatsapp",               // WhatsApp/2.x link preview
+  "twitterbot",             // Twitter/X card validator
+  "linkedinbot",            // LinkedIn share preview
+  "linkedin-newsletter",
+  "telegrambot",
+  "discordbot",
+  "slackbot",
+  "slack-imgproxy",
+  "pinterestbot",
+  "redditbot",
+  "skypeuripreview",
+  "snapchat",
+  "tiktokbot",
+  "bytespider",             // TikTok parent ByteDance crawler
+  "vkshare",
+  "viberbot",
+  "kakaotalk-scrap",        // KakaoTalk link preview
+  "line-livecheck",         // LINE messenger preview
+  "yahoo! slurp",           // Yahoo Messenger / mail preview
+  "naverbot",               // Naver (Korea)
+  "qwantify",
+];
+const SEARCH_ENGINE_UA = [
+  // Major search engines & ad quality bots — DO NOT serve offer to them
+  "googlebot",
+  "adsbot-google",
+  "google-adwords",
+  "google-inspectiontool",
+  "googleother",
+  "google-extended",
+  "bingbot",
+  "adidxbot",                // Bing Ads
+  "msnbot",
+  "duckduckbot",
+  "yandexbot",
+  "baiduspider",
+  "applebot",                // Apple Spotlight / Siri / iMessage preview
+  "petalbot",                // Huawei
+  "mojeekbot",
+  "ia_archiver",
+  "archive.org_bot",
+];
+// Compiled once at module load — single substring scan per request.
+const CRAWLER_UA_LIST: readonly string[] = [
+  ...FB_META_UA,
+  ...SOCIAL_PREVIEW_UA,
+  ...SEARCH_ENGINE_UA,
+] as const;
+// Fast regex for one-pass detection. Escaped, alternation, case-insensitive.
+const CRAWLER_UA_RE = new RegExp(
+  CRAWLER_UA_LIST.map((p) => p.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|"),
+  "i",
+);
+// Subset that should be treated as FB-class (serves article + ad-safety path)
+const FB_CLASS_RE = new RegExp(
+  FB_META_UA.map((p) => p.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|"),
+  "i",
+);
+
+// Meta/Facebook ASN ranges (verified via PeeringDB + Meta network docs)
+//   32934 — Facebook, Inc.
+//   63293 — Facebook
+//   54115 — Facebook (edge / WhatsApp infra)
+const FB_ASN_SET = new Set(["32934", "63293", "54115"]);
+// Meta-owned /24 IP prefixes (most common reviewer egress ranges).
+const FB_IP_PREFIX_LIST = [
+  "31.13.",
+  "157.240.",
+  "66.220.",
+  "69.63.",
+  "69.171.",
+  "173.252.",
+  "204.15.20.",
+  "199.201.64.",
+  "129.134.",                // Meta corp
+  "179.60.192.",
+  "185.60.216.",
+  "185.60.218.",
+];
+
+
 function detectDevice(ua: string): "mobile" | "tablet" | "desktop" {
   const u = ua.toLowerCase();
   if (/ipad|tablet|playbook|silk/.test(u)) return "tablet";
@@ -492,65 +597,30 @@ async function handleRedirect(request: Request, code: string, shouldRecordClick 
   let reason: string | null = null;
   let whitelistHit: { id: string; label: string } | null = null;
 
-  // 0. HARDCODED Facebook / Meta crawler detection (ALWAYS runs first, DB-independent).
-  // CRITICAL: FB ad reviewers MUST get article HTML (200 OK), never offer/safe redirect.
-  // If we redirect FB crawlers, ads get disapproved and accounts get banned.
+  // 0. HARDCODED Facebook / Meta / social / search crawler detection.
+  // ALWAYS runs first, DB-independent, pre-compiled regex → single substring scan.
+  // CRITICAL: FB ad reviewers + link-preview crawlers MUST get article HTML (200 OK).
+  // If we redirect them, ads get disapproved and accounts get banned.
+  // NOTE: Real IG/FB in-app users send "FBAN/FBAV/Instagram" UAs and DO NOT match
+  // CRAWLER_UA_RE — they hit the offer normally.
   const uaLowFb = ua.toLowerCase();
-  // Social / messenger CRAWLERS (NOT in-app webviews — real IG/FB app users
-  // send "FBAN/FBAV/Instagram" UAs which must reach the offer normally).
-  // All of these scrape link previews → they MUST get article HTML, otherwise
-  // FB/Meta/Twitter/etc flag the destination and disapprove the ad.
-  const FB_UA_PATTERNS = [
-    "facebookexternalhit",
-    "facebot",
-    "meta-externalagent",
-    "meta-externalfetcher",
-    "facebookcatalog",
-    "whatsapp",
-    "twitterbot",
-    "linkedinbot",
-    "telegrambot",
-    "discordbot",
-    "slackbot",
-    "slack-imgproxy",
-    "pinterestbot",
-    "redditbot",
-    "skypeuripreview",
-    "snapchat",
-    "tiktokbot",
-    "vkshare",
-    "googlebot",
-    "bingbot",
-    "adsbot-google",
-    "google-adwords",
-    "google-inspectiontool",
-  ];
-
-  const FB_ASNS_HC = new Set(["32934", "63293"]);
-  const FB_IP_PREFIXES = [
-    "31.13.",
-    "157.240.",
-    "66.220.",
-    "69.63.",
-    "69.171.",
-    "173.252.",
-    "204.15.20.",
-    "199.201.64.",
-  ];
-  const fbUaHit = FB_UA_PATTERNS.find((p) => uaLowFb.includes(p));
-  if (fbUaHit) {
+  const crawlerMatch = uaLowFb.length >= 5 ? CRAWLER_UA_RE.exec(uaLowFb) : null;
+  if (crawlerMatch) {
     isBot = true;
-    isFbBot = true;
-    reason = `fb-ua:${fbUaHit}`;
-  } else if (asn && FB_ASNS_HC.has(asn)) {
+    isFbBot = FB_CLASS_RE.test(crawlerMatch[0]);
+    reason = `${isFbBot ? "fb-ua" : "crawler-ua"}:${crawlerMatch[0]}`;
+  } else if (asn && FB_ASN_SET.has(asn)) {
+    // Meta-owned ASN with no real-browser UA marker → reviewer/scraper.
     isBot = true;
     isFbBot = true;
     reason = `fb-asn:${asn}`;
-  } else if (ip && FB_IP_PREFIXES.some((p) => ip.startsWith(p))) {
+  } else if (ip && FB_IP_PREFIX_LIST.some((p) => ip.startsWith(p))) {
     isBot = true;
     isFbBot = true;
     reason = `fb-ip:${ip.split(".").slice(0, 2).join(".")}`;
   }
+
+
 
   // 0b. FB AD-REVIEW WINDOW: during the first FB_AD_REVIEW_WINDOW_HOURS after
   // link creation, treat FB/IG in-app browsers AND clicks coming from FB/IG
