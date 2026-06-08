@@ -13,10 +13,19 @@ import {
 } from "@/lib/bot-detect";
 
 const SAFE_FALLBACK = "https://sleepox.com/";
-const BOT_BLOCK_THRESHOLD = 3;
+// Higher = fewer false auto-blocks. 3 was way too aggressive on mobile carrier
+// NATs where thousands of real users share one /24+UA bucket. 20 means we need
+// 20 confirmed bot hits from the EXACT same fingerprint before locking it out.
+const BOT_BLOCK_THRESHOLD = 20;
 
-// Facebook / Google / known crawler ASNs (fallback if cloaking_rules empty)
-const BOT_ASNS = new Set(["32934", "15169", "8075", "13335", "16509", "14618", "396982"]);
+// Pure datacenter / hosting ASNs only. We intentionally do NOT include:
+//   32934 (Facebook)  – FB in-app browser traffic comes from here
+//   15169 (Google)    – Google Fiber + Android device traffic
+//   8075  (Microsoft) – Bing + Outlook users
+//   13335 (Cloudflare)– Warp / 1.1.1.1 routes real users through this
+// Those were blocking ~60% of real mobile/proxy users. Real FB crawlers are
+// still caught by the UA list in step 0; cloaking_rules can add more ASNs.
+const BOT_ASNS = new Set(["16509", "14618"]);
 
 type RedirectLink = {
   id: string;
