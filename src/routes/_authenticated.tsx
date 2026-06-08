@@ -145,6 +145,8 @@ function AuthenticatedLayout() {
     );
   }
 
+  const initials = (user.email ?? "U").slice(0, 2).toUpperCase();
+
   const SidebarContent = (
     <>
       <div className="flex items-center justify-between mb-12">
