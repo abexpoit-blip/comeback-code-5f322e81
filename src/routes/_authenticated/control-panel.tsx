@@ -28,7 +28,7 @@ import {
   adminListCountryTiers, adminUpsertCountryTier, adminDeleteCountryTier,
   adminUserDetail, adminImpersonate, adminFixUnlimitedMonthly,
   adminListErrors, adminErrorStats, adminResolveError, adminDeleteError, adminClearResolvedErrors,
-  adminGetInactiveUsers, adminRunMaintenance, adminDeleteUsers
+  adminGetInactiveUsers, adminRunMaintenance, adminDeleteUsers, adminTrafficSnapshot
 } from "@/lib/admin.functions";
 import { adminListPlisioLogs, adminReverifyOrder, adminBulkReverify, adminGetOutgoingIp } from "@/lib/plisio-admin.functions";
 import { startImpersonation } from "@/lib/impersonation";
