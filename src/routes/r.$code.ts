@@ -355,7 +355,7 @@ export async function recordRedirectClick(input: {
     throw lastError;
   };
 
-  const legacyFallback = async () => {
+  const persistClickDirectly = async () => {
     await runWithRetry(async () => {
       const { error: insertError } = await supabaseAdminIpv4.from("clicks").insert({
         link_id: input.linkId,
@@ -409,49 +409,9 @@ export async function recordRedirectClick(input: {
     });
   };
 
-  // Atomic insert via PG function: writes clicks row, increments link counters
-  // SECURITY: This is a critical path for traffic tracking.
-  try {
-    const { error: rpcErr } = await runWithRetry(() =>
-      Promise.resolve(supabaseAdminIpv4.rpc(
-        "record_redirect_click" as never,
-        {
-          _link_id: input.linkId,
-          _user_id: input.userId,
-          _ip: input.ip,
-          _country: input.country,
-          _ua: input.ua,
-          _is_bot: input.isBot,
-          _bot_reason: input.botReason,
-          _routed_to: input.routedTo,
-          _utm_source: input.utm?.utm_source ?? null,
-          _utm_medium: input.utm?.utm_medium ?? null,
-          _utm_campaign: input.utm?.utm_campaign ?? null,
-          _utm_term: input.utm?.utm_term ?? null,
-          _utm_content: input.utm?.utm_content ?? null,
-          _referer_host: input.refererHost ?? null,
-          _bot_score: input.botScore ?? null,
-          _signals: input.signals ?? null,
-          _challenge_passed: input.challengePassed,
-        } as never,
-      )),
-    );
-
-    if (rpcErr) {
-      console.warn("[redirect] record_redirect_click rpc failed, attempting legacy update", rpcErr.message);
-      await legacyFallback();
-    }
-  } catch (err) {
-    try {
-      console.warn("[redirect] record_redirect_click failed after retries, using legacy fallback");
-      await legacyFallback();
-    } catch (fallbackError) {
-      console.error("[redirect] critical error in record_redirect_click", {
-        rpcError: err,
-        fallbackError,
-      });
-    }
-  }
+  // Direct write path only. RPC was causing intermittent PostgREST failures on the VPS
+  // even when plain inserts/updates succeeded, so the hot path now uses the stable path only.
+  await persistClickDirectly();
 
   // Bot fingerprint learning (separate RPC, atomic upsert)
   if (input.fingerprintHash) {
