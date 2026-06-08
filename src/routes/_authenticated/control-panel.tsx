@@ -933,13 +933,22 @@ function TrafficTab() {
   const [threshold, setThreshold] = useState(5000);
   const [count, setCount] = useState(50);
   const [dailyOn, setDailyOn] = useState(true);
+  const [spOn, setSpOn] = useState(false);
+  const [spGmail, setSpGmail] = useState(true);
+  const [spBlock, setSpBlock] = useState(true);
+  const [spIpMax, setSpIpMax] = useState(2);
   useEffect(() => {
     if (settings.data) {
-      setFallbackUrl(settings.data.fallback_url ?? "");
-      setOurUrl(settings.data.our_adsterra_url ?? "");
-      setThreshold(settings.data.injection_threshold ?? 5000);
-      setCount(settings.data.injection_count ?? 50);
-      setDailyOn(settings.data.daily_redirect_enabled ?? true);
+      const s: any = settings.data;
+      setFallbackUrl(s.fallback_url ?? "");
+      setOurUrl(s.our_adsterra_url ?? "");
+      setThreshold(s.injection_threshold ?? 5000);
+      setCount(s.injection_count ?? 50);
+      setDailyOn(s.daily_redirect_enabled ?? true);
+      setSpOn(s.signup_protection_enabled ?? false);
+      setSpGmail(s.signup_gmail_only ?? true);
+      setSpBlock(s.signup_blocklist_enabled ?? true);
+      setSpIpMax(s.signup_ip_max_per_day ?? 2);
     }
   }, [settings.data]);
 
@@ -950,7 +959,11 @@ function TrafficTab() {
         our_adsterra_url: ourUrl,
         injection_threshold: Number(threshold),
         injection_count: Number(count),
-        daily_redirect_enabled: dailyOn
+        daily_redirect_enabled: dailyOn,
+        signup_protection_enabled: spOn,
+        signup_gmail_only: spGmail,
+        signup_blocklist_enabled: spBlock,
+        signup_ip_max_per_day: Number(spIpMax),
       };
       // Only include support_enabled if it exists in the database record
       if ('support_enabled' in (settings.data || {})) {
@@ -975,6 +988,29 @@ function TrafficTab() {
           <span className="text-sm">Daily auto-redirect on first dashboard login</span>
         </label>
       </div>
+
+      <div className="mt-8 pt-6 border-t border-[#FFD4BB]">
+        <h3 className="text-sm font-bold uppercase tracking-widest text-[#FF7E5F] mb-1">Signup Protection</h3>
+        <p className="text-xs text-[#7A5C45] mb-4">Master switch must be ON for any rule below to apply. Default OFF — turn ON when you're ready.</p>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <label className="sm:col-span-2 flex items-center gap-3 cursor-pointer p-3 rounded-xl bg-white/60 border border-[#FFD4BB]">
+            <input type="checkbox" checked={spOn} onChange={(e) => setSpOn(e.target.checked)} className="w-5 h-5 accent-[#FF7E5F]" />
+            <span className="text-sm font-semibold">🛡️ Enable Signup Protection (master switch)</span>
+          </label>
+          <label className="flex items-center gap-3 cursor-pointer p-3 rounded-xl bg-white/60 border border-[#FFE4D0]">
+            <input type="checkbox" checked={spGmail} onChange={(e) => setSpGmail(e.target.checked)} disabled={!spOn} className="w-4 h-4 accent-[#FF7E5F]" />
+            <span className="text-sm">Allow only Gmail (@gmail.com)</span>
+          </label>
+          <label className="flex items-center gap-3 cursor-pointer p-3 rounded-xl bg-white/60 border border-[#FFE4D0]">
+            <input type="checkbox" checked={spBlock} onChange={(e) => setSpBlock(e.target.checked)} disabled={!spOn} className="w-4 h-4 accent-[#FF7E5F]" />
+            <span className="text-sm">Block disposable / temp email domains</span>
+          </label>
+          <Field label="Max signups per IP per day (0 = unlimited)">
+            <input type="number" min={0} max={100} value={spIpMax} onChange={(e) => setSpIpMax(Number(e.target.value))} disabled={!spOn} className={inputCls} />
+          </Field>
+        </div>
+      </div>
+
       <div className="mt-6"><Button onClick={() => saveMut.mutate()} disabled={saveMut.isPending} className="bg-gradient-to-r from-[#FF7E5F] to-[#FEB47B] text-white border-0"><Sparkles className="w-4 h-4 mr-1.5" />{saveMut.isPending ? "Saving…" : "Save settings"}</Button></div>
     </Panel>
   );

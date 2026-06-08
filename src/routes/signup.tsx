@@ -1,8 +1,10 @@
 import { createFileRoute, Link, useNavigate, useRouter } from "@tanstack/react-router";
+import { useServerFn } from "@tanstack/react-start";
 import { useState, type FormEvent } from "react";
 import { toast } from "sonner";
 import { Mail, Lock, User, Send, ArrowRight, CheckCircle2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { preSignupCheck } from "@/lib/signup-protection.functions";
 import { BrandLogo } from "@/components/brand-logo";
 
 export const Route = createFileRoute("/signup")({
@@ -15,6 +17,7 @@ const font = { fontFamily: "'Outfit', system-ui, sans-serif" } as const;
 function SignupPage() {
   const navigate = useNavigate();
   const router = useRouter();
+  const preCheck = useServerFn(preSignupCheck);
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [telegram, setTelegram] = useState("");
@@ -26,6 +29,17 @@ function SignupPage() {
     setLoading(true);
     const normalizedEmail = email.trim().toLowerCase();
     const tg = telegram.trim().replace(/^@/, "");
+
+    // Signup protection gate (Gmail-only / disposable blocklist / IP cap)
+    try {
+      const check = await preCheck({ data: { email: normalizedEmail } });
+      if (!check.ok) { setLoading(false); toast.error(check.error); return; }
+    } catch (err: any) {
+      setLoading(false);
+      toast.error(err?.message || "Signup check failed. Please try again.");
+      return;
+    }
+
     const { error } = await supabase.auth.signUp({
       email: normalizedEmail, password,
       options: {
