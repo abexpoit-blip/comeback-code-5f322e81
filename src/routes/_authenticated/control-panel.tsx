@@ -1804,16 +1804,57 @@ function StatBox({ label, value, icon }: { label: string; value: number; icon: R
 function MaintenanceTab() {
   const qc = useQueryClient();
   const inactiveFn = useServerFn(adminGetInactiveUsers);
-  const runMaintFn = useServerFn(adminRunMaintenance);
   const delUsersFn = useServerFn(adminDeleteUsers);
+  const getStatusFn = useServerFn(adminGetPurgeStatus);
+  const purgeBatchFn = useServerFn(adminPurgeBatch);
 
   const q = useQuery({ queryKey: ["admin-inactive-users"], queryFn: () => inactiveFn() });
-  
-  const runMaint = useMutation({
-    mutationFn: () => runMaintFn(),
-    onSuccess: () => toast.success("Maintenance completed: Old clicks purged."),
-    onError: (e: Error) => toast.error(e.message)
-  });
+  const statusQ = useQuery({ queryKey: ["admin-purge-status"], queryFn: () => getStatusFn() });
+
+  const [purging, setPurging] = useState(false);
+  const [progress, setProgress] = useState({ total: 0, deleted: 0, phase: "" as "" | "clicks" | "errors" | "done" });
+
+  const runBatchedPurge = async () => {
+    if (!confirm("Run maintenance now? This will purge old click logs in batches.")) return;
+    try {
+      setPurging(true);
+      const status = await getStatusFn();
+      const total = (status.oldClicks ?? 0) + (status.oldErrors ?? 0);
+      setProgress({ total, deleted: 0, phase: "clicks" });
+
+      if (total === 0) {
+        setProgress({ total: 0, deleted: 0, phase: "done" });
+        toast.success("Nothing to purge — already clean ✨");
+        setPurging(false);
+        return;
+      }
+
+      let deletedSoFar = 0;
+      // Phase 1: clicks
+      while (true) {
+        const r = await purgeBatchFn({ data: { target: "clicks", batchSize: 2000 } });
+        deletedSoFar += r.deleted;
+        setProgress({ total, deleted: deletedSoFar, phase: "clicks" });
+        if (r.done) break;
+      }
+      // Phase 2: error_logs
+      setProgress({ total, deleted: deletedSoFar, phase: "errors" });
+      while (true) {
+        const r = await purgeBatchFn({ data: { target: "errors", batchSize: 2000 } });
+        deletedSoFar += r.deleted;
+        setProgress({ total, deleted: deletedSoFar, phase: "errors" });
+        if (r.done) break;
+      }
+
+      setProgress({ total, deleted: deletedSoFar, phase: "done" });
+      toast.success(`Maintenance completed: ${deletedSoFar.toLocaleString()} rows purged.`);
+      qc.invalidateQueries({ queryKey: ["admin-purge-status"] });
+    } catch (e: any) {
+      toast.error(e?.message ?? "Purge failed");
+    } finally {
+      setPurging(false);
+    }
+  };
 
   const delUsers = useMutation({
     mutationFn: (ids: string[]) => delUsersFn({ data: { ids } }),
@@ -1825,28 +1866,53 @@ function MaintenanceTab() {
   });
 
   const inactiveUsers = q.data ?? [];
+  const pct = progress.total > 0 ? Math.min(100, Math.round((progress.deleted / progress.total) * 100)) : 0;
+  const eligible = (statusQ.data?.oldClicks ?? 0) + (statusQ.data?.oldErrors ?? 0);
 
   return (
     <div className="space-y-6">
       <Panel icon={RefreshCw} title="System Maintenance" subtitle="Run manual maintenance tasks">
         <div className="p-4 rounded-2xl bg-amber-50 border border-amber-200">
-          <div className="flex items-center justify-between">
-            <div>
+          <div className="flex items-center justify-between gap-4">
+            <div className="flex-1">
               <h4 className="font-bold text-amber-800">Purge Raw Click Logs</h4>
               <p className="text-sm text-amber-700 mt-1">
                 Deletes all raw per-click records older than 7 days. Aggregate stats and daily charts are preserved.
               </p>
+              <p className="text-xs text-amber-700/80 mt-1">
+                Eligible for purge: <b>{(statusQ.data?.oldClicks ?? 0).toLocaleString()}</b> clicks
+                {" + "}
+                <b>{(statusQ.data?.oldErrors ?? 0).toLocaleString()}</b> error logs
+                {" = "}<b>{eligible.toLocaleString()}</b> total
+              </p>
             </div>
-            <Button 
-              onClick={() => { if(confirm("Run maintenance now? This will purge old click logs.")) runMaint.mutate(); }}
-              disabled={runMaint.isPending}
+            <Button
+              onClick={runBatchedPurge}
+              disabled={purging}
               className="bg-amber-600 hover:bg-amber-700 text-white"
             >
-              Run Now
+              {purging ? "Purging…" : "Run Now"}
             </Button>
           </div>
+
+          {(purging || progress.phase === "done") && (
+            <div className="mt-4 space-y-2">
+              <div className="flex items-center justify-between text-xs text-amber-800">
+                <span>
+                  {progress.phase === "clicks" && "Phase 1/2: Purging old clicks…"}
+                  {progress.phase === "errors" && "Phase 2/2: Purging old error logs…"}
+                  {progress.phase === "done" && "✅ Completed"}
+                </span>
+                <span className="font-mono">
+                  {progress.deleted.toLocaleString()} / {progress.total.toLocaleString()} ({pct}%)
+                </span>
+              </div>
+              <Progress value={pct} className="h-3" />
+            </div>
+          )}
         </div>
       </Panel>
+
 
       <Panel icon={Users} title="Inactive Users" subtitle="Users who joined >7 days ago and never used the service">
         <div className="mb-4 flex items-center justify-between">
