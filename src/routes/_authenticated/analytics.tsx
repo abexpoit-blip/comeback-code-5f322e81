@@ -335,9 +335,15 @@ function AnalyticsPage() {
       <section className="grid grid-cols-12 gap-6 pb-10">
         <Card
           className="col-span-12 xl:col-span-5"
-          title="Bot Detection Breakdown"
-          right={<span className="text-[10px] text-amber-600/80 uppercase tracking-widest flex items-center gap-1"><ShieldAlert className="w-3 h-3" /> Protected</span>}
+          title="Shield Activity — Bots Blocked"
+          right={<span className="text-[10px] text-emerald-600/90 uppercase tracking-widest flex items-center gap-1"><ShieldCheck className="w-3 h-3" /> Protected ✓</span>}
         >
+          <div className="mb-3 p-3 rounded-xl bg-emerald-50/70 border border-emerald-200/60">
+            <p className="text-[11px] text-emerald-800 leading-relaxed">
+              ✓ <strong>Don't worry!</strong> Bots = Facebook/Google ad scanners checking your link.
+              SleepOX automatically blocks them so your offer stays safe. <strong>More boost = more scanners</strong> — totally normal.
+            </p>
+          </div>
           <div className="space-y-3">
             {d.botReasons.length === 0 && <Empty label="No bot traffic detected — clean!" />}
             {d.botReasons.map((r) => (
