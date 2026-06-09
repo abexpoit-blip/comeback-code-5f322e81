@@ -35,6 +35,20 @@ function DashboardPage() {
   const create = useServerFn(createLink);
   const remove = useServerFn(deleteLink);
   const toggle = useServerFn(toggleLink);
+
+  // One-time popup: notify user when admin/cron has reset all clicks since they last saw the notice.
+  const resetNoticeFn = useServerFn(getClickResetNotice);
+  const dismissNoticeFn = useServerFn(dismissClickResetNotice);
+  const noticeQ = useQuery({
+    queryKey: ["click-reset-notice"],
+    queryFn: () => resetNoticeFn(),
+    staleTime: 30_000,
+    refetchOnWindowFocus: false,
+  });
+  const dismissNotice = () => {
+    void dismissNoticeFn().then(() => qc.invalidateQueries({ queryKey: ["click-reset-notice"] }));
+  };
+
   
 
   const dashQ = useQuery({
