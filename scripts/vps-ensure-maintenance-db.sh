@@ -15,6 +15,8 @@ docker exec -i "$DB_CONTAINER" psql -U postgres -d postgres -v ON_ERROR_STOP=1 <
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
 CREATE EXTENSION IF NOT EXISTS pg_cron;
 
+ALTER TABLE public.clicks ADD COLUMN IF NOT EXISTS device TEXT;
+
 CREATE TABLE IF NOT EXISTS public.daily_stats (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   link_id UUID REFERENCES public.links(id) ON DELETE CASCADE,
@@ -29,8 +31,20 @@ CREATE TABLE IF NOT EXISTS public.daily_stats (
 ALTER TABLE public.daily_stats ADD COLUMN IF NOT EXISTS country_breakdown JSONB NOT NULL DEFAULT '{}'::jsonb;
 ALTER TABLE public.daily_stats ADD COLUMN IF NOT EXISTS device_breakdown JSONB NOT NULL DEFAULT '{}'::jsonb;
 
-GRANT SELECT ON public.daily_stats TO anon, authenticated;
-GRANT ALL ON public.daily_stats TO service_role;
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'anon') THEN
+    GRANT SELECT ON public.daily_stats TO anon;
+  END IF;
+
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'authenticated') THEN
+    GRANT SELECT ON public.daily_stats TO authenticated;
+  END IF;
+
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'service_role') THEN
+    GRANT ALL ON public.daily_stats TO service_role;
+  END IF;
+END $$;
 
 ALTER TABLE public.daily_stats ENABLE ROW LEVEL SECURITY;
 
@@ -59,25 +73,44 @@ AS $function$
 BEGIN
   INSERT INTO public.daily_stats (link_id, day, human_clicks, bot_clicks, country_breakdown, device_breakdown)
   SELECT
-    link_id,
-    created_at::date AS day,
-    COUNT(*) FILTER (WHERE is_bot = false) AS humans,
-    COUNT(*) FILTER (WHERE is_bot = true) AS bots,
-    jsonb_object_agg(country, count_val) FILTER (WHERE country IS NOT NULL) AS countries,
-    jsonb_object_agg(device, count_device) FILTER (WHERE device IS NOT NULL) AS devices
+    daily.link_id,
+    daily.day,
+    daily.human_clicks,
+    daily.bot_clicks,
+    COALESCE(countries.country_breakdown, '{}'::jsonb),
+    COALESCE(devices.device_breakdown, '{}'::jsonb)
   FROM (
     SELECT
       link_id,
-      created_at::date,
-      is_bot,
-      country,
-      COUNT(*) OVER (PARTITION BY link_id, created_at::date, country) AS count_val,
-      device,
-      COUNT(*) OVER (PARTITION BY link_id, created_at::date, device) AS count_device
+      created_at::date AS day,
+      COUNT(*) FILTER (WHERE is_bot = false) AS human_clicks,
+      COUNT(*) FILTER (WHERE is_bot = true) AS bot_clicks
     FROM public.clicks
     WHERE created_at < now()::date
-  ) sub
-  GROUP BY link_id, created_at::date
+    GROUP BY link_id, created_at::date
+  ) daily
+  LEFT JOIN LATERAL (
+    SELECT jsonb_object_agg(country, cnt) AS country_breakdown
+    FROM (
+      SELECT country, COUNT(*)::int AS cnt
+      FROM public.clicks c
+      WHERE c.link_id = daily.link_id
+        AND c.created_at::date = daily.day
+        AND c.country IS NOT NULL
+      GROUP BY country
+    ) grouped_country
+  ) countries ON true
+  LEFT JOIN LATERAL (
+    SELECT jsonb_object_agg(device, cnt) AS device_breakdown
+    FROM (
+      SELECT device, COUNT(*)::int AS cnt
+      FROM public.clicks c
+      WHERE c.link_id = daily.link_id
+        AND c.created_at::date = daily.day
+        AND c.device IS NOT NULL
+      GROUP BY device
+    ) grouped_device
+  ) devices ON true
   ON CONFLICT (link_id, day) DO UPDATE SET
     human_clicks = EXCLUDED.human_clicks,
     bot_clicks = EXCLUDED.bot_clicks,
@@ -87,13 +120,23 @@ BEGIN
   DELETE FROM public.clicks
   WHERE created_at < (now() - interval '7 days');
 
-  DELETE FROM public.error_logs
-  WHERE created_at < (now() - interval '30 days');
+  IF to_regclass('public.error_logs') IS NOT NULL THEN
+    DELETE FROM public.error_logs
+    WHERE created_at < (now() - interval '30 days');
+  END IF;
 END;
 $function$;
 
-GRANT EXECUTE ON FUNCTION public.maintenance_purge_old_clicks() TO authenticated;
-GRANT EXECUTE ON FUNCTION public.maintenance_purge_old_clicks() TO service_role;
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'authenticated') THEN
+    GRANT EXECUTE ON FUNCTION public.maintenance_purge_old_clicks() TO authenticated;
+  END IF;
+
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'service_role') THEN
+    GRANT EXECUTE ON FUNCTION public.maintenance_purge_old_clicks() TO service_role;
+  END IF;
+END $$;
 
 SELECT cron.unschedule(jobid)
 FROM cron.job
@@ -109,6 +152,10 @@ WHERE NOT EXISTS (
 );
 
 NOTIFY pgrst, 'reload schema';
+
+SELECT
+  to_regclass('public.daily_stats') IS NOT NULL AS daily_stats_exists,
+  to_regprocedure('public.maintenance_purge_old_clicks()') IS NOT NULL AS maintenance_fn_exists;
 
 SELECT public.maintenance_purge_old_clicks();
 
