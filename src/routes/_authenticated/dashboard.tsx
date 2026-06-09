@@ -406,9 +406,36 @@ function DashboardPage() {
           </div>
         </div>
       </div>
+
+      <Dialog open={!!noticeQ.data?.showPopup} onOpenChange={(open) => { if (!open) dismissNotice(); }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-[#2D1B0D]">
+              <Sparkles className="w-5 h-5 text-[#FF7E5F]" />
+              All clicks have been cleaned
+            </DialogTitle>
+            <DialogDescription className="text-[#5A4434] pt-2 leading-relaxed">
+              Don't worry — <b>all your links and account data are safe</b>. We just
+              cleared the click history to keep your dashboard fast and optimized.
+              New clicks from now on will be counted as usual.
+              {noticeQ.data?.resetAt && (
+                <span className="block mt-2 text-xs text-[#A38D7D] font-mono">
+                  Reset: {new Date(noticeQ.data.resetAt).toLocaleString()}
+                </span>
+              )}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <UIButton onClick={dismissNotice} className="bg-[#FF7E5F] hover:bg-[#FF6B47] text-white">
+              Got it
+            </UIButton>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
+
 
 /* ════════════════════ COMPONENTS ════════════════════ */
 
