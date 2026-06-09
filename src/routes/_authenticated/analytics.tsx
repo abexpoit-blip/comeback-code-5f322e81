@@ -140,9 +140,9 @@ function AnalyticsPage() {
         <div className="col-span-12 lg:col-span-4 grid grid-cols-1 gap-6">
           <MiniCard
             icon={<ShieldCheck className="w-5 h-5" />}
-            label="Bot detection"
-            value={d.kpis.total ? `${((d.kpis.bots / d.kpis.total) * 100).toFixed(2)}%` : "0%"}
-            sub={`${d.kpis.bots.toLocaleString()} bots blocked`}
+            label="Shield Blocked ✓"
+            value={d.kpis.bots.toLocaleString()}
+            sub={`Facebook / Google scanners auto-stopped — this is good`}
             tone="amber"
           />
           <MiniCard
