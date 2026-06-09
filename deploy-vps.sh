@@ -9,6 +9,11 @@ git pull origin main
 # 2. Build
 echo "--- Building ---"
 bun install
+
+# 2.5. Ensure self-hosted database maintenance objects exist
+echo "--- Ensuring self-hosted DB maintenance objects ---"
+bash scripts/vps-ensure-maintenance-db.sh
+
 bun run build
 
 # 3. Fix 8 core issues by ensuring ecosystem.config.cjs is used
