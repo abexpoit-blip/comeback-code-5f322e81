@@ -189,10 +189,10 @@ function DashboardPage() {
 
         {/* KPI ROW — 5 floating cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
-          <KpiCard label="HUMAN CLICKS" value={fmtCompact(totalClicks)} sub={`${fmtCompact(allTraffic)} total incl. bots`} tone="muted" />
+          <KpiCard label="REAL VISITORS" value={fmtCompact(totalClicks)} sub={`Humans served — bots filtered out`} tone="muted" />
           <KpiCard label="ACTIVE LINKS" value={String(activeLinks)} sub={`${links.length} total`} tone="muted" />
           <KpiCard label="UNIQUE VISITORS" value={fmtCompact(uniqueVisitors)} sub="Last 30 days, humans only" tone="muted" />
-          <KpiCard label="BOT BLOCKED" value={`${botPct.toFixed(1)}%`} sub={`${fmtCompact(botBlocked)} attempts`} tone="muted" />
+          <KpiCard label="SHIELD BLOCKED ✓" value={`${botPct.toFixed(1)}%`} sub={`${fmtCompact(botBlocked)} scanners stopped`} tone="muted" />
           <QuotaCard pct={quotaPct} label={quotaLabel} />
         </div>
 

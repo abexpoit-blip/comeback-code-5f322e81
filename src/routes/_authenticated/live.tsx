@@ -52,7 +52,7 @@ function LiveFeedPage() {
       <div className="grid sm:grid-cols-4 gap-3 mb-6">
         <Stat label="Clicks / 5 min" value={data?.cps5m?.toLocaleString() ?? "0"} icon={Zap} tone="orange" />
         <Stat label="Humans (1h)" value={data?.humans1h?.toLocaleString() ?? "0"} icon={User} tone="green" />
-        <Stat label="Bots (1h)" value={data?.bots1h?.toLocaleString() ?? "0"} icon={Bot} tone="rose" />
+        <Stat label="Bots Blocked (1h) ✓" value={data?.bots1h?.toLocaleString() ?? "0"} icon={Bot} tone="green" />
         <Stat label="Unique countries" value={(data?.countries?.length ?? 0).toLocaleString()} icon={Globe2} tone="blue" />
       </div>
 
