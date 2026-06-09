@@ -1913,6 +1913,10 @@ function MaintenanceTab() {
         </div>
       </Panel>
 
+      <ResetAllClicksPanel />
+
+
+
 
       <Panel icon={Users} title="Inactive Users" subtitle="Users who joined >7 days ago and never used the service">
         <div className="mb-4 flex items-center justify-between">
