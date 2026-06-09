@@ -9,7 +9,11 @@ import {
 } from "lucide-react";
 import { getDashboardData, createLink, deleteLink, toggleLink } from "@/lib/links.functions";
 import { getPrimaryShortenerDomain } from "@/lib/shortener-domains.functions";
+import { getClickResetNotice, dismissClickResetNotice } from "@/lib/click-reset.functions";
 import { BroadcastBell } from "@/components/broadcast-bell";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
+import { Button as UIButton } from "@/components/ui/button";
+import { Sparkles } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
   head: () => ({ meta: [{ title: "Dashboard — Sleepox" }] }),
