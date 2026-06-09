@@ -340,8 +340,7 @@ function AnalyticsPage() {
         >
           <div className="mb-3 p-3 rounded-xl bg-emerald-50/70 border border-emerald-200/60">
             <p className="text-[11px] text-emerald-800 leading-relaxed">
-              ✓ <strong>Don't worry!</strong> Bots = Facebook/Google ad scanners checking your link.
-              SleepOX automatically blocks them so your offer stays safe. <strong>More boost = more scanners</strong> — totally normal.
+              <strong>Don't worry — these are ad platform scanners.</strong> When you run a Facebook or Google boost, their servers send <em>facebookexternalhit</em> and <em>Googlebot</em> crawlers to preview your link, verify the page, and scan for policy compliance before showing your ad to real people. SleepOX detects and blocks these datacenter requests automatically so only genuine visitors reach your offer. <strong>Why the spike?</strong> Boost budget = more ad impressions requested = more platform crawlers validating your link — this is expected and healthy.
             </p>
           </div>
           <div className="space-y-3">
