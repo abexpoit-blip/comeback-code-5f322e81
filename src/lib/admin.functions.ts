@@ -734,6 +734,49 @@ export const adminRunMaintenance = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
+// Returns counts of rows eligible for purge (for progress bar baseline)
+export const adminGetPurgeStatus = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    await assertAdmin(context.userId);
+    const clicksCutoff = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+    const errorsCutoff = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+    const [{ count: oldClicks }, { count: oldErrors }] = await Promise.all([
+      supabaseAdmin.from("clicks").select("id", { count: "exact", head: true }).lt("created_at", clicksCutoff),
+      supabaseAdmin.from("error_logs").select("id", { count: "exact", head: true }).lt("created_at", errorsCutoff),
+    ]);
+    return { oldClicks: oldClicks ?? 0, oldErrors: oldErrors ?? 0 };
+  });
+
+// Deletes ONE batch of old rows. Client calls in a loop until done=true.
+export const adminPurgeBatch = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator(z.object({
+    target: z.enum(["clicks", "errors"]),
+    batchSize: z.number().int().min(100).max(10000).default(2000),
+  }).parse)
+  .handler(async ({ context, data }) => {
+    await assertAdmin(context.userId);
+    const table = data.target === "clicks" ? "clicks" : "error_logs";
+    const days = data.target === "clicks" ? 7 : 30;
+    const cutoff = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
+
+    const { data: rows, error: selErr } = await supabaseAdmin
+      .from(table)
+      .select("id")
+      .lt("created_at", cutoff)
+      .limit(data.batchSize);
+    if (selErr) throw new Error(selErr.message);
+
+    const ids = (rows ?? []).map((r: any) => r.id);
+    if (ids.length === 0) return { deleted: 0, done: true };
+
+    const { error: delErr } = await supabaseAdmin.from(table).delete().in("id", ids);
+    if (delErr) throw new Error(delErr.message);
+
+    return { deleted: ids.length, done: ids.length < data.batchSize };
+  });
+
 export const adminDeleteUsers = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator(z.object({ ids: z.array(z.string().uuid()) }).parse)
