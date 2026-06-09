@@ -30,7 +30,7 @@ import {
   adminUserDetail, adminImpersonate, adminFixUnlimitedMonthly,
   adminListErrors, adminErrorStats, adminResolveError, adminDeleteError, adminClearResolvedErrors,
   adminGetInactiveUsers, adminRunMaintenance, adminDeleteUsers, adminTrafficSnapshot,
-  adminGetPurgeStatus, adminPurgeBatch
+  adminGetPurgeStatus, adminPurgeBatch, adminResetAllClicks
 } from "@/lib/admin.functions";
 import { adminListPlisioLogs, adminReverifyOrder, adminBulkReverify, adminGetOutgoingIp } from "@/lib/plisio-admin.functions";
 import { startImpersonation } from "@/lib/impersonation";
@@ -1801,6 +1801,56 @@ function StatBox({ label, value, icon }: { label: string; value: number; icon: R
   );
 }
 
+function ResetAllClicksPanel() {
+  const qc = useQueryClient();
+  const resetFn = useServerFn(adminResetAllClicks);
+  const [running, setRunning] = useState(false);
+  const [lastResult, setLastResult] = useState<{ cleared?: number; reset_at?: string } | null>(null);
+
+  const onReset = async () => {
+    if (!confirm("Reset ALL clicks for every user now? Links and accounts will NOT be affected. This cannot be undone.")) return;
+    if (!confirm("Are you absolutely sure? Type OK in the next prompt to confirm.")) return;
+    const ans = prompt('Type "RESET" to confirm:');
+    if (ans !== "RESET") { toast.error("Cancelled"); return; }
+    try {
+      setRunning(true);
+      const r: any = await resetFn();
+      setLastResult({ cleared: r?.cleared, reset_at: r?.reset_at });
+      toast.success(`Cleared ${Number(r?.cleared ?? 0).toLocaleString()} click rows. All users will see a notice on next login.`);
+      qc.invalidateQueries({ queryKey: ["admin-purge-status"] });
+      qc.invalidateQueries({ queryKey: ["dashboard"] });
+    } catch (e: any) {
+      toast.error(e?.message ?? "Reset failed");
+    } finally {
+      setRunning(false);
+    }
+  };
+
+  return (
+    <Panel icon={RefreshCw} title="Reset All Clicks" subtitle="Wipe every click record across all users (links & accounts preserved)">
+      <div className="p-4 rounded-2xl bg-rose-50 border border-rose-200">
+        <div className="flex items-center justify-between gap-4">
+          <div className="flex-1">
+            <h4 className="font-bold text-rose-800">Full Click Reset</h4>
+            <p className="text-sm text-rose-700 mt-1">
+              Deletes every raw click, daily stat, and resets all link/user click counters to 0.
+              Runs automatically every Sunday 03:00 UTC. Users will see a one-time popup on next login.
+            </p>
+            {lastResult && (
+              <p className="text-xs text-rose-700/80 mt-2 font-mono">
+                Last manual reset: {lastResult.cleared?.toLocaleString()} rows cleared @ {lastResult.reset_at?.slice(0, 19).replace("T", " ")} UTC
+              </p>
+            )}
+          </div>
+          <Button onClick={onReset} disabled={running} className="bg-rose-600 hover:bg-rose-700 text-white">
+            {running ? "Resetting…" : "Reset Now"}
+          </Button>
+        </div>
+      </div>
+    </Panel>
+  );
+}
+
 function MaintenanceTab() {
   const qc = useQueryClient();
   const inactiveFn = useServerFn(adminGetInactiveUsers);
@@ -1912,6 +1962,10 @@ function MaintenanceTab() {
           )}
         </div>
       </Panel>
+
+      <ResetAllClicksPanel />
+
+
 
 
       <Panel icon={Users} title="Inactive Users" subtitle="Users who joined >7 days ago and never used the service">

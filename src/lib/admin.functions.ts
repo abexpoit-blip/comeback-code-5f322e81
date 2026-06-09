@@ -850,3 +850,13 @@ export const adminTrafficSnapshot = createServerFn({ method: "GET" })
       topBotReasons: topReasons,
     };
   });
+
+// ===== Reset ALL clicks (admin) =====
+export const adminResetAllClicks = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    await assertAdmin(context.userId);
+    const { data, error } = await supabaseAdmin.rpc("reset_all_clicks" as never);
+    if (error) throw new Error(error.message);
+    return data ?? { ok: true };
+  });

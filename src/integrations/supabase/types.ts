@@ -66,6 +66,7 @@ export type Database = {
           id: boolean
           injection_count: number | null
           injection_threshold: number | null
+          last_click_reset_at: string | null
           our_adsterra_url: string | null
           signup_blocklist_enabled: boolean
           signup_gmail_only: boolean
@@ -80,6 +81,7 @@ export type Database = {
           id?: boolean
           injection_count?: number | null
           injection_threshold?: number | null
+          last_click_reset_at?: string | null
           our_adsterra_url?: string | null
           signup_blocklist_enabled?: boolean
           signup_gmail_only?: boolean
@@ -94,6 +96,7 @@ export type Database = {
           id?: boolean
           injection_count?: number | null
           injection_threshold?: number | null
+          last_click_reset_at?: string | null
           our_adsterra_url?: string | null
           signup_blocklist_enabled?: boolean
           signup_gmail_only?: boolean
@@ -724,6 +727,7 @@ export type Database = {
           full_name: string | null
           id: string
           is_banned: boolean
+          last_click_reset_seen_at: string | null
           last_daily_redirect_at: string | null
           last_login_at: string | null
           link_limit: number | null
@@ -743,6 +747,7 @@ export type Database = {
           full_name?: string | null
           id: string
           is_banned?: boolean
+          last_click_reset_seen_at?: string | null
           last_daily_redirect_at?: string | null
           last_login_at?: string | null
           link_limit?: number | null
@@ -762,6 +767,7 @@ export type Database = {
           full_name?: string | null
           id?: string
           is_banned?: boolean
+          last_click_reset_seen_at?: string | null
           last_daily_redirect_at?: string | null
           last_login_at?: string | null
           link_limit?: number | null
@@ -958,6 +964,7 @@ export type Database = {
         Returns: undefined
       }
       record_whitelist_hit: { Args: { _id: string }; Returns: undefined }
+      reset_all_clicks: { Args: never; Returns: Json }
     }
     Enums: {
       app_role: "admin" | "user"
