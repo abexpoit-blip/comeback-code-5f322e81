@@ -95,7 +95,7 @@ $function$;
 GRANT EXECUTE ON FUNCTION public.maintenance_purge_old_clicks() TO authenticated;
 GRANT EXECUTE ON FUNCTION public.maintenance_purge_old_clicks() TO service_role;
 
-PERFORM cron.unschedule(jobid)
+SELECT cron.unschedule(jobid)
 FROM cron.job
 WHERE jobname IN ('weekly-click-purge', 'weekly-purge-old-clicks');
 
