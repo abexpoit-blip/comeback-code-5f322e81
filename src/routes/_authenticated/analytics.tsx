@@ -22,11 +22,11 @@ function AnalyticsPage() {
   const q = useQuery({
     queryKey: ["analytics"],
     queryFn: () => fn(),
-    refetchInterval: 15_000,
-    staleTime: 10_000,
+    refetchInterval: 60_000,
+    staleTime: 60_000,
     gcTime: 5 * 60_000,
-    refetchOnWindowFocus: true,
-    refetchOnMount: true,
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
     retry: 1,
   });
   const cohortQ = useQuery({
