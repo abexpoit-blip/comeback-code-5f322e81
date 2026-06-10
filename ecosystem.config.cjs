@@ -3,14 +3,14 @@ module.exports = {
     {
       name: "sleepox",
       cwd: "/opt/sleepox-app-new",
-      script: ".output/server/index.mjs",
+      script: "dist/server/index.mjs",
       instances: "max",
       exec_mode: "cluster",
       max_memory_restart: "1536M",
       node_args: "--max-old-space-size=2048",
 
       watch: false,
-      ignore_watch: ["node_modules", ".output"],
+      ignore_watch: ["node_modules", ".output", "dist"],
       autorestart: true,
       restart_delay: 5000,
       max_restarts: 10,
