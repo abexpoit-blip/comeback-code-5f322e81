@@ -12,13 +12,25 @@ export default defineConfig({
       // stays small and the browser can parallelize downloads.
       rollupOptions: {
         output: {
-          manualChunks: {
-            "vendor-react": ["react", "react-dom"],
-            "vendor-router": ["@tanstack/react-router", "@tanstack/react-start", "@tanstack/router-core"],
-            "vendor-query": ["@tanstack/react-query"],
-            "vendor-supabase": ["@supabase/supabase-js", "@supabase/auth-js", "@supabase/postgrest-js", "@supabase/realtime-js", "@supabase/storage-js"],
-            "vendor-charts": ["recharts"],
-            "vendor-icons": ["lucide-react"],
+          manualChunks(id) {
+            if (!id.includes("node_modules")) return;
+
+            if (id.includes("/react/") || id.includes("/react-dom/")) return "vendor-react";
+            if (
+              id.includes("/@tanstack/react-router/") ||
+              id.includes("/@tanstack/react-start/") ||
+              id.includes("/@tanstack/router-core/")
+            ) return "vendor-router";
+            if (id.includes("/@tanstack/react-query/")) return "vendor-query";
+            if (
+              id.includes("/@supabase/supabase-js/") ||
+              id.includes("/@supabase/auth-js/") ||
+              id.includes("/@supabase/postgrest-js/") ||
+              id.includes("/@supabase/realtime-js/") ||
+              id.includes("/@supabase/storage-js/")
+            ) return "vendor-supabase";
+            if (id.includes("/recharts/")) return "vendor-charts";
+            if (id.includes("/lucide-react/")) return "vendor-icons";
           },
         },
       },
