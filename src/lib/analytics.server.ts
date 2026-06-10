@@ -513,7 +513,8 @@ export async function loadLinkDrilldown({ supabase, userId, linkId }: AnalyticsC
 
 export async function loadLiveFeed({ supabase, userId }: AnalyticsContext) {
   const { data: links } = await supabase.from("links").select("id, short_code, title").eq("user_id", userId);
-  const linkIds = (links ?? []).map((l: { id: string }) => l.id);
+  const typedLinks = (links ?? []) as Array<{ id: string; short_code: string; title: string | null }>;
+  const linkIds = typedLinks.map((l) => l.id);
   if (linkIds.length === 0) {
     return {
       cps5m: 0,
@@ -555,7 +556,7 @@ export async function loadLiveFeed({ supabase, userId }: AnalyticsContext) {
     : { data: null };
 
   const clicks = (((modern.error ? legacy.data : modern.data) ?? []) as unknown) as Array<{ id: string; link_id: string; country: string | null; ua?: string | null; user_agent?: string | null; is_bot: boolean; referer_host?: string | null; created_at: string }>;
-  const linkLookup = new Map((links ?? []).map((l: { id: string; short_code: string }) => [l.id, l]));
+  const linkLookup = new Map(typedLinks.map((l) => [l.id, l]));
   const now = Date.now();
   const last5m = clicks.filter((c) => now - new Date(c.created_at).getTime() < 300_000).length;
   const last1h = clicks.filter((c) => now - new Date(c.created_at).getTime() < 3_600_000);
