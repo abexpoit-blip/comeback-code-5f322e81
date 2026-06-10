@@ -49,11 +49,12 @@ export const getRouter = () => {
   const queryClient = new QueryClient({
     defaultOptions: {
       queries: {
-        // Real-time first: never serve stale stats. Always refetch on mount/focus.
-        staleTime: 0,
+        // Balance freshness vs perceived speed: data stays fresh 30s.
+        // Routes/components that need real-time can override per-query.
+        staleTime: 30_000,
         gcTime: 5 * 60_000,
-        refetchOnMount: "always",
-        refetchOnWindowFocus: true,
+        refetchOnMount: true, // only refetch if stale
+        refetchOnWindowFocus: false, // don't refetch every tab focus
         refetchOnReconnect: true,
         retry: 1,
       },
@@ -65,7 +66,8 @@ export const getRouter = () => {
     context: { queryClient },
     scrollRestoration: true,
     defaultPreload: "intent",
-    defaultPreloadStaleTime: 0,
+    // Keep preloaded data fresh for 30s so hover-preload actually helps.
+    defaultPreloadStaleTime: 30_000,
     defaultPreloadDelay: 50,
     defaultErrorComponent: DefaultErrorComponent,
     defaultNotFoundComponent: DefaultNotFoundComponent,
