@@ -1041,11 +1041,13 @@ function TrafficSnapshotPanel() {
   const snap = useQuery({
     queryKey: ["admin-traffic-snapshot"],
     queryFn: () => snapFn(),
-    refetchInterval: 15000, // live: refresh every 15s
+    refetchInterval: 60_000, // refresh every 60s to reduce DB load
+    staleTime: 60_000,
   });
   const d = snap.data;
   return (
-    <Panel icon={TrendingUp} title="Live Traffic Snapshot (last 24h)" subtitle="Real-time auto-refresh every 15s">
+    <Panel icon={TrendingUp} title="Live Traffic Snapshot (last 24h)" subtitle="Auto-refresh every 60s">
+
       {!d ? (
         <div className="text-sm text-[#7A5C45]">Loading…</div>
       ) : (
@@ -1644,12 +1646,14 @@ function ErrorsTab() {
   const stats = useQuery({
     queryKey: ["adminErrorStats"],
     queryFn: () => statsFn(),
-    refetchInterval: 30_000,
+    refetchInterval: 60_000,
+    staleTime: 60_000,
   });
   const rows = useQuery({
     queryKey: ["adminListErrors", source, onlyOpen],
     queryFn: () => listFn(),
-    refetchInterval: 15_000,
+    refetchInterval: 60_000,
+    staleTime: 60_000,
   });
 
   const resolveM = useMutation({
