@@ -4,7 +4,9 @@ import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useMemo, useState } from "react";
 import { Activity, Download, Globe2, Smartphone, Monitor, Tablet, HelpCircle, Zap, ShieldCheck, ShieldAlert, AlertTriangle, X, TrendingDown, Users } from "lucide-react";
 import { geoCentroid, geoEqualEarth, geoGraticule, geoPath } from "d3-geo";
-import { getAnalyticsData, getCohortRetention, getLinkDrilldown } from "@/lib/analytics.functions";
+import { getAnalyticsData } from "@/lib/analytics-data.functions";
+import { getCohortRetention } from "@/lib/cohort-retention.functions";
+import { getLinkDrilldown } from "@/lib/link-drilldown.functions";
 
 export const Route = createFileRoute("/_authenticated/analytics")({
   head: () => ({ meta: [{ title: "Analytics — Sleepox" }] }),
