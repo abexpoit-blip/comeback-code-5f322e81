@@ -17,7 +17,7 @@ export default defineConfig({
             "vendor-router": ["@tanstack/react-router", "@tanstack/react-start", "@tanstack/router-core"],
             "vendor-query": ["@tanstack/react-query"],
             "vendor-supabase": ["@supabase/supabase-js", "@supabase/auth-js", "@supabase/postgrest-js", "@supabase/realtime-js", "@supabase/storage-js"],
-            "vendor-charts": ["recharts", "d3-shape", "d3-scale", "d3-array", "d3-time", "d3-time-format", "d3-format", "d3-color", "d3-interpolate", "d3-path", "victory-vendor"],
+            "vendor-charts": ["recharts"],
             "vendor-icons": ["lucide-react"],
           },
         },
