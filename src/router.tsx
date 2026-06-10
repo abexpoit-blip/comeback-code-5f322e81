@@ -49,12 +49,12 @@ export const getRouter = () => {
   const queryClient = new QueryClient({
     defaultOptions: {
       queries: {
-        // Balance freshness vs perceived speed: data stays fresh 30s.
-        // Routes/components that need real-time can override per-query.
-        staleTime: 30_000,
+        // Data stays fresh 60s — drastically reduces DB load under high traffic.
+        // Components that need real-time can override per-query.
+        staleTime: 60_000,
         gcTime: 5 * 60_000,
-        refetchOnMount: true, // only refetch if stale
-        refetchOnWindowFocus: false, // don't refetch every tab focus
+        refetchOnMount: false, // rely on staleTime; avoid refetch on tab switch
+        refetchOnWindowFocus: false,
         refetchOnReconnect: true,
         retry: 1,
       },
