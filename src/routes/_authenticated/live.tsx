@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useState } from "react";
 import { Activity, Bot, User, Globe2, MapPin, Zap, RefreshCw } from "lucide-react";
-import { getLiveFeed } from "@/lib/analytics.functions";
+import { getLiveFeed } from "@/lib/live-feed.functions";
 import { Flag, DeviceIcon, BrowserIcon } from "@/components/StatIcons";
 
 export const Route = createFileRoute("/_authenticated/live")({
