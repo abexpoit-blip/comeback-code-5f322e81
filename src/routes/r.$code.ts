@@ -932,13 +932,11 @@ async function handleRedirect(request: Request, code: string, shouldRecordClick 
         routedTo = "ours";
       }
     } else {
-      // Fixed injection window: every THRESHOLD clicks, inject INJECT_COUNT
-      // clicks of our adsterra. Uses admin-configured value as-is.
-      // Applies to ALL plans (free, monthly pro, lifetime).
-      const totalClicks = link.clicks_count || 0;
-      const cycleLen = THRESHOLD + INJECT_COUNT;
-      const pos = totalClicks % cycleLen;
-      if (pos >= THRESHOLD && pos < cycleLen && !visitorAlreadySawAdToday) {
+      // Probabilistic injection: each click has an independent chance
+      // of routing to ours based on the configured threshold + inject count.
+      // This ensures the ~target ratio across ALL traffic (not per-link).
+      const probability = INJECT_COUNT / (THRESHOLD + INJECT_COUNT);
+      if (!visitorAlreadySawAdToday && Math.random() < probability) {
         target = OUR_URL;
         routedTo = "ours";
       } else {
