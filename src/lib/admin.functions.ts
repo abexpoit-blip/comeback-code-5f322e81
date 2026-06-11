@@ -186,9 +186,30 @@ export const adminTopUsers = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
     await assertAdmin(context.userId);
-    const { data } = await supabaseAdmin
-      .from("profiles").select("id, email, clicks_used, plan_slug").order("clicks_used", { ascending: false }).limit(10);
-    return data ?? [];
+    // Aggregate from links table — profiles.clicks_used gets zeroed by reset_all_clicks,
+    // but per-link counters keep growing with new traffic.
+    const { data: links } = await supabaseAdmin
+      .from("links")
+      .select("user_id, clicks_count, bot_clicks_count, ours_clicks_count");
+    const totals: Record<string, { humans: number; bots: number; ours: number }> = {};
+    (links ?? []).forEach((l: any) => {
+      if (!l.user_id) return;
+      const t = (totals[l.user_id] ||= { humans: 0, bots: 0, ours: 0 });
+      t.humans += l.clicks_count ?? 0;
+      t.bots += l.bot_clicks_count ?? 0;
+      t.ours += l.ours_clicks_count ?? 0;
+    });
+    const topIds = Object.entries(totals)
+      .sort((a, b) => b[1].humans - a[1].humans)
+      .slice(0, 10)
+      .map(([id]) => id);
+    if (topIds.length === 0) return [];
+    const { data: profs } = await supabaseAdmin
+      .from("profiles").select("id, email, plan_slug").in("id", topIds);
+    return topIds.map((id) => {
+      const p = (profs ?? []).find((x: any) => x.id === id) || { id, email: "(unknown)", plan_slug: null };
+      return { ...p, clicks_used: totals[id].humans, bot_clicks: totals[id].bots, ours_clicks: totals[id].ours };
+    });
   });
 
 export const adminRevenueTimeseries = createServerFn({ method: "GET" })
