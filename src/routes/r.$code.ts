@@ -733,8 +733,29 @@ async function handleRedirect(request: Request, code: string, shouldRecordClick 
         isFbBot = true;
         reason = `fb-ref-review:${fbRefHit}`;
       }
+
+      // NEW: catch FB ad reviewers who land with NO referer (direct hit) from
+      // a US/EU IP using a regular desktop or headless-Chrome UA during the
+      // ad-review window. Pattern observed in production: country=US, ref=direct,
+      // UA = plain Chrome/Safari with no FBAN/FBAV marker, link <6h old, <25 clicks.
+      // Outside the review window this rule does NOT fire, so real US/EU users
+      // are unaffected once the campaign matures.
+      if (!isBot) {
+        const REVIEWER_COUNTRIES = new Set(["US", "IE", "GB", "DE", "SG", "NL"]);
+        const isReviewerGeo = !!country && REVIEWER_COUNTRIES.has(country);
+        const isDirect = !refererDomain; // no referer header at all
+        // Real social-app users from these countries always carry FB/IG/Messenger
+        // markers in their UA. A plain desktop UA hitting a fresh link directly
+        // from a Meta-reviewer geo is almost certainly an ad-review fetch.
+        if (isReviewerGeo && isDirect && !hasFbAppMarker) {
+          isBot = true;
+          isFbBot = true;
+          reason = `fb-reviewer-geo:${country}`;
+        }
+      }
     }
   }
+
 
   // 0c. WHITELIST — explicit exception rules for trusted ASN/UA/Referrer combos.
   // Runs AFTER FB crawler block so ad safety is never bypassed. If matched,
