@@ -33,7 +33,8 @@ case "$action" in
     ;;
   restart)
     echo "♻️  Restarting PM2 process..."
-    pm2 restart "$PM2_NAME" --update-env
+    pm2 delete "$PM2_NAME" || true
+    pm2 start ecosystem.config.cjs --only "$PM2_NAME" --update-env
     pm2 save
     ;;
   deploy|"")
@@ -103,20 +104,9 @@ case "$action" in
     mv "$STAGING_DIR/dist" dist
     date -u +"%Y-%m-%dT%H:%M:%SZ" > "$BUILD_STAMP_FILE"
 
-    echo "♻️  [4/4] pm2 restart or start $PM2_NAME..."
-    # First, try to reload if it exists, otherwise start fresh. 
-    # We use --name filter to avoid PM2 internal ID bugs.
-    if pm2 describe "$PM2_NAME" > /dev/null 2>&1; then
-      echo "App $PM2_NAME exists, restarting..."
-      if ! pm2 restart "$PM2_NAME" --update-env; then
-         echo "⚠️  Restart failed, clearing PM2 and starting fresh..."
-         pm2 delete "$PM2_NAME" || true
-         pm2 start ecosystem.config.cjs
-      fi
-    else
-      echo "App $PM2_NAME not found, starting fresh..."
-      pm2 start ecosystem.config.cjs
-    fi
+    echo "♻️  [4/4] recreating PM2 app from ecosystem config..."
+    pm2 delete "$PM2_NAME" || true
+    pm2 start ecosystem.config.cjs --only "$PM2_NAME" --update-env
 
     pm2 save || true
     rm -rf "$STAGING_DIR"

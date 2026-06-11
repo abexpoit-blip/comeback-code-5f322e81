@@ -36,9 +36,9 @@ VITE_CONF
 rm -rf .output dist
 bun run build
 
-# 3. Restart PM2 with the Node entry point
+# 3. Recreate PM2 app from the ecosystem config so stale saved paths are removed
 pm2 delete sleepox || true
-PORT=4000 HOST=0.0.0.0 pm2 start dist/server/index.mjs --name "sleepox"
+PORT=4000 HOST=0.0.0.0 pm2 start ecosystem.config.cjs --only sleepox --update-env
 pm2 save
 
 echo "Waiting for app to start..."
