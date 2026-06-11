@@ -32,13 +32,13 @@ export default defineConfig({
 });
 VITE_CONF
 
-# 2. Rebuild the app (This generates the .output/server/index.mjs file)
+# 2. Rebuild the app (this generates the dist/server/index.mjs file)
 rm -rf .output dist
 bun run build
 
 # 3. Restart PM2 with the Node entry point
 pm2 delete sleepox || true
-PORT=4000 HOST=0.0.0.0 pm2 start .output/server/index.mjs --name "sleepox"
+PORT=4000 HOST=0.0.0.0 pm2 start dist/server/index.mjs --name "sleepox"
 pm2 save
 
 echo "Waiting for app to start..."
