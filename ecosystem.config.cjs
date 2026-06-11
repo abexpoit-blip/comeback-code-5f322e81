@@ -3,11 +3,11 @@ module.exports = {
     {
       name: "sleepox",
       cwd: "/opt/sleepox-app-new",
-      script: "dist/server/index.mjs",
-      instances: "max",
-      exec_mode: "cluster",
+      script: "scripts/start-selfhost.sh",
+      interpreter: "bash",
+      instances: 1,
+      exec_mode: "fork",
       max_memory_restart: "1536M",
-      node_args: "--max-old-space-size=2048",
 
       watch: false,
       ignore_watch: ["node_modules", ".output", "dist"],
