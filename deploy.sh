@@ -12,9 +12,10 @@ APP_DIR="/opt/sleepox-app-new"
 PM2_NAME="sleepox"
 SUPABASE_DIR="/opt/supabase-docker"
 SCRIPT_PATH="$APP_DIR/deploy.sh"
-BUILD_STAMP_FILE="dist/.sleepox-build"
+BUILD_STAMP_FILE="$APP_DIR/.sleepox-build"
 STAGING_DIR="$APP_DIR/.deploy-build"
 BACKUP_DIST="$APP_DIR/dist.previous"
+BACKUP_OUTPUT="$APP_DIR/.output.previous"
 
 cd "$APP_DIR"
 
@@ -50,11 +51,18 @@ case "$action" in
     new_head="$(git rev-parse HEAD 2>/dev/null || true)"
     build_version="${new_head:-unknown}-$(date +%s)"
 
-    if [ ! -f "dist/server/index.mjs" ] && [ -d "$BACKUP_DIST" ]; then
-      echo "🛟 Live dist is missing/incomplete. Restoring previous dist before building..."
-      rm -rf dist
-      mv "$BACKUP_DIST" dist
-      pm2 restart "$PM2_NAME" --update-env || true
+    if [ ! -f ".output/server/index.mjs" ] && [ ! -f "dist/server/index.mjs" ] && [ ! -f "dist/server/index.js" ]; then
+      if [ -d "$BACKUP_OUTPUT" ]; then
+        echo "🛟 Live build is missing/incomplete. Restoring previous .output before building..."
+        rm -rf .output
+        mv "$BACKUP_OUTPUT" .output
+        pm2 restart "$PM2_NAME" --update-env || true
+      elif [ -d "$BACKUP_DIST" ]; then
+        echo "🛟 Live build is missing/incomplete. Restoring previous dist before building..."
+        rm -rf dist
+        mv "$BACKUP_DIST" dist
+        pm2 restart "$PM2_NAME" --update-env || true
+      fi
     fi
 
     if [ -n "$old_head" ] && [ "$old_head" != "$new_head" ] && git diff --name-only "$old_head" "$new_head" -- deploy.sh | grep -qx "deploy.sh"; then
@@ -81,27 +89,35 @@ case "$action" in
       APP_BUILD_VERSION="$build_version" bun run build
     )
 
-    # The build system (Nitro) might place the output in a different location than dist/server/index.mjs
-    # based on the preset. We check for common Nitro output paths.
-    if [ ! -d "$STAGING_DIR/dist/client" ] || { [ ! -f "$STAGING_DIR/dist/server/index.mjs" ] && [ ! -f "$STAGING_DIR/dist/server/index.js" ]; }; then
-      echo "⚠️  Checking alternative Nitro output paths..."
-      if [ -f "$STAGING_DIR/dist/server/wrangler.json" ]; then
-         echo "✅ Found wrangler.json, proceeding..."
-      elif [ -d "$STAGING_DIR/dist" ]; then
-         echo "✅ Found dist directory, proceeding with caution..."
-      else
-        echo "❌ Build output is incomplete (missing server entry). Live app was NOT changed."
-        ls -R "$STAGING_DIR/dist" 2>/dev/null || echo "Dist folder is empty or missing"
-        exit 1
-      fi
+    BUILD_OUTPUT_DIR=""
+    if [ -d "$STAGING_DIR/.output/public" ] && [ -f "$STAGING_DIR/.output/server/index.mjs" ]; then
+      BUILD_OUTPUT_DIR=".output"
+      echo "✅ Found Node self-host build in .output/"
+    elif [ -d "$STAGING_DIR/dist/client" ] && { [ -f "$STAGING_DIR/dist/server/index.mjs" ] || [ -f "$STAGING_DIR/dist/server/index.js" ]; }; then
+      BUILD_OUTPUT_DIR="dist"
+      echo "✅ Found build in dist/"
+    else
+      echo "❌ Build output is incomplete (missing server entry). Live app was NOT changed."
+      ls -R "$STAGING_DIR/.output" 2>/dev/null || echo ".output folder is empty or missing"
+      ls -R "$STAGING_DIR/dist" 2>/dev/null || echo "dist folder is empty or missing"
+      exit 1
     fi
 
     echo "🚚 Publishing verified build..."
-    rm -rf "$BACKUP_DIST"
-    if [ -d "dist" ]; then
-      mv dist "$BACKUP_DIST"
+    rm -rf "$BACKUP_DIST" "$BACKUP_OUTPUT"
+    if [ "$BUILD_OUTPUT_DIR" = ".output" ]; then
+      if [ -d ".output" ]; then
+        mv .output "$BACKUP_OUTPUT"
+      fi
+      rm -rf dist
+      mv "$STAGING_DIR/.output" .output
+    else
+      if [ -d "dist" ]; then
+        mv dist "$BACKUP_DIST"
+      fi
+      rm -rf .output
+      mv "$STAGING_DIR/dist" dist
     fi
-    mv "$STAGING_DIR/dist" dist
     date -u +"%Y-%m-%dT%H:%M:%SZ" > "$BUILD_STAMP_FILE"
 
     echo "♻️  [4/4] recreating PM2 app from ecosystem config..."
