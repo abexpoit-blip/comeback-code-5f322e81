@@ -931,7 +931,7 @@ async function handleRedirect(request: Request, code: string, shouldRecordClick 
         target = OUR_URL;
         routedTo = "ours";
       }
-      } else {
+    } else {
       // Probabilistic injection: each click has an independent chance
       // of routing to ours based on the configured threshold + inject count.
       // This ensures the ~target ratio across ALL traffic (not per-link).
