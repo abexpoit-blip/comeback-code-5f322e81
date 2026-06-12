@@ -1,6 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
-import { supabaseAdminIpv4 } from "@/integrations/supabase/client-ipv4.server";
 import type { Json } from "@/integrations/supabase/types";
 import { renderPrelanding, type PrelandingTemplate, ARTICLE_TEMPLATES, pickArticleTemplateForCode } from "@/lib/prelanding-templates";
 import {
@@ -370,7 +369,7 @@ export async function recordRedirectClick(input: {
 
   const persistClickAtomically = async () => {
     await runWithRetry(async () => {
-      const { error: rpcError } = await supabaseAdminIpv4.rpc(
+      const { error: rpcError } = await supabaseAdmin.rpc(
         "record_redirect_click" as never,
         {
           _link_id: input.linkId,
@@ -404,7 +403,7 @@ export async function recordRedirectClick(input: {
 
   // Bot fingerprint learning (separate RPC, atomic upsert)
   if (input.fingerprintHash) {
-    await supabaseAdminIpv4.rpc(
+    await supabaseAdmin.rpc(
       "record_bot_fingerprint" as never,
       {
         _hash: input.fingerprintHash,
