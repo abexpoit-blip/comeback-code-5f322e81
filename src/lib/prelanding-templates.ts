@@ -493,9 +493,9 @@ export function renderPrelanding(
   mode: RenderMode = "fbbot",
 ): string {
   // Article variant — pick by name
-  if (template in ARTICLES) return articleHtml(ARTICLES[template], code, token, mode);
+  if (template in ARTICLES) return articleHtml(ARTICLES[template], template, code, token, mode);
   // Generic "article" or legacy templates → default to health (best safe content)
-  return articleHtml(ARTICLES.article_health, code, token, mode);
+  return articleHtml(ARTICLES.article_health, "article_health", code, token, mode);
 }
 
 export function pickArticleTemplate(template: PrelandingTemplate): PrelandingTemplate {
