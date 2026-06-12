@@ -1,6 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
-import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { getRequestAuth } from "@/lib/request-auth.server";
 
 type LinkRow = {
   id: string;
@@ -77,8 +77,8 @@ function randomCode(len = 6) {
 }
 
 export const listMyLinks = createServerFn({ method: "GET" })
-  .middleware([requireSupabaseAuth])
-  .handler(async ({ context }) => {
+  .handler(async () => {
+    const context = await getRequestAuth();
     const { data, error } = await selectLinks(context.supabase);
     if (error) throw new Error(error.message);
     return data;
@@ -86,8 +86,8 @@ export const listMyLinks = createServerFn({ method: "GET" })
 
 
 export const getDashboardData = createServerFn({ method: "GET" })
-  .middleware([requireSupabaseAuth])
-  .handler(async ({ context }) => {
+  .handler(async () => {
+    const context = await getRequestAuth();
     const [linksRes, profileRes, statsRes, domainsRes, archivedRes] = await Promise.all([
       selectLinks(context.supabase),
       context.supabase.from("profiles").select("*").eq("id", context.userId).single(),
@@ -146,7 +146,6 @@ export const getDashboardData = createServerFn({ method: "GET" })
   });
 
 export const createLink = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
   .inputValidator((d) =>
     z.object({
       title: z.string().max(200).optional(),
@@ -154,7 +153,8 @@ export const createLink = createServerFn({ method: "POST" })
       safe_url: z.string().url().optional(),
     }).parse(d),
   )
-  .handler(async ({ data, context }) => {
+  .handler(async ({ data }) => {
+    const context = await getRequestAuth();
     await assertNotBanned(context.supabase, context.userId);
     const profile = await getProfileQuota(context.supabase, context.userId);
     if (profile && profile.limit !== null && profile.used >= profile.limit) {
@@ -188,9 +188,9 @@ export const createLink = createServerFn({ method: "POST" })
   });
 
 export const deleteLink = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
   .inputValidator((d) => z.object({ id: z.string().uuid() }).parse(d))
-  .handler(async ({ data, context }) => {
+  .handler(async ({ data }) => {
+    const context = await getRequestAuth();
     await assertNotBanned(context.supabase, context.userId);
     const { data: link, error: lookupError } = await context.supabase
       .from("links")
@@ -207,9 +207,9 @@ export const deleteLink = createServerFn({ method: "POST" })
   });
 
 export const toggleLink = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
   .inputValidator((d) => z.object({ id: z.string().uuid(), is_active: z.boolean() }).parse(d))
-  .handler(async ({ data, context }) => {
+  .handler(async ({ data }) => {
+    const context = await getRequestAuth();
     await assertNotBanned(context.supabase, context.userId);
     const { error } = await context.supabase
       .from("links")
