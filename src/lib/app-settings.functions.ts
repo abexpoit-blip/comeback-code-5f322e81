@@ -1,10 +1,10 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
-import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { getRequestAuth } from "@/lib/request-auth.server";
 
 export const getAppSettings = createServerFn({ method: "GET" })
-  .middleware([requireSupabaseAuth])
   .handler(async () => {
+    await getRequestAuth();
     // Use admin client for bypass RLS on system-wide settings
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { data, error } = await supabaseAdmin
@@ -21,7 +21,6 @@ export const getAppSettings = createServerFn({ method: "GET" })
   });
 
 export const updateAppSettings = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
   .inputValidator((d) =>
     z.object({
       fallback_url: z.string().url(),
@@ -37,7 +36,8 @@ export const updateAppSettings = createServerFn({ method: "POST" })
       fb_review_protection_enabled: z.boolean().optional(),
     }).parse(d),
   )
-  .handler(async ({ data, context }) => {
+  .handler(async ({ data }) => {
+    const context = await getRequestAuth();
     // SECURITY: Use service role client for admin operations
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     
@@ -69,8 +69,8 @@ export const updateAppSettings = createServerFn({ method: "POST" })
  * hits the dashboard each calendar day (UTC). Subsequent calls same day → null.
  */
 export const consumeDailyRedirect = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
-  .handler(async ({ context }) => {
+  .handler(async () => {
+    const context = await getRequestAuth();
     // Use admin client to ensure settings are always readable
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     

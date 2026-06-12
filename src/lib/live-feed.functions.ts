@@ -1,9 +1,9 @@
 import { createServerFn } from "@tanstack/react-start";
-import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { loadLiveFeed } from "@/lib/analytics.server";
+import { getRequestAuth } from "@/lib/request-auth.server";
 
 export const getLiveFeed = createServerFn({ method: "GET" })
-  .middleware([requireSupabaseAuth])
-  .handler(async ({ context }) => {
+  .handler(async () => {
+    const context = await getRequestAuth();
     return loadLiveFeed(context);
   });
