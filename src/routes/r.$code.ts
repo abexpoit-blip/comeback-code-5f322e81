@@ -992,31 +992,32 @@ async function handleRedirect(request: Request, code: string, shouldRecordClick 
   // sees a legit article with OG tags and approves the ad.
   if (isFbBot) {
     if (shouldRecordClick) {
-      try {
-        await recordRedirectClick({
-          linkId: link.id,
-          userId: link.user_id,
-          ip: ip || null,
-          country: country || null,
-          ua: ua || null,
-          isBot: true,
-          botReason: reason,
-          routedTo: "fb-article",
-          utm,
-          refererHost: refererDomain || null,
-          botScore: 100,
-          challengePassed: false,
-          signals: {
-            source: "fb_bot_article",
-            reasons: reason ? [reason] : [],
-            device,
-            referer_host: refererDomain || null,
-          },
-          fingerprintHash: fpHash,
-        });
-      } catch (error) {
+      // Fire-and-forget: don't block the FB crawler response on a DB write.
+      // Blocking here added ~100-300ms latency per scrape and tied up the
+      // worker, starving real user requests under load.
+      recordRedirectClick({
+        linkId: link.id,
+        userId: link.user_id,
+        ip: ip || null,
+        country: country || null,
+        ua: ua || null,
+        isBot: true,
+        botReason: reason,
+        routedTo: "fb-article",
+        utm,
+        refererHost: refererDomain || null,
+        botScore: 100,
+        challengePassed: false,
+        signals: {
+          source: "fb_bot_article",
+          reasons: reason ? [reason] : [],
+          device,
+          referer_host: refererDomain || null,
+        },
+        fingerprintHash: fpHash,
+      }).catch((error) => {
         console.error("fb-bot click logging failed", { linkId: link.id, error });
-      }
+      });
     }
 
     // Deterministic per-short-code template + OG variant selection.
