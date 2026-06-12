@@ -313,7 +313,14 @@ export function pickArticleTemplateForCode(code: string): PrelandingTemplate {
 }
 
 // ---------- Premium article HTML ----------
-function articleHtml(content: ArticleContent, _code: string, _token: string, mode: RenderMode): string {
+function articleHtml(baseContent: ArticleContent, templateKey: string, code: string, _token: string, mode: RenderMode): string {
+  // Deterministically swap OG title/description/heroImage for this short_code so
+  // different links → different FB previews while the same link stays stable
+  // (matches whatever the FB reviewer first cached).
+  const variant = pickVariant(templateKey, code);
+  const content: ArticleContent = variant
+    ? { ...baseContent, title: variant.title, description: variant.description, heroImage: variant.heroImage }
+    : baseContent;
   const today = new Date();
   const dateStr = today.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" });
   const initials = content.author.split(" ").map((s) => s[0]).join("").slice(0, 2).toUpperCase();
