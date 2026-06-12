@@ -926,6 +926,14 @@ export type Database = {
         }
         Returns: boolean
       }
+      increment_ab_variant_clicks: {
+        Args: { _link_id: string; _variant_label: string }
+        Returns: undefined
+      }
+      increment_link_click_counters: {
+        Args: { _is_bot: boolean; _link_id: string; _routed_to: string }
+        Returns: undefined
+      }
       maintenance_purge_old_clicks: { Args: never; Returns: undefined }
       pick_prelanding_template: {
         Args: { _candidates: string[]; _link_id: string }
