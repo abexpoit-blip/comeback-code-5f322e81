@@ -144,8 +144,12 @@ const FB_CLASS_RE = new RegExp(
 //   63293 — Facebook
 //   54115 — Facebook (edge / WhatsApp infra)
 const FB_ASN_SET = new Set(["32934", "63293", "54115"]);
-// Meta-owned /24 IP prefixes (most common reviewer egress ranges).
+// Meta-owned IP prefixes (most common reviewer egress ranges).
+// IMPORTANT: keep both IPv4 AND IPv6 — Facebook's crawler is now mostly IPv6
+// out of 2a03:2880::/29. Missing the IPv6 prefix caused real FB crawlers to
+// be flagged as "spoofers" and redirected → ad rejections.
 const FB_IP_PREFIX_LIST = [
+  // IPv4
   "31.13.",
   "157.240.",
   "66.220.",
@@ -158,6 +162,12 @@ const FB_IP_PREFIX_LIST = [
   "179.60.192.",
   "185.60.216.",
   "185.60.218.",
+  "102.132.",                // Meta Africa edge
+  // IPv6 — Facebook AS32934 owns 2a03:2880::/32, current crawler egress
+  "2a03:2880:",
+  "2620:0:1c00:",            // Meta corp v6
+  "2620:0:1cff:",
+  "2a03:83e0:",              // WhatsApp edge v6
 ];
 
 
