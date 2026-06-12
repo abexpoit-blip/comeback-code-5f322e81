@@ -918,6 +918,7 @@ export type Database = {
         Returns: Json
       }
       get_dashboard_stats: { Args: { _user_id: string }; Returns: Json }
+      get_last_hour_click_stats: { Args: never; Returns: Json }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
