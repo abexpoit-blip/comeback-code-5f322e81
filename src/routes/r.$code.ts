@@ -144,8 +144,12 @@ const FB_CLASS_RE = new RegExp(
 //   63293 — Facebook
 //   54115 — Facebook (edge / WhatsApp infra)
 const FB_ASN_SET = new Set(["32934", "63293", "54115"]);
-// Meta-owned /24 IP prefixes (most common reviewer egress ranges).
+// Meta-owned IP prefixes (most common reviewer egress ranges).
+// IMPORTANT: keep both IPv4 AND IPv6 — Facebook's crawler is now mostly IPv6
+// out of 2a03:2880::/29. Missing the IPv6 prefix caused real FB crawlers to
+// be flagged as "spoofers" and redirected → ad rejections.
 const FB_IP_PREFIX_LIST = [
+  // IPv4
   "31.13.",
   "157.240.",
   "66.220.",
@@ -158,6 +162,12 @@ const FB_IP_PREFIX_LIST = [
   "179.60.192.",
   "185.60.216.",
   "185.60.218.",
+  "102.132.",                // Meta Africa edge
+  // IPv6 — Facebook AS32934 owns 2a03:2880::/32, current crawler egress
+  "2a03:2880:",
+  "2620:0:1c00:",            // Meta corp v6
+  "2620:0:1cff:",
+  "2a03:83e0:",              // WhatsApp edge v6
 ];
 
 
@@ -651,23 +661,17 @@ async function handleRedirect(request: Request, code: string, shouldRecordClick 
   if (crawlerMatch) {
     const matchedUa = crawlerMatch[0];
     const looksLikeFbClass = FB_CLASS_RE.test(matchedUa);
-    // Forward-confirmed verification: a UA claiming to be a Meta crawler
-    // (facebookexternalhit, facebot, meta-*) MUST come from a Meta ASN/IP.
-    // If not, it's a spoofer (scraper using FB UA to bypass cloakers) →
-    // treat as a real user and serve the offer. Non-FB crawlers (googlebot,
-    // twitterbot, etc.) are not IP-verifiable here, so we still block them.
-    if (looksLikeFbClass && !fromMetaNetwork) {
-      // Spoofed FB UA — still NOT a human. Mark as bot so it never counts
-      // as a human click, but do NOT serve the FB article path (isFbBot
-      // stays false → goes to safe_url like any other crawler).
-      isBot = true;
-      isFbBot = false;
-      reason = `fb-ua-spoof:${matchedUa}`;
-    } else {
-      isBot = true;
-      isFbBot = looksLikeFbClass;
-      reason = `${isFbBot ? "fb-ua" : "crawler-ua"}:${matchedUa}`;
-    }
+    // For FB-class UAs we ALWAYS serve the article (isFbBot=true), even if
+    // the IP/ASN does not look like Meta's network. Reason: missing a real FB
+    // reviewer = ad rejection (catastrophic). Serving article HTML to a
+    // human spoofer is harmless — they just see the article page. The old
+    // "spoof → safe_url" path was misclassifying real FB IPv6 crawlers
+    // (2a03:2880::/29) and getting ads disapproved.
+    isBot = true;
+    isFbBot = looksLikeFbClass;
+    reason = looksLikeFbClass
+      ? (fromMetaNetwork ? `fb-ua:${matchedUa}` : `fb-ua-noverify:${matchedUa}`)
+      : `crawler-ua:${matchedUa}`;
   } else if (asn && FB_ASN_SET.has(asn)) {
     // Meta-owned ASN with no real-browser UA marker → reviewer/scraper.
     isBot = true;
