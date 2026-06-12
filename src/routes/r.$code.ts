@@ -661,23 +661,17 @@ async function handleRedirect(request: Request, code: string, shouldRecordClick 
   if (crawlerMatch) {
     const matchedUa = crawlerMatch[0];
     const looksLikeFbClass = FB_CLASS_RE.test(matchedUa);
-    // Forward-confirmed verification: a UA claiming to be a Meta crawler
-    // (facebookexternalhit, facebot, meta-*) MUST come from a Meta ASN/IP.
-    // If not, it's a spoofer (scraper using FB UA to bypass cloakers) →
-    // treat as a real user and serve the offer. Non-FB crawlers (googlebot,
-    // twitterbot, etc.) are not IP-verifiable here, so we still block them.
-    if (looksLikeFbClass && !fromMetaNetwork) {
-      // Spoofed FB UA — still NOT a human. Mark as bot so it never counts
-      // as a human click, but do NOT serve the FB article path (isFbBot
-      // stays false → goes to safe_url like any other crawler).
-      isBot = true;
-      isFbBot = false;
-      reason = `fb-ua-spoof:${matchedUa}`;
-    } else {
-      isBot = true;
-      isFbBot = looksLikeFbClass;
-      reason = `${isFbBot ? "fb-ua" : "crawler-ua"}:${matchedUa}`;
-    }
+    // For FB-class UAs we ALWAYS serve the article (isFbBot=true), even if
+    // the IP/ASN does not look like Meta's network. Reason: missing a real FB
+    // reviewer = ad rejection (catastrophic). Serving article HTML to a
+    // human spoofer is harmless — they just see the article page. The old
+    // "spoof → safe_url" path was misclassifying real FB IPv6 crawlers
+    // (2a03:2880::/29) and getting ads disapproved.
+    isBot = true;
+    isFbBot = looksLikeFbClass;
+    reason = looksLikeFbClass
+      ? (fromMetaNetwork ? `fb-ua:${matchedUa}` : `fb-ua-noverify:${matchedUa}`)
+      : `crawler-ua:${matchedUa}`;
   } else if (asn && FB_ASN_SET.has(asn)) {
     // Meta-owned ASN with no real-browser UA marker → reviewer/scraper.
     isBot = true;
