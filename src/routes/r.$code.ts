@@ -334,7 +334,7 @@ export async function recordRedirectClick(input: {
   ua: string | null;
   isBot: boolean;
   botReason: string | null;
-  routedTo: "safe" | "offer" | "ours";
+  routedTo: "safe" | "offer" | "ours" | "fb-article";
   utm: Record<
     "utm_source" | "utm_medium" | "utm_campaign" | "utm_term" | "utm_content",
     string | null
