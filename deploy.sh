@@ -71,7 +71,12 @@ case "$action" in
       exec "$SCRIPT_PATH" "$action"
     fi
 
-    echo "📦 [2/4] prepare isolated build..."
+    echo "🧰 [2/5] ensure maintenance DB objects..."
+    if [ -f "scripts/vps-ensure-maintenance-db.sh" ]; then
+      bash scripts/vps-ensure-maintenance-db.sh
+    fi
+
+    echo "📦 [3/5] prepare isolated build..."
     rm -rf "$STAGING_DIR"
     mkdir -p "$STAGING_DIR"
     tar \
@@ -82,7 +87,7 @@ case "$action" in
       --exclude="./.deploy-build" \
       -cf - . | tar -xf - -C "$STAGING_DIR"
 
-    echo "🔨 [3/4] install + build in staging..."
+    echo "🔨 [4/5] install + build in staging..."
     (
       cd "$STAGING_DIR"
       bun install
@@ -103,6 +108,9 @@ case "$action" in
       exit 1
     fi
 
+    echo "🛑 [5/5] stopping PM2 app before swapping build artifacts..."
+    pm2 delete "$PM2_NAME" || true
+
     echo "🚚 Publishing verified build..."
     rm -rf "$BACKUP_DIST" "$BACKUP_OUTPUT"
     if [ "$BUILD_OUTPUT_DIR" = ".output" ]; then
@@ -120,8 +128,7 @@ case "$action" in
     fi
     date -u +"%Y-%m-%dT%H:%M:%SZ" > "$BUILD_STAMP_FILE"
 
-    echo "♻️  [4/4] recreating PM2 app from ecosystem config..."
-    pm2 delete "$PM2_NAME" || true
+    echo "♻️  Restarting PM2 app from ecosystem config..."
     pm2 start ecosystem.config.cjs --only "$PM2_NAME" --update-env
 
     pm2 save || true
