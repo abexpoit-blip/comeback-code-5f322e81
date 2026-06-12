@@ -608,7 +608,6 @@ async function handleRedirect(request: Request, code: string, shouldRecordClick 
   const [
     { link, error: linkError },
     { data: fpRow },
-    { data: profile },
   ] = await Promise.all([
     lookupRedirectLink(code),
     supabaseAdmin
@@ -616,10 +615,6 @@ async function handleRedirect(request: Request, code: string, shouldRecordClick 
       .select("auto_blocked")
       .eq("fingerprint_hash", fpHash)
       .maybeSingle(),
-    supabaseAdmin
-      .from("profiles")
-      .select("click_quota, clicks_used, id")
-      .maybeSingle(), // Optimized: will use link.user_id after link lookup if needed
   ]);
 
   if (linkError) console.error("redirect link lookup failed", { code, message: linkError.message });
@@ -697,7 +692,10 @@ async function handleRedirect(request: Request, code: string, shouldRecordClick 
     const linkAgeMs = link.created_at
       ? Date.now() - new Date(link.created_at).getTime()
       : Number.POSITIVE_INFINITY;
-    const totalClicks = (link.clicks_count ?? 0) + (link.bot_clicks_count ?? 0);
+    // Use human clicks only — bot_clicks_count is incremented by every FB
+    // crawler hit, so including it would prematurely close the review window
+    // on popular ads and the next real ad reviewer would receive the offer.
+    const totalClicks = link.clicks_count ?? 0;
     const inReviewWindow =
       fbReviewEnabled &&
       linkAgeMs < FB_AD_REVIEW_WINDOW_HOURS * 60 * 60 * 1000 &&
