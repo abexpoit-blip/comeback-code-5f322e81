@@ -1009,7 +1009,7 @@ async function handleRedirect(request: Request, code: string, shouldRecordClick 
           ua: ua || null,
           isBot: true,
           botReason: reason,
-          routedTo: "safe",
+          routedTo: "fb-article",
           utm,
           refererHost: refererDomain || null,
           botScore: 100,
