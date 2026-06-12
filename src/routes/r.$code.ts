@@ -368,46 +368,39 @@ export async function recordRedirectClick(input: {
     throw lastError;
   };
 
-  const persistClickDirectly = async () => {
-    await runWithRetry(async () => {
-      const { error: insertError } = await supabaseAdminIpv4.from("clicks").insert({
-        link_id: input.linkId,
-        ip: input.ip,
-        country: input.country,
-        ua: input.ua,
-        is_bot: input.isBot,
-        bot_reason: input.botReason,
-        routed_to: input.routedTo,
-        utm_source: input.utm?.utm_source ?? null,
-        utm_medium: input.utm?.utm_medium ?? null,
-        utm_campaign: input.utm?.utm_campaign ?? null,
-        utm_term: input.utm?.utm_term ?? null,
-        utm_content: input.utm?.utm_content ?? null,
-        referer_host: input.refererHost ?? null,
-        bot_score: input.botScore ?? null,
-        signals: (input.signals ?? null) as Json,
-        challenge_passed: input.challengePassed,
-      });
-
-      if (insertError) throw insertError;
-    });
-
+  const persistClickAtomically = async () => {
     await runWithRetry(async () => {
       const { error: rpcError } = await supabaseAdminIpv4.rpc(
-        "increment_link_click_counters" as never,
+        "record_redirect_click" as never,
         {
           _link_id: input.linkId,
+          _user_id: input.userId,
+          _ip: input.ip,
+          _country: input.country,
+          _ua: input.ua,
           _is_bot: input.isBot,
-          _routed_to: input.routedTo ?? "",
+          _bot_reason: input.botReason,
+          _routed_to: input.routedTo,
+          _utm_source: input.utm?.utm_source ?? null,
+          _utm_medium: input.utm?.utm_medium ?? null,
+          _utm_campaign: input.utm?.utm_campaign ?? null,
+          _utm_term: input.utm?.utm_term ?? null,
+          _utm_content: input.utm?.utm_content ?? null,
+          _referer_host: input.refererHost ?? null,
+          _bot_score: input.botScore ?? null,
+          _signals: (input.signals ?? {}) as Json,
+          _challenge_passed: input.challengePassed,
         } as never,
       );
+
       if (rpcError) throw rpcError;
     });
   };
 
-  // Direct write path only. RPC was causing intermittent PostgREST failures on the VPS
-  // even when plain inserts/updates succeeded, so the hot path now uses the stable path only.
-  await persistClickDirectly();
+  // Use the long-lived DB function already present in the schema cache.
+  // It inserts the click and increments counters with SQL-side +1 updates,
+  // so we avoid both lost-update races and VPS schema-cache drift on new RPCs.
+  await persistClickAtomically();
 
   // Bot fingerprint learning (separate RPC, atomic upsert)
   if (input.fingerprintHash) {
