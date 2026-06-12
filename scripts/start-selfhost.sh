@@ -8,19 +8,19 @@ ENV_FILE=".env"
 
 echo "🔍 Starting Sleepox diagnostic..."
 pwd
-ls -ld .output/server 2>/dev/null || echo "ℹ️ .output/server folder missing"
-ls -l .output/server/index.mjs 2>/dev/null || echo "ℹ️ .output/server/index.mjs missing"
 ls -ld dist/server 2>/dev/null || echo "ℹ️ dist/server folder missing"
 ls -l dist/server/index.mjs 2>/dev/null || echo "ℹ️ dist/server/index.mjs missing"
-
-if [ -f ".output/server/index.mjs" ]; then
-  echo "🚀 Executing node .output/server/index.mjs"
-  exec node .output/server/index.mjs
-fi
+ls -ld .output/server 2>/dev/null || echo "ℹ️ .output/server folder missing"
+ls -l .output/server/index.mjs 2>/dev/null || echo "ℹ️ .output/server/index.mjs missing"
 
 if [ -f "dist/server/index.mjs" ]; then
   echo "🚀 Executing node dist/server/index.mjs"
   exec node dist/server/index.mjs
+fi
+
+if [ -f ".output/server/index.mjs" ]; then
+  echo "🚀 Executing node .output/server/index.mjs"
+  exec node .output/server/index.mjs
 fi
 
 if [ -f "dist/server/index.js" ]; then

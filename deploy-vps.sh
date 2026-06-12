@@ -10,6 +10,9 @@ git pull origin main
 echo "--- Building ---"
 bun install
 
+echo "--- Removing stale build artifacts ---"
+rm -rf .output dist
+
 # 2.5. Ensure self-hosted database maintenance objects exist
 echo "--- Ensuring self-hosted DB maintenance objects ---"
 bash scripts/vps-ensure-maintenance-db.sh
@@ -25,7 +28,7 @@ if pm2 show sleepox | grep -q "mode: fork"; then
   pm2 start ecosystem.config.cjs --env production
 else
   # If already in cluster mode, restart all will maintain the 8 cores
-  pm2 restart all
+  pm2 restart all --update-env
 fi
 
 pm2 save
