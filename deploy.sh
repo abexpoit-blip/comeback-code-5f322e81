@@ -9,7 +9,9 @@
 set -e
 
 APP_DIR="/opt/sleepox-app-new"
+# Legacy single-app name (kept for cleanup); real workers are sleepox-0..7
 PM2_NAME="sleepox"
+PM2_WORKER_PREFIX="sleepox-"
 SUPABASE_DIR="/opt/supabase-docker"
 SCRIPT_PATH="$APP_DIR/deploy.sh"
 BUILD_STAMP_FILE="$APP_DIR/.sleepox-build"
@@ -23,7 +25,7 @@ action="${1:-deploy}"
 
 case "$action" in
   logs)
-    pm2 logs "$PM2_NAME" --lines 100
+    pm2 logs --lines 100
     ;;
   status)
     echo "=== PM2 ==="
@@ -33,9 +35,10 @@ case "$action" in
     docker ps --format "table {{.Names}}\t{{.Status}}" | grep -E "supabase|realtime" || true
     ;;
   restart)
-    echo "♻️  Restarting PM2 process..."
-    pm2 delete "$PM2_NAME" || true
-    pm2 start ecosystem.config.cjs --only "$PM2_NAME" --update-env
+    echo "♻️  Restarting PM2 workers..."
+    pm2 delete "$PM2_NAME" 2>/dev/null || true
+    for i in 0 1 2 3 4 5 6 7; do pm2 delete "${PM2_WORKER_PREFIX}${i}" 2>/dev/null || true; done
+    pm2 start ecosystem.config.cjs --update-env
     pm2 save
     ;;
   deploy|"")
@@ -108,8 +111,9 @@ case "$action" in
       exit 1
     fi
 
-    echo "🛑 [5/5] stopping PM2 app before swapping build artifacts..."
-    pm2 delete "$PM2_NAME" || true
+    echo "🛑 [5/5] stopping all PM2 workers before swapping build artifacts..."
+    pm2 delete "$PM2_NAME" 2>/dev/null || true
+    for i in 0 1 2 3 4 5 6 7; do pm2 delete "${PM2_WORKER_PREFIX}${i}" 2>/dev/null || true; done
 
     echo "🚚 Publishing verified build..."
     rm -rf "$BACKUP_DIST" "$BACKUP_OUTPUT"
@@ -128,8 +132,8 @@ case "$action" in
     fi
     date -u +"%Y-%m-%dT%H:%M:%SZ" > "$BUILD_STAMP_FILE"
 
-    echo "♻️  Restarting PM2 app from ecosystem config..."
-    pm2 start ecosystem.config.cjs --only "$PM2_NAME" --update-env
+    echo "♻️  Starting all 8 PM2 workers from ecosystem config..."
+    pm2 start ecosystem.config.cjs --update-env
 
     pm2 save || true
     rm -rf "$STAGING_DIR"
