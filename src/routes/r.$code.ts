@@ -854,11 +854,8 @@ async function handleRedirect(request: Request, code: string, shouldRecordClick 
       }
     }
     if (!isBot) {
-      const { data: rules } = await supabaseAdmin
-        .from("bot_rules")
-        .select("pattern, label, rule_type")
-        .eq("is_active", true);
-      if (rules) {
+      const rules = globalCache.botRules;
+      if (rules && rules.length > 0) {
         for (const r of rules) {
           const p = (r.pattern || "").toLowerCase();
           if (!p) continue;
