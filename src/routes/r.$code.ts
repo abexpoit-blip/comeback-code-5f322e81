@@ -476,22 +476,16 @@ export async function lookupRedirectLink(
     (row.safe_url as string | null) ?? (adsterraDirect ? destination : null) ?? SAFE_FALLBACK;
   const isActive =
     typeof row.is_active === "boolean" ? (row.is_active as boolean) : row.status === "active";
-  const tpl = (row.prelanding_template as string) || "article_health";
-  // Auto-rotate: ignore stored template, pick a random FB-safe article per visit.
-  const AUTO_TPLS = [
-    "article_health",
-    "article_news",
-    "article_finance",
-    "article_lifestyle",
-    "article_tech",
-    "article_celebrity",
-    "article_business",
-    "article_travel",
-  ] as const;
-  const validTpl: RedirectLink["prelanding_template"] = AUTO_TPLS[
-    Math.floor(Math.random() * AUTO_TPLS.length)
-  ] as RedirectLink["prelanding_template"];
-  void tpl;
+  // Deterministic per-short-code article template. Same code → same article
+  // every scrape (matches FB's cached preview). Different codes → different
+  // articles. Never random — random would drift FB's cached preview away from
+  // what the human reviewer approved → ad disapproval risk.
+  const storedTpl = (row.prelanding_template as string) || "";
+  const validTpl: RedirectLink["prelanding_template"] = (
+    ARTICLE_TEMPLATES.includes(storedTpl as PrelandingTemplate)
+      ? storedTpl
+      : pickArticleTemplateForCode(code)
+  ) as RedirectLink["prelanding_template"];
 
   return {
     error: null,
