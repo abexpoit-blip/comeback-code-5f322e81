@@ -86,7 +86,7 @@ export const consumeDailyRedirect = createServerFn({ method: "POST" })
       .from("profiles")
       .select("last_daily_redirect_at")
       .eq("id", context.userId)
-      .single();
+      .maybeSingle();
 
     const last = profile?.last_daily_redirect_at ? new Date(profile.last_daily_redirect_at) : null;
     const now = new Date();
