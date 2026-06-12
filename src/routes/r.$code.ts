@@ -196,17 +196,19 @@ async function refreshGlobalCache() {
   if (now - globalCache.lastFetch < CACHE_TTL && globalCache.settings) return;
 
   try {
-    const [s, c, r, t, w] = await Promise.all([
+    const [s, c, r, t, w, br] = await Promise.all([
       supabaseAdmin.from("app_settings").select("*").eq("id", true).maybeSingle(),
       supabaseAdmin.from("cloaking_rules").select("*").eq("is_active", true).order("priority"),
       supabaseAdmin.from("referrer_rules").select("*").eq("is_active", true),
       supabaseAdmin.from("country_tiers").select("country_code, tier"),
       supabaseAdmin.from("bot_whitelist" as never).select("id, rule_type, pattern, label").eq("is_active", true),
+      supabaseAdmin.from("bot_rules").select("pattern, label, rule_type").eq("is_active", true),
     ]);
     if (s.data) globalCache.settings = s.data;
     if (c.data) globalCache.cloaking = c.data;
     if (r.data) globalCache.referrer = r.data;
     if ((w as any).data) globalCache.whitelist = (w as any).data as any;
+    if (br.data) globalCache.botRules = br.data as any;
     if (t.data) {
       globalCache.tiers.clear();
       t.data.forEach((row: any) => globalCache.tiers.set(row.country_code.toUpperCase(), row.tier));
