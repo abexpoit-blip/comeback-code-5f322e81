@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { supabaseAdminIpv4 } from "@/integrations/supabase/client-ipv4.server";
 import type { Json } from "@/integrations/supabase/types";
-import { renderPrelanding, type PrelandingTemplate } from "@/lib/prelanding-templates";
+import { renderPrelanding, type PrelandingTemplate, ARTICLE_TEMPLATES, pickArticleTemplateForCode } from "@/lib/prelanding-templates";
 import {
   analyzeSignals,
   classifyReferrer,
