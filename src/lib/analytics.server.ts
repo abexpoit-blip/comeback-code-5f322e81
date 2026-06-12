@@ -561,7 +561,7 @@ export async function loadLiveFeed({ supabase, userId }: AnalyticsContext) {
   const last5m = clicks.filter((c) => now - new Date(c.created_at).getTime() < 300_000).length;
   const last1h = clicks.filter((c) => now - new Date(c.created_at).getTime() < 3_600_000);
   const humans1h = last1h.filter((c) => !c.is_bot).length;
-  const bots1h = Math.floor((last1h.length - humans1h) * 0.8);
+  const bots1h = last1h.length - humans1h;
 
   const classifySrc = (host: string | null): string => {
     if (!host) return "direct";
