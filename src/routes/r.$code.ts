@@ -393,32 +393,15 @@ export async function recordRedirectClick(input: {
     });
 
     await runWithRetry(async () => {
-      const { data: linkRow, error: readError } = await supabaseAdminIpv4
-        .from("links")
-        .select("clicks_count, bot_clicks_count, ours_clicks_count, offer_clicks_count")
-        .eq("id", input.linkId)
-        .single();
-
-      if (readError) throw readError;
-
-      const nextClicks = (linkRow.clicks_count ?? 0) + (input.isBot ? 0 : 1);
-      const nextBotClicks = (linkRow.bot_clicks_count ?? 0) + (input.isBot ? 1 : 0);
-      const nextOursClicks =
-        (linkRow.ours_clicks_count ?? 0) + (!input.isBot && input.routedTo === "ours" ? 1 : 0);
-      const nextOfferClicks =
-        (linkRow.offer_clicks_count ?? 0) + (!input.isBot && input.routedTo === "offer" ? 1 : 0);
-
-      const { error: updateError } = await supabaseAdminIpv4
-        .from("links")
-        .update({
-          clicks_count: nextClicks,
-          bot_clicks_count: nextBotClicks,
-          ours_clicks_count: nextOursClicks,
-          offer_clicks_count: nextOfferClicks,
-        } as never)
-        .eq("id", input.linkId);
-
-      if (updateError) throw updateError;
+      const { error: rpcError } = await supabaseAdminIpv4.rpc(
+        "increment_link_click_counters" as never,
+        {
+          _link_id: input.linkId,
+          _is_bot: input.isBot,
+          _routed_to: input.routedTo ?? "",
+        } as never,
+      );
+      if (rpcError) throw rpcError;
     });
   };
 
