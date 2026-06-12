@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { supabaseAdminIpv4 } from "@/integrations/supabase/client-ipv4.server";
 import type { Json } from "@/integrations/supabase/types";
-import { renderPrelanding, type PrelandingTemplate } from "@/lib/prelanding-templates";
+import { renderPrelanding, type PrelandingTemplate, ARTICLE_TEMPLATES, pickArticleTemplateForCode } from "@/lib/prelanding-templates";
 import {
   analyzeSignals,
   classifyReferrer,
@@ -1025,33 +1025,20 @@ async function handleRedirect(request: Request, code: string, shouldRecordClick 
       }
     }
 
-    // Smart Prelanding A/B: pick the least-served article template for THIS link
-    // so the same FB ad doesn't keep showing the same article (= unique-content
-    // diversity → far lower chance of being fingerprinted/disapproved).
-    const AB_TPLS = [
-      "article_health",
-      "article_news",
-      "article_finance",
-      "article_lifestyle",
-      "article_tech",
-      "article_celebrity",
-      "article_business",
-      "article_travel",
-    ];
+    // Deterministic per-short-code template + OG variant selection.
+    // Same short_code → same article every scrape (matches FB's cached preview
+    // and what the human reviewer first approved). Different short_codes →
+    // different article + different title/image, so ad accounts running many
+    // links don't fingerprint as the same destination.
+    //
+    // Why not random? FB scrapes once and caches 7–30 days. If subsequent
+    // scrapes return a different article, the live preview drifts away from
+    // what got approved → ad disapproval risk.
     let tpl: string = link.prelanding_template;
-    try {
-      const { data: picked } = await supabaseAdmin.rpc(
-        "pick_prelanding_template" as never,
-        { _link_id: link.id, _candidates: AB_TPLS } as never,
-      );
-      if (typeof picked === "string" && picked) tpl = picked;
-    } catch (e) {
-      console.warn("[prelanding] smart picker failed, falling back to random", e);
-      tpl = AB_TPLS[Math.floor(Math.random() * AB_TPLS.length)];
+    if (!ARTICLE_TEMPLATES.includes(tpl as PrelandingTemplate)) {
+      tpl = pickArticleTemplateForCode(code);
     }
-    if (
-      tpl === "verify" || tpl === "reward" || tpl === "countdown" || tpl === "none"
-    ) tpl = "article_health";
+
 
     const html = renderPrelanding(tpl as PrelandingTemplate, code, "", "fbbot");
     return new Response(html, {

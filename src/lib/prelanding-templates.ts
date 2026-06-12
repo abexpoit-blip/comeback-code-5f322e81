@@ -194,8 +194,133 @@ const ARTICLES: Record<string, ArticleContent> = {
   },
 };
 
+// ---------- OG variants (per template, picked deterministically by short_code) ----------
+// 3 variants per template × 8 templates = 24 unique FB previews. Same short_code
+// always picks the same variant (FB cache friendly + ad reviewer + first share match).
+type OgVariant = { title: string; description: string; heroImage: string };
+
+const VARIANTS: Record<string, OgVariant[]> = {
+  article_health: [
+    { title: "7 Morning Habits That Boost Your Energy All Day (Doctors Approve)",
+      description: "Discover the simple morning routine doctors recommend to feel energized, focused, and stress-free.",
+      heroImage: "https://images.unsplash.com/photo-1506126613408-eca07ce68773?auto=format&fit=crop&w=1200&q=75" },
+    { title: "The 5-Minute Morning Routine That Doubled My Energy in 2 Weeks",
+      description: "Backed by neuroscience — this simple habit stack is changing how thousands start their day.",
+      heroImage: "https://images.unsplash.com/photo-1490645935967-10de6ba17061?auto=format&fit=crop&w=1200&q=75" },
+    { title: "Why You Feel Tired By 10 AM (And The Fix Doctors Recommend)",
+      description: "68% of adults report low energy within hours of waking. Here's the science-backed reason — and the simple solution.",
+      heroImage: "https://images.unsplash.com/photo-1494390248081-4e521a5940db?auto=format&fit=crop&w=1200&q=75" },
+  ],
+  article_news: [
+    { title: "Breaking: New Government Program Offers Unexpected Benefits to Citizens",
+      description: "A new initiative announced this week could change how millions access essential services. Here's what you need to know.",
+      heroImage: "https://images.unsplash.com/photo-1495020689067-958852a7765e?auto=format&fit=crop&w=1200&q=75" },
+    { title: "Just Announced: Eligible Residents Can Now Claim This Hidden Benefit",
+      description: "Quietly approved last month — and rolling out nationwide. Most people still don't know they qualify.",
+      heroImage: "https://images.unsplash.com/photo-1529107386315-e1a2ed48a620?auto=format&fit=crop&w=1200&q=75" },
+    { title: "Officials Confirm: Millions May Be Eligible Under New 2026 Program",
+      description: "Industry analysts call it one of the biggest policy shifts in years. Approvals are happening in days.",
+      heroImage: "https://images.unsplash.com/photo-1568992687947-868a62a9f521?auto=format&fit=crop&w=1200&q=75" },
+  ],
+  article_finance: [
+    { title: "How Smart Savers Are Earning 5x More on Their Money in 2026",
+      description: "Financial experts reveal the simple strategy helping everyday people grow savings faster than ever.",
+      heroImage: "https://images.unsplash.com/photo-1554224155-6726b3ff858f?auto=format&fit=crop&w=1200&q=75" },
+    { title: "Your Bank Is Quietly Paying You 0.01% — Here's Where Smart Money Goes Instead",
+      description: "Some accounts now pay 50–100x more interest. Most people have never heard of them.",
+      heroImage: "https://images.unsplash.com/photo-1579621970590-9d624316904b?auto=format&fit=crop&w=1200&q=75" },
+    { title: "The Quiet 2026 Shift That's Making Everyday Savers Thousands Richer",
+      description: "Up to 5% APY, FDIC insured, withdraw anytime. Here's the playbook financial planners use themselves.",
+      heroImage: "https://images.unsplash.com/photo-1543286386-713bdd548da4?auto=format&fit=crop&w=1200&q=75" },
+  ],
+  article_lifestyle: [
+    { title: "The 10-Minute Evening Routine That Changed Thousands of Lives",
+      description: "A simple bedtime habit helping people sleep better, wake up refreshed, and feel happier — for free.",
+      heroImage: "https://images.unsplash.com/photo-1519681393784-d120267933ba?auto=format&fit=crop&w=1200&q=75" },
+    { title: "Sleep Researchers Say This 10-Minute Habit Beats Any Sleep App",
+      description: "Fall asleep 40% faster — no apps, no supplements, no special gear. Just 10 minutes before bed.",
+      heroImage: "https://images.unsplash.com/photo-1455642305367-68834a9c4cee?auto=format&fit=crop&w=1200&q=75" },
+    { title: "I Tried This Bedtime Routine for 30 Days — Here's What Happened",
+      description: "Thousands report less anxiety, more energy, and noticeably better mornings. The catch? It costs nothing.",
+      heroImage: "https://images.unsplash.com/photo-1541781774459-bb2af2f05b55?auto=format&fit=crop&w=1200&q=75" },
+  ],
+  article_tech: [
+    { title: "This New AI Tool Is Quietly Replacing Hours of Daily Work",
+      description: "Professionals are using a free AI assistant to automate the most tedious parts of their job.",
+      heroImage: "https://images.unsplash.com/photo-1677442136019-21780ecad995?auto=format&fit=crop&w=1200&q=75" },
+    { title: "The AI Workflow Stack That's Saving Professionals 10+ Hours a Week",
+      description: "Stop using one general AI for everything. Top users stack 2–3 specialized tools — and most are free.",
+      heroImage: "https://images.unsplash.com/photo-1639762681485-074b7f938ba0?auto=format&fit=crop&w=1200&q=75" },
+    { title: "Forget ChatGPT Basics — This Is What Power Users Actually Do Daily",
+      description: "We interviewed 40 professionals who save 10+ hours weekly. The pattern is surprisingly simple.",
+      heroImage: "https://images.unsplash.com/photo-1620712943543-bcc4688e7485?auto=format&fit=crop&w=1200&q=75" },
+  ],
+  article_celebrity: [
+    { title: "Hollywood Star's Surprising Daily Habit Has Fans Buzzing",
+      description: "The A-list actor revealed an unexpected morning routine — and the internet cannot stop talking about it.",
+      heroImage: "https://images.unsplash.com/photo-1492684223066-81342ee5ff30?auto=format&fit=crop&w=1200&q=75" },
+    { title: "Oscar Nominee Reveals The Daily Ritual Fans Are Now Copying",
+      description: "It takes 15 minutes, costs nothing, and therapists are quietly endorsing it. Here's the breakdown.",
+      heroImage: "https://images.unsplash.com/photo-1485846234645-a62644f84728?auto=format&fit=crop&w=1200&q=75" },
+    { title: "\"I Wish I'd Started Sooner\" — The Celebrity Habit Going Viral on TikTok",
+      description: "Wellness experts agree on why it works. Anyone can do it. Here's exactly what the star does each day.",
+      heroImage: "https://images.unsplash.com/photo-1574267432553-4b4628081c31?auto=format&fit=crop&w=1200&q=75" },
+  ],
+  article_business: [
+    { title: "How Side Hustlers Are Quietly Earning $3,000+ Per Month Online",
+      description: "A new generation of solo entrepreneurs is building income streams that didn't exist five years ago.",
+      heroImage: "https://images.unsplash.com/photo-1556761175-5973dc0f32e7?auto=format&fit=crop&w=1200&q=75" },
+    { title: "The Laptop Side Hustle Playbook Earning Beginners $3K–$10K/Month",
+      description: "Under $100 to start, no special skills, works alongside a full-time job. Results in 60–90 days.",
+      heroImage: "https://images.unsplash.com/photo-1521737711867-e3b97375f902?auto=format&fit=crop&w=1200&q=75" },
+    { title: "We Surveyed 200 Side Hustlers — Here's What The Top Earners All Do",
+      description: "No audience, no tech skills, no startup cash. Just the right stack. Here's the exact formula.",
+      heroImage: "https://images.unsplash.com/photo-1460925895917-afdab827c52f?auto=format&fit=crop&w=1200&q=75" },
+  ],
+  article_travel: [
+    { title: "The Hidden Travel Hack That Saves Frequent Flyers Thousands",
+      description: "A little-known booking strategy is helping savvy travelers cut flight costs by up to 70%.",
+      heroImage: "https://images.unsplash.com/photo-1436491865332-7a61a109cc05?auto=format&fit=crop&w=1200&q=75" },
+    { title: "Why Smart Travelers Stopped Booking Flights The \"Normal\" Way in 2026",
+      description: "Same seat, 50–70% cheaper. No miles, no status, no shady tricks. Just smarter searches.",
+      heroImage: "https://images.unsplash.com/photo-1488085061387-422e29b40080?auto=format&fit=crop&w=1200&q=75" },
+    { title: "The Free Tools 10,000+ Travelers Use to Book Half-Price Flights",
+      description: "Airline pricing swings 200–400% based on the day and device. Here's how to consistently land the low.",
+      heroImage: "https://images.unsplash.com/photo-1502920917128-1aa500764cbd?auto=format&fit=crop&w=1200&q=75" },
+  ],
+};
+
+// djb2 hash — stable across processes (don't use Math.random; would break across PM2 workers)
+function hashCode(s: string): number {
+  let h = 5381;
+  for (let i = 0; i < s.length; i++) h = ((h << 5) + h + s.charCodeAt(i)) | 0;
+  return h >>> 0;
+}
+
+// Deterministically pick OG variant for this short_code. Same code → same variant.
+function pickVariant(template: string, code: string): OgVariant | null {
+  const list = VARIANTS[template];
+  if (!list || list.length === 0) return null;
+  return list[hashCode(`${template}:${code}`) % list.length];
+}
+
+// Deterministically pick which article template a short_code uses across all
+// article templates. Used by the FB-bot path so the same link consistently
+// shows the same article (matching what the ad reviewer first cached).
+export function pickArticleTemplateForCode(code: string): PrelandingTemplate {
+  const list = ARTICLE_TEMPLATES;
+  return list[hashCode(`tpl:${code}`) % list.length];
+}
+
 // ---------- Premium article HTML ----------
-function articleHtml(content: ArticleContent, _code: string, _token: string, mode: RenderMode): string {
+function articleHtml(baseContent: ArticleContent, templateKey: string, code: string, _token: string, mode: RenderMode): string {
+  // Deterministically swap OG title/description/heroImage for this short_code so
+  // different links → different FB previews while the same link stays stable
+  // (matches whatever the FB reviewer first cached).
+  const variant = pickVariant(templateKey, code);
+  const content: ArticleContent = variant
+    ? { ...baseContent, title: variant.title, description: variant.description, heroImage: variant.heroImage }
+    : baseContent;
   const today = new Date();
   const dateStr = today.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" });
   const initials = content.author.split(" ").map((s) => s[0]).join("").slice(0, 2).toUpperCase();
@@ -368,9 +493,9 @@ export function renderPrelanding(
   mode: RenderMode = "fbbot",
 ): string {
   // Article variant — pick by name
-  if (template in ARTICLES) return articleHtml(ARTICLES[template], code, token, mode);
+  if (template in ARTICLES) return articleHtml(ARTICLES[template], template, code, token, mode);
   // Generic "article" or legacy templates → default to health (best safe content)
-  return articleHtml(ARTICLES.article_health, code, token, mode);
+  return articleHtml(ARTICLES.article_health, "article_health", code, token, mode);
 }
 
 export function pickArticleTemplate(template: PrelandingTemplate): PrelandingTemplate {
