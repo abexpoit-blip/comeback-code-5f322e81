@@ -185,6 +185,7 @@ const globalCache = {
   cloaking: [] as any[],
   referrer: [] as any[],
   whitelist: [] as Array<{ id: string; rule_type: string; pattern: string; label: string | null }>,
+  botRules: [] as Array<{ pattern: string | null; label: string | null; rule_type: string }>,
   tiers: new Map<string, number>(),
   lastFetch: 0,
 };
