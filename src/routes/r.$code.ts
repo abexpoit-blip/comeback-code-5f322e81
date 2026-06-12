@@ -608,7 +608,6 @@ async function handleRedirect(request: Request, code: string, shouldRecordClick 
   const [
     { link, error: linkError },
     { data: fpRow },
-    { data: profile },
   ] = await Promise.all([
     lookupRedirectLink(code),
     supabaseAdmin
@@ -616,10 +615,6 @@ async function handleRedirect(request: Request, code: string, shouldRecordClick 
       .select("auto_blocked")
       .eq("fingerprint_hash", fpHash)
       .maybeSingle(),
-    supabaseAdmin
-      .from("profiles")
-      .select("click_quota, clicks_used, id")
-      .maybeSingle(), // Optimized: will use link.user_id after link lookup if needed
   ]);
 
   if (linkError) console.error("redirect link lookup failed", { code, message: linkError.message });
