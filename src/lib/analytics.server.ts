@@ -376,72 +376,24 @@ export async function loadAnalyticsData({ supabase, userId }: AnalyticsContext) 
 }
 
 export async function loadCohortRetention({ supabase, userId }: AnalyticsContext) {
-  const { data: links } = await supabase.from("links").select("id").eq("user_id", userId);
-  const linkIds = (links ?? []).map((l: { id: string }) => l.id);
-  if (linkIds.length === 0) return { rows: [] as Array<{ day: string; size: number; d1: number; d7: number; d30: number }> };
-
-  const thirtyAgo = new Date(Date.now() - 30 * 86_400_000).toISOString();
-  const { data: raw } = await supabase
-    .from("clicks")
-    .select("ip, created_at, is_bot")
-    .in("link_id", linkIds)
-    .gte("created_at", thirtyAgo)
-    .order("created_at", { ascending: true })
-    .limit(50000);
-
-  const clicks = (raw ?? []) as Array<{ ip: string | null; created_at: string; is_bot: boolean }>;
-  const dayMs = 86_400_000;
-  const today = Math.floor(Date.now() / dayMs);
-  const firstSeen = new Map<string, number>();
-  const visitDays = new Map<string, Set<number>>();
-
-  clicks.forEach((c) => {
-    if (c.is_bot || !c.ip) return;
-    const day = Math.floor(new Date(c.created_at).getTime() / dayMs);
-    if (!firstSeen.has(c.ip)) firstSeen.set(c.ip, day);
-    const set = visitDays.get(c.ip) ?? new Set<number>();
-    set.add(day);
-    visitDays.set(c.ip, set);
-  });
-
-  const cohorts = new Map<number, string[]>();
-  firstSeen.forEach((day, id) => {
-    if (today - day > 13) return;
-    const arr = cohorts.get(day) ?? [];
-    arr.push(id);
-    cohorts.set(day, arr);
-  });
-
-  const rows: Array<{ day: string; size: number; d1: number; d7: number; d30: number }> = [];
-  for (let i = 13; i >= 0; i--) {
-    const day = today - i;
-    const ids = cohorts.get(day) ?? [];
-    const size = ids.length;
-    const d1 = ids.filter((id) => visitDays.get(id)?.has(day + 1)).length;
-    const d7 = ids.filter((id) => {
-      const s = visitDays.get(id);
-      if (!s) return false;
-      for (let k = day + 1; k <= day + 7; k++) if (s.has(k)) return true;
-      return false;
-    }).length;
-    const d30 = ids.filter((id) => {
-      const s = visitDays.get(id);
-      if (!s) return false;
-      for (let k = day + 1; k <= day + 30; k++) if (s.has(k)) return true;
-      return false;
-    }).length;
-
-    rows.push({
-      day: new Date(day * dayMs).toLocaleDateString([], { month: "short", day: "numeric" }),
+  const { data, error } = await supabase.rpc("get_cohort_retention" as never, { _user_id: userId } as never);
+  if (error || !data) return { rows: [] as Array<{ day: string; size: number; d1: number; d7: number; d30: number }> };
+  const rows = (data as Array<{ day_label: string; size: number; d1: number; d7: number; d30: number }>).map((r) => {
+    const size = Number(r.size);
+    const d1 = Number(r.d1);
+    const d7 = Number(r.d7);
+    const d30 = Number(r.d30);
+    return {
+      day: r.day_label,
       size,
       d1: size ? Math.round((d1 / size) * 100) : 0,
       d7: size ? Math.round((d7 / size) * 100) : 0,
       d30: size ? Math.round((d30 / size) * 100) : 0,
-    });
-  }
-
+    };
+  });
   return { rows };
 }
+
 
 export async function loadLinkDrilldown({ supabase, userId, linkId }: AnalyticsContext & { linkId: string }) {
   const { data: link } = await supabase
