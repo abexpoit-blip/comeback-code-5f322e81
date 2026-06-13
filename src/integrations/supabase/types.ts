@@ -1018,6 +1018,7 @@ export type Database = {
       }
       record_whitelist_hit: { Args: { _id: string }; Returns: undefined }
       reset_all_clicks: { Args: never; Returns: Json }
+      resync_profile_click_counters: { Args: never; Returns: Json }
     }
     Enums: {
       app_role: "admin" | "user"
