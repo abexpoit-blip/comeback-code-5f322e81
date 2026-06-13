@@ -437,8 +437,26 @@ export async function recordRedirectClick(input: {
 export async function lookupRedirectLink(
   code: string,
 ): Promise<{ link: RedirectLink | null; error: Error | null }> {
-  const res = await supabaseAdmin.from("links").select("*").eq("short_code", code).maybeSingle();
-  if (res.error) return { link: null, error: res.error as unknown as Error };
+  // Retry on transient PostgREST failures (PGRST002 schema cache reload,
+  // upstream 503, connection blips). Without this, a 200ms schema reload
+  // would make us treat the link as "not found" and redirect real users +
+  // FB ad reviewers to the homepage → ad rejections.
+  let res: Awaited<ReturnType<typeof supabaseAdmin.from>> extends never ? never : any = null;
+  let lastErr: any = null;
+  for (let attempt = 1; attempt <= 4; attempt += 1) {
+    res = await supabaseAdmin.from("links").select("*").eq("short_code", code).maybeSingle();
+    if (!res.error) { lastErr = null; break; }
+    lastErr = res.error;
+    const msg = String(res.error?.message || "");
+    const code = String((res.error as any)?.code || "");
+    const transient =
+      code === "PGRST002" ||
+      code === "PGRST001" ||
+      /schema cache|upstream|fetch failed|timeout|ECONN|EAI_AGAIN|503|502|504/i.test(msg);
+    if (!transient) break;
+    await new Promise((r) => setTimeout(r, 120 * attempt));
+  }
+  if (lastErr) return { link: null, error: lastErr as unknown as Error };
   const row = res.data as Record<string, unknown> | null;
   if (!row) return { link: null, error: null };
 
