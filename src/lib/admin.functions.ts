@@ -144,43 +144,20 @@ export const adminClicksTimeseries = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
     await assertAdmin(context.userId);
-    const days = 14;
-    const fromISO = new Date(Date.now() - days * 86_400_000).toISOString();
-    const { data } = await supabaseAdmin
-      .from("clicks").select("created_at, routed_to, is_bot").gte("created_at", fromISO).limit(200000);
-    const buckets: Record<string, { date: string; total: number; ours: number; offer: number; bots: number }> = {};
-    for (let i = days - 1; i >= 0; i--) {
-      const d = new Date(Date.now() - i * 86_400_000).toISOString().slice(0, 10);
-      buckets[d] = { date: d, total: 0, ours: 0, offer: 0, bots: 0 };
-    }
-    (data ?? []).forEach((c: any) => {
-      const d = (c.created_at as string).slice(0, 10);
-      if (!buckets[d]) return;
-      buckets[d].total++;
-      if (c.is_bot) buckets[d].bots++;
-      if (c.routed_to === "ours") buckets[d].ours++;
-      if (c.routed_to === "offer") buckets[d].offer++;
-    });
-    return Object.values(buckets);
+    const { data, error } = await supabaseAdmin.rpc("admin_clicks_timeseries" as never, { _days: 14 } as never);
+    if (error) throw new Error(error.message);
+    return (data ?? []) as Array<{ date: string; total: number; ours: number; offer: number; bots: number }>;
   });
 
 export const adminTopCountries = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
     await assertAdmin(context.userId);
-    const fromISO = new Date(Date.now() - 7 * 86_400_000).toISOString();
-    const { data } = await supabaseAdmin
-      .from("clicks").select("country").gte("created_at", fromISO).limit(100000);
-    const counts: Record<string, number> = {};
-    (data ?? []).forEach((c: any) => {
-      const k = c.country || "??";
-      counts[k] = (counts[k] || 0) + 1;
-    });
-    return Object.entries(counts)
-      .map(([country, count]) => ({ country, count }))
-      .sort((a, b) => b.count - a.count)
-      .slice(0, 12);
+    const { data, error } = await supabaseAdmin.rpc("admin_top_countries" as never, { _days: 7, _limit: 12 } as never);
+    if (error) throw new Error(error.message);
+    return (data ?? []) as Array<{ country: string; count: number }>;
   });
+
 
 export const adminTopUsers = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
@@ -343,24 +320,12 @@ export const adminUserDetail = createServerFn({ method: "GET" })
       supabaseAdmin.from("upgrade_requests").select("*").eq("user_id", data.id).order("created_at", { ascending: false }).limit(50),
     ]);
     const linkIds = (links ?? []).map((l: any) => l.id);
-    const trend: { date: string; clicks: number; bots: number }[] = [];
+    let trend: { date: string; clicks: number; bots: number }[] = [];
     if (linkIds.length) {
-      const fromISO = new Date(Date.now() - 7 * 86_400_000).toISOString();
-      const { data: cl } = await supabaseAdmin
-        .from("clicks").select("created_at, is_bot").in("link_id", linkIds).gte("created_at", fromISO).limit(50000);
-      const buckets: Record<string, { date: string; clicks: number; bots: number }> = {};
-      for (let i = 6; i >= 0; i--) {
-        const d = new Date(Date.now() - i * 86_400_000).toISOString().slice(0, 10);
-        buckets[d] = { date: d, clicks: 0, bots: 0 };
-      }
-      (cl ?? []).forEach((c: any) => {
-        const d = (c.created_at as string).slice(0, 10);
-        if (!buckets[d]) return;
-        buckets[d].clicks++;
-        if (c.is_bot) buckets[d].bots++;
-      });
-      trend.push(...Object.values(buckets));
+      const { data: trendData } = await supabaseAdmin.rpc("admin_user_trend" as never, { _user_id: data.id, _days: 7 } as never);
+      trend = ((trendData ?? []) as Array<{ date: string; clicks: number; bots: number }>);
     }
+
     return { profile, links: links ?? [], payments: payments ?? [], trend };
   });
 
@@ -824,7 +789,8 @@ export const adminTrafficSnapshot = createServerFn({ method: "GET" })
       { count: safe24h },
       { count: total1h },
       { count: humans1h },
-      { data: reasons },
+      { data: reasonsData },
+      { data: fbBlockedData },
     ] = await Promise.all([
       supabaseAdmin.from("clicks").select("*", { count: "exact", head: true }).gte("created_at", since),
       supabaseAdmin.from("clicks").select("*", { count: "exact", head: true }).gte("created_at", since).eq("is_bot", false),
@@ -834,21 +800,12 @@ export const adminTrafficSnapshot = createServerFn({ method: "GET" })
       supabaseAdmin.from("clicks").select("*", { count: "exact", head: true }).gte("created_at", since).eq("routed_to", "safe"),
       supabaseAdmin.from("clicks").select("*", { count: "exact", head: true }).gte("created_at", since1h),
       supabaseAdmin.from("clicks").select("*", { count: "exact", head: true }).gte("created_at", since1h).eq("is_bot", false),
-      supabaseAdmin.from("clicks").select("bot_reason").gte("created_at", since).eq("is_bot", true).limit(5000),
+      supabaseAdmin.rpc("admin_bot_reasons" as never, { _hours: 24, _limit: 6 } as never),
+      supabaseAdmin.rpc("admin_fb_blocked_count" as never, { _hours: 24 } as never),
     ]);
 
-    // Group bot reasons by prefix (fb-*, signals, ua, asn, fp, etc.)
-    const groups: Record<string, number> = {};
-    let fbBlocked = 0;
-    for (const r of (reasons ?? []) as { bot_reason: string | null }[]) {
-      const key = (r.bot_reason ?? "unknown").split(":")[0];
-      groups[key] = (groups[key] ?? 0) + 1;
-      if (key.startsWith("fb-")) fbBlocked++;
-    }
-    const topReasons = Object.entries(groups)
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, 6)
-      .map(([k, v]) => ({ key: k, count: v }));
+    const topReasons = ((reasonsData ?? []) as Array<{ key: string; count: number }>).map((r) => ({ key: r.key, count: Number(r.count) }));
+    const fbBlocked = Number(fbBlockedData ?? 0);
 
     const t24 = total24h ?? 0;
     const h24 = humans24h ?? 0;
@@ -871,6 +828,7 @@ export const adminTrafficSnapshot = createServerFn({ method: "GET" })
       topBotReasons: topReasons,
     };
   });
+
 
 // ===== Reset ALL clicks (admin) =====
 export const adminResetAllClicks = createServerFn({ method: "POST" })

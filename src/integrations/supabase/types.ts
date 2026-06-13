@@ -901,6 +901,24 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      admin_bot_reasons: {
+        Args: { _hours?: number; _limit?: number }
+        Returns: {
+          count: number
+          key: string
+        }[]
+      }
+      admin_clicks_timeseries: {
+        Args: { _days?: number }
+        Returns: {
+          bots: number
+          date: string
+          offer: number
+          ours: number
+          total: number
+        }[]
+      }
+      admin_fb_blocked_count: { Args: { _hours?: number }; Returns: number }
       admin_get_inactive_users: {
         Args: never
         Returns: {
@@ -911,11 +929,37 @@ export type Database = {
           last_login_at: string
         }[]
       }
+      admin_top_countries: {
+        Args: { _days?: number; _limit?: number }
+        Returns: {
+          count: number
+          country: string
+        }[]
+      }
+      admin_user_trend: {
+        Args: { _days?: number; _user_id: string }
+        Returns: {
+          bots: number
+          clicks: number
+          date: string
+        }[]
+      }
       expire_old_upgrade_requests: { Args: never; Returns: undefined }
       get_admin_overview_stats: { Args: never; Returns: Json }
       get_analytics_summary: {
         Args: { _days: number; _user_id: string }
         Returns: Json
+      }
+      get_cohort_retention: {
+        Args: { _user_id: string }
+        Returns: {
+          d1: number
+          d30: number
+          d7: number
+          day_idx: number
+          day_label: string
+          size: number
+        }[]
       }
       get_dashboard_stats: { Args: { _user_id: string }; Returns: Json }
       get_last_hour_click_stats: { Args: never; Returns: Json }
