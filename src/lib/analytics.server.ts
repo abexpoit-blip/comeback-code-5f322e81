@@ -558,10 +558,21 @@ export async function loadLiveFeed({ supabase, userId }: AnalyticsContext) {
   const clicks = (((modern.error ? legacy.data : modern.data) ?? []) as unknown) as Array<{ id: string; link_id: string; country: string | null; ua?: string | null; user_agent?: string | null; is_bot: boolean; referer_host?: string | null; created_at: string }>;
   const linkLookup = new Map(typedLinks.map((l) => [l.id, l]));
   const now = Date.now();
-  const last5m = clicks.filter((c) => now - new Date(c.created_at).getTime() < 300_000).length;
-  const last1h = clicks.filter((c) => now - new Date(c.created_at).getTime() < 3_600_000);
-  const humans1h = last1h.filter((c) => !c.is_bot).length;
-  const bots1h = last1h.length - humans1h;
+  const fiveMinAgo = new Date(now - 300_000).toISOString();
+  const oneHourAgo = new Date(now - 3_600_000).toISOString();
+
+  // Use server-side COUNT to avoid PostgREST 1000-row cap
+  const [cps5mRes, humans1hRes, bots1hRes] = await Promise.all([
+    supabase.from("clicks").select("*", { count: "exact", head: true })
+      .in("link_id", linkIds).gte("created_at", fiveMinAgo),
+    supabase.from("clicks").select("*", { count: "exact", head: true })
+      .in("link_id", linkIds).gte("created_at", oneHourAgo).eq("is_bot", false),
+    supabase.from("clicks").select("*", { count: "exact", head: true })
+      .in("link_id", linkIds).gte("created_at", oneHourAgo).eq("is_bot", true),
+  ]);
+  const last5m = cps5mRes.count ?? 0;
+  const humans1h = humans1hRes.count ?? 0;
+  const bots1h = bots1hRes.count ?? 0;
 
   const classifySrc = (host: string | null): string => {
     if (!host) return "direct";
