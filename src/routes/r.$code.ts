@@ -448,10 +448,10 @@ export async function lookupRedirectLink(
     if (!res.error) { lastErr = null; break; }
     lastErr = res.error;
     const msg = String(res.error?.message || "");
-    const code = String((res.error as any)?.code || "");
+    const errCode = String((res.error as any)?.code || "");
     const transient =
-      code === "PGRST002" ||
-      code === "PGRST001" ||
+      errCode === "PGRST002" ||
+      errCode === "PGRST001" ||
       /schema cache|upstream|fetch failed|timeout|ECONN|EAI_AGAIN|503|502|504/i.test(msg);
     if (!transient) break;
     await new Promise((r) => setTimeout(r, 120 * attempt));
