@@ -768,9 +768,40 @@ export const adminDeleteUsers = createServerFn({ method: "POST" })
   .inputValidator(z.object({ ids: z.array(z.string().uuid()) }).parse)
   .handler(async ({ context, data }) => {
     await assertAdmin(context.userId);
-    const { error } = await supabaseAdmin.from("profiles").delete().in("id", data.ids);
-    if (error) throw new Error(error.message);
-    return { ok: true };
+
+    let deleted = 0;
+    const errors: string[] = [];
+
+    for (const id of data.ids) {
+      // 1. Wipe dependent rows first (FKs without cascade would block profile/auth delete)
+      const linkIds = ((await supabaseAdmin.from("links").select("id").eq("user_id", id)).data ?? []).map(
+        (l) => l.id as string,
+      );
+      if (linkIds.length) {
+        await supabaseAdmin.from("clicks").delete().in("link_id", linkIds);
+      }
+      await supabaseAdmin.from("links").delete().eq("user_id", id);
+      await supabaseAdmin.from("user_roles").delete().eq("user_id", id);
+      await supabaseAdmin.from("upgrade_requests").delete().eq("user_id", id);
+      await supabaseAdmin.from("custom_domains").delete().eq("user_id", id);
+
+      // 2. Delete profile row
+      const { error: pErr } = await supabaseAdmin.from("profiles").delete().eq("id", id);
+      if (pErr) errors.push(`profile ${id}: ${pErr.message}`);
+
+      // 3. Delete the auth.users row — THIS was missing before.
+      //    Without it the handle_new_user trigger could re-create the profile on next session,
+      //    and even if not, the user still existed in auth and appeared on next list refresh.
+      const { error: aErr } = await supabaseAdmin.auth.admin.deleteUser(id);
+      if (aErr) errors.push(`auth ${id}: ${aErr.message}`);
+
+      if (!pErr && !aErr) deleted++;
+    }
+
+    if (errors.length && deleted === 0) {
+      throw new Error(errors.slice(0, 3).join(" | "));
+    }
+    return { ok: errors.length === 0, deleted, failed: errors.length, errors: errors.slice(0, 5) };
   });
 // ===== Mini-dashboard for Control Panel — last 24h live stats =====
 export const adminTrafficSnapshot = createServerFn({ method: "GET" })
