@@ -734,7 +734,9 @@ export type Database = {
           link_quota: number
           links_used: number
           ours_clicks: number | null
+          plan_expires_at: string | null
           plan_slug: string
+          plan_started_at: string | null
           updated_at: string
         }
         Insert: {
@@ -754,7 +756,9 @@ export type Database = {
           link_quota?: number
           links_used?: number
           ours_clicks?: number | null
+          plan_expires_at?: string | null
           plan_slug?: string
+          plan_started_at?: string | null
           updated_at?: string
         }
         Update: {
@@ -774,7 +778,9 @@ export type Database = {
           link_quota?: number
           links_used?: number
           ours_clicks?: number | null
+          plan_expires_at?: string | null
           plan_slug?: string
+          plan_started_at?: string | null
           updated_at?: string
         }
         Relationships: []
@@ -944,6 +950,7 @@ export type Database = {
           date: string
         }[]
       }
+      expire_monthly_plans: { Args: never; Returns: Json }
       expire_old_upgrade_requests: { Args: never; Returns: undefined }
       get_admin_overview_stats: { Args: never; Returns: Json }
       get_analytics_summary: {

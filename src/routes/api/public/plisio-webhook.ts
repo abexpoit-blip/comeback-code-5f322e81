@@ -28,7 +28,10 @@ async function fetchPlisioOperation(txnId: string, apiKey: string) {
 }
 
 async function applyPackageToProfile(userId: string, pkg: { slug: string; click_quota: number | null; link_limit: number | null }) {
-  const resetAt = new Date().toISOString();
+  const now = new Date();
+  const resetAt = now.toISOString();
+  const isLifetime = pkg.slug === "lifetime" || pkg.slug === "unlimited";
+  const expiresAt = isLifetime ? null : new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000).toISOString();
 
   const { error: planErr } = await supabaseAdmin
     .from("profiles")
@@ -36,6 +39,8 @@ async function applyPackageToProfile(userId: string, pkg: { slug: string; click_
       plan_slug: pkg.slug,
       clicks_used: 0,
       clicks_period_start: resetAt,
+      plan_started_at: resetAt,
+      plan_expires_at: expiresAt,
     } as any)
     .eq("id", userId);
   if (planErr) throw planErr;
@@ -47,6 +52,8 @@ async function applyPackageToProfile(userId: string, pkg: { slug: string; click_
       link_limit: pkg.link_limit,
       clicks_used: 0,
       clicks_period_start: resetAt,
+      plan_started_at: resetAt,
+      plan_expires_at: expiresAt,
     } as any)
     .eq("id", userId);
   if (quotaErr) throw quotaErr;
