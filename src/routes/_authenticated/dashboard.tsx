@@ -373,6 +373,31 @@ function DashboardPage() {
             <Panel className="p-6">
               <h4 className="text-base font-bold text-[#2D1B0D]" style={display}>Account Quota</h4>
               <div className="mt-5 flex items-center justify-between text-xs">
+                <span className="text-[#7D6452]">Plan</span>
+                <span className="font-bold text-[#2D1B0D] capitalize">{(profile as any)?.plan_slug ?? "free"}</span>
+              </div>
+              {(() => {
+                const exp = (profile as any)?.plan_expires_at as string | null | undefined;
+                if (!exp) {
+                  const slug = (profile as any)?.plan_slug;
+                  if (slug === "lifetime" || slug === "unlimited") {
+                    return <div className="mt-2 flex items-center justify-between text-xs"><span className="text-[#7D6452]">Expires</span><span className="font-bold text-emerald-700">Never</span></div>;
+                  }
+                  return null;
+                }
+                const expDate = new Date(exp);
+                const daysLeft = Math.ceil((expDate.getTime() - Date.now()) / 86400000);
+                const expired = daysLeft <= 0;
+                return (
+                  <div className="mt-2 flex items-center justify-between text-xs">
+                    <span className="text-[#7D6452]">{expired ? "Expired" : "Expires in"}</span>
+                    <span className={`font-bold tabular-nums ${expired ? "text-red-600" : daysLeft <= 3 ? "text-amber-600" : "text-[#2D1B0D]"}`}>
+                      {expired ? expDate.toLocaleDateString() : `${daysLeft} day${daysLeft === 1 ? "" : "s"}`}
+                    </span>
+                  </div>
+                );
+              })()}
+              <div className="mt-3 flex items-center justify-between text-xs">
                 <span className="text-[#7D6452]">Redirects used</span>
                 <span className="font-bold text-[#2D1B0D] tabular-nums">{quotaLabel}</span>
               </div>
