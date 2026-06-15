@@ -565,9 +565,7 @@ export async function lookupRedirectLink(
   }
 }
 
-function processLinkRow(code: string, row: Record<string, unknown>): { link: RedirectLink | null; error: null } {
-  if (!row) return { link: null, error: null };
-  const row = res.data as Record<string, unknown> | null;
+function processLinkRow(code: string, row: Record<string, unknown> | null): { link: RedirectLink | null; error: null } {
   if (!row) return { link: null, error: null };
 
   const adsterraDirect = (row.adsterra_direct_link as string | null) ?? null;
