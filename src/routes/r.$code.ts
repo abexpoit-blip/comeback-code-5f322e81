@@ -848,9 +848,8 @@ async function handleRedirect(request: Request, code: string, shouldRecordClick 
   const fromMetaNetwork =
     (asn && FB_ASN_SET.has(asn)) ||
     (ip && FB_IP_PREFIX_LIST.some((p) => ip.startsWith(p)));
-  if (crawlerMatch) {
+  if (crawlerMatch && FB_CLASS_RE.test(crawlerMatch[0])) {
     const matchedUa = crawlerMatch[0];
-    const looksLikeFbClass = FB_CLASS_RE.test(matchedUa);
     // For FB-class UAs we ALWAYS serve the article (isFbBot=true), even if
     // the IP/ASN does not look like Meta's network. Reason: missing a real FB
     // reviewer = ad rejection (catastrophic). Serving article HTML to a
@@ -858,7 +857,7 @@ async function handleRedirect(request: Request, code: string, shouldRecordClick 
     // "spoof → safe_url" path was misclassifying real FB IPv6 crawlers
     // (2a03:2880::/29) and getting ads disapproved.
     isBot = true;
-    isFbBot = looksLikeFbClass;
+    isFbBot = true;
     reason = looksLikeFbClass
       ? (fromMetaNetwork ? `fb-ua:${matchedUa}` : `fb-ua-noverify:${matchedUa}`)
       : `crawler-ua:${matchedUa}`;
