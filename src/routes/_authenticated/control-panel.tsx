@@ -1652,7 +1652,7 @@ function BroadcastsTab() {
                       <button onClick={() => { if (confirm("Delete?")) delMut.mutate(b.id); }} className="w-7 h-7 rounded-lg bg-red-50 hover:bg-red-100 text-red-600 flex items-center justify-center"><Trash2 className="w-3 h-3" /></button>
                     </div>
                   </div>
-                  <div className="text-[11.5px] text-[#7D6452] mt-1 whitespace-pre-wrap">{b.body}</div>
+                  <div className="mt-1"><BroadcastMarkdown muted>{b.body}</BroadcastMarkdown></div>
                   <div className="text-[10px] text-[#A38D7D] mt-2">{new Date(b.created_at).toLocaleString()}</div>
                 </div>
               </div>
