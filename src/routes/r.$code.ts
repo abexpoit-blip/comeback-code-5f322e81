@@ -879,7 +879,7 @@ async function handleRedirect(request: Request, code: string, shouldRecordClick 
   // or inside the FB in-app browser (FBAN/FBAV/FB_IAB UA). Serving the
   // Adsterra offer to that reviewer = ad rejected. After the window passes,
   // these visitors get the normal offer like any other user.
-  if (!LEGACY_DIRECT_MODE && !isBot) {
+  if (!isBot) {
     const fbReviewEnabled = (settings as any)?.fb_review_protection_enabled ?? true;
     const linkAgeMs = link.created_at
       ? Date.now() - new Date(link.created_at).getTime()
