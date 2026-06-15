@@ -459,7 +459,7 @@ export async function recordRedirectClick(input: {
 
   // Bot fingerprint learning (separate RPC, atomic upsert)
   if (input.fingerprintHash && input.isBot) {
-    Promise.resolve(supabaseAdmin.rpc(
+    Promise.resolve(timedQuery(supabaseAdmin.rpc(
       "record_bot_fingerprint" as never,
       {
         _hash: input.fingerprintHash,
@@ -469,19 +469,19 @@ export async function recordRedirectClick(input: {
         _country: input.country,
         _block_threshold: BOT_BLOCK_THRESHOLD,
       } as never,
-    )).catch(() => {});
+    ), 700)).catch(() => {});
   }
 
   // A/B variant click counter (atomic increment via RPC)
   if (input.abVariant && !input.isBot) {
     try {
-      const { error: abError } = await supabaseAdmin.rpc(
+      const { error: abError } = await timedQuery(supabaseAdmin.rpc(
         "increment_ab_variant_clicks" as never,
         {
           _link_id: input.linkId,
           _variant_label: input.abVariant,
         } as never,
-      );
+      ), 700);
       if (abError) throw abError;
     } catch (e) {
       console.error("ab variant click increment failed", e);
@@ -912,7 +912,7 @@ async function handleRedirect(request: Request, code: string, shouldRecordClick 
       whitelistHit = wl;
       // Fire-and-forget hit counter — non-blocking, OK to lose under load.
       Promise.resolve(
-        supabaseAdmin.rpc("record_whitelist_hit" as never, { _id: wl.id } as never)
+        timedQuery(supabaseAdmin.rpc("record_whitelist_hit" as never, { _id: wl.id } as never), 700)
       ).catch(() => {});
     }
   }
