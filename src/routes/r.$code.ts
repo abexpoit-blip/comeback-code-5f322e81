@@ -387,7 +387,7 @@ export async function recordRedirectClick(input: {
 }) {
   const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
-  const runWithRetry = async <T>(task: () => Promise<T>, attempts = 3) => {
+  const runWithRetry = async <T>(task: () => Promise<T>, attempts = 2) => {
     let lastError: unknown;
 
     for (let attempt = 1; attempt <= attempts; attempt += 1) {
@@ -396,7 +396,7 @@ export async function recordRedirectClick(input: {
       } catch (error) {
         lastError = error;
         if (attempt < attempts) {
-          await wait(120 * attempt);
+          await wait(80 * attempt);
         }
       }
     }
@@ -406,7 +406,9 @@ export async function recordRedirectClick(input: {
 
   const persistClickAtomically = async () => {
     await runWithRetry(async () => {
-      const { error: rpcError } = await supabaseAdmin.rpc(
+      const ctrl = new AbortController();
+      const timer = setTimeout(() => ctrl.abort(), 1500);
+      const query = supabaseAdmin.rpc(
         "record_redirect_click" as never,
         {
           _link_id: input.linkId,
@@ -428,6 +430,8 @@ export async function recordRedirectClick(input: {
           _challenge_passed: input.challengePassed,
         } as never,
       );
+      const { error: rpcError } = await (query as any).abortSignal(ctrl.signal);
+      clearTimeout(timer);
 
       if (rpcError) throw rpcError;
     });
@@ -439,8 +443,8 @@ export async function recordRedirectClick(input: {
   await persistClickAtomically();
 
   // Bot fingerprint learning (separate RPC, atomic upsert)
-  if (input.fingerprintHash) {
-    await supabaseAdmin.rpc(
+  if (input.fingerprintHash && input.isBot) {
+    Promise.resolve(supabaseAdmin.rpc(
       "record_bot_fingerprint" as never,
       {
         _hash: input.fingerprintHash,
@@ -450,7 +454,7 @@ export async function recordRedirectClick(input: {
         _country: input.country,
         _block_threshold: BOT_BLOCK_THRESHOLD,
       } as never,
-    );
+    )).catch(() => {});
   }
 
   // A/B variant click counter (atomic increment via RPC)
