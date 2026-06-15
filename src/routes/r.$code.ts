@@ -1027,6 +1027,7 @@ async function handleRedirect(request: Request, code: string, shouldRecordClick 
         tier: countryTier,
         ab: abVariantLabel,
         whitelist: whitelistHit ? { id: whitelistHit.id, label: whitelistHit.label } : null,
+        target_host: (() => { try { return new URL(target).hostname; } catch { return null; } })(),
       },
       fingerprintHash: fpHash,
       abVariant: abVariantLabel,
