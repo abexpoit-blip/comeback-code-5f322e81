@@ -226,7 +226,7 @@ async function timedQuery<T = any>(query: any, timeoutMs: number): Promise<T> {
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), timeoutMs);
   try {
-    return await query.abortSignal(ctrl.signal);
+    return await (typeof query.abortSignal === "function" ? query.abortSignal(ctrl.signal) : query);
   } finally {
     clearTimeout(timer);
   }
