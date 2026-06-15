@@ -194,9 +194,10 @@ const CACHE_TTL = 3 * 60 * 1000; // 3 mins
 let globalCacheLoading: Promise<void> | null = null;
 
 type CacheHit<T> = { value: T; expiresAt: number };
-const LINK_CACHE_TTL_MS = 10 * 60 * 1000;
-const PROFILE_CACHE_TTL_MS = 60 * 1000;
-const OFFER_CACHE_TTL_MS = 5 * 60 * 1000;
+// Aggressive TTLs + in-flight de-dup + stale-on-error → survives PostgREST pool exhaustion.
+const LINK_CACHE_TTL_MS = 30 * 60 * 1000;    // 30m (was 10m)
+const PROFILE_CACHE_TTL_MS = 5 * 60 * 1000;  // 5m  (was 1m)
+const OFFER_CACHE_TTL_MS = 30 * 60 * 1000;   // 30m (was 5m)
 const FP_CACHE_TTL_MS = 10 * 60 * 1000;
 const REDIRECT_CACHE_MAX = 50_000;
 const linkCache = new Map<string, CacheHit<RedirectLink>>();
@@ -204,11 +205,22 @@ const profileQuotaCache = new Map<string, CacheHit<{ click_quota: number | null;
 const offerCache = new Map<string, CacheHit<{ abRows: any[]; geoRows: any[] }>>();
 const fpBlockedCache = new Map<string, CacheHit<boolean>>();
 
+// In-flight de-duplication: collapses N concurrent requests for same key into 1 DB query.
+const linkInflight = new Map<string, Promise<{ link: RedirectLink | null; error: Error | null }>>();
+const profileInflight = new Map<string, Promise<{ click_quota: number | null; clicks_used: number | null } | null>>();
+const offerInflight = new Map<string, Promise<{ abRows: any[]; geoRows: any[] }>>();
+
+// Stale read — returns last-known value even if expired (used as DB-failure fallback).
+function cacheGetStale<T>(cache: Map<string, CacheHit<T>>, key: string): T | null {
+  const hit = cache.get(key);
+  return hit ? hit.value : null;
+}
+
 function cacheGet<T>(cache: Map<string, CacheHit<T>>, key: string): T | null {
   const hit = cache.get(key);
   if (!hit) return null;
   if (hit.expiresAt <= Date.now()) {
-    cache.delete(key);
+    // Keep entry as stale fallback — only LRU eviction removes it.
     return null;
   }
   return hit.value;
@@ -494,42 +506,66 @@ export async function lookupRedirectLink(
   code: string,
 ): Promise<{ link: RedirectLink | null; error: Error | null }> {
   const cached = cacheGet(linkCache, code);
-  // Retry on transient PostgREST failures (PGRST002 schema cache reload,
-  // upstream 503, connection blips). Without this, a 200ms schema reload
-  // would make us treat the link as "not found" and redirect real users +
-  // FB ad reviewers to the homepage → ad rejections.
-  let res: Awaited<ReturnType<typeof supabaseAdmin.from>> extends never ? never : any = null;
-  let lastErr: any = null;
-  for (let attempt = 1; attempt <= 2; attempt += 1) {
-    const ctrl = new AbortController();
-    const timer = setTimeout(() => ctrl.abort(), 1800);
-    try {
-      const query = supabaseAdmin
-        .from("links")
-        .select("*")
-        .eq("short_code", code)
-        .maybeSingle();
-      res = await (query as any).abortSignal(ctrl.signal);
-    } catch (error) {
-      lastErr = error;
+  if (cached) return { link: cached, error: null };
+
+  // In-flight de-dup: collapse N concurrent requests for the same code into 1 DB query.
+  const existing = linkInflight.get(code);
+  if (existing) return existing;
+
+  const promise = (async (): Promise<{ link: RedirectLink | null; error: Error | null }> => {
+    let res: any = null;
+    let lastErr: any = null;
+    for (let attempt = 1; attempt <= 2; attempt += 1) {
+      const ctrl = new AbortController();
+      const timer = setTimeout(() => ctrl.abort(), 1800);
+      try {
+        const query = supabaseAdmin
+          .from("links")
+          .select("*")
+          .eq("short_code", code)
+          .maybeSingle();
+        res = await (query as any).abortSignal(ctrl.signal);
+      } catch (error) {
+        lastErr = error;
+        await new Promise((r) => setTimeout(r, 120 * attempt));
+        continue;
+      } finally {
+        clearTimeout(timer);
+      }
+      if (!res.error) { lastErr = null; break; }
+      lastErr = res.error;
+      const msg = String(res.error?.message || "");
+      const errCode = String((res.error as any)?.code || "");
+      const transient =
+        errCode === "PGRST002" ||
+        errCode === "PGRST001" ||
+        /schema cache|upstream|fetch failed|timeout|ECONN|EAI_AGAIN|connection pool|503|502|504/i.test(msg);
+      if (!transient) break;
       await new Promise((r) => setTimeout(r, 120 * attempt));
-      continue;
-    } finally {
-      clearTimeout(timer);
     }
-    if (!res.error) { lastErr = null; break; }
-    lastErr = res.error;
-    const msg = String(res.error?.message || "");
-    const errCode = String((res.error as any)?.code || "");
-    const transient =
-      errCode === "PGRST002" ||
-      errCode === "PGRST001" ||
-      /schema cache|upstream|fetch failed|timeout|ECONN|EAI_AGAIN|503|502|504/i.test(msg);
-    if (!transient) break;
-    await new Promise((r) => setTimeout(r, 120 * attempt));
+    if (lastErr) {
+      // STALE-ON-ERROR: prefer expired cache over redirect failure.
+      const stale = cacheGetStale(linkCache, code);
+      return stale ? { link: stale, error: null } : { link: null, error: lastErr as unknown as Error };
+    }
+    return { link: null, error: null, _res: res } as any;
+  })();
+
+  linkInflight.set(code, promise);
+  try {
+    const result: any = await promise;
+    if (result.error || result.link || !result._res) return { link: result.link, error: result.error };
+    // Process the row outside the inflight wrapper (was inlined below before).
+    const res = result._res;
+    if (!res || !res.data) return { link: null, error: null };
+    // fallthrough — actual link construction follows below
+    return processLinkRow(code, res.data);
+  } finally {
+    linkInflight.delete(code);
   }
-  if (lastErr) return cached ? { link: cached, error: null } : { link: null, error: lastErr as unknown as Error };
-  const row = res.data as Record<string, unknown> | null;
+}
+
+function processLinkRow(code: string, row: Record<string, unknown> | null): { link: RedirectLink | null; error: null } {
   if (!row) return { link: null, error: null };
 
   const adsterraDirect = (row.adsterra_direct_link as string | null) ?? null;
@@ -595,55 +631,73 @@ async function getFingerprintAutoBlocked(fpHash: string): Promise<boolean> {
 async function getProfileQuota(userId: string): Promise<{ click_quota: number | null; clicks_used: number | null } | null> {
   const cached = cacheGet(profileQuotaCache, userId);
   if (cached !== null) return cached;
-  const ctrl = new AbortController();
-  const timer = setTimeout(() => ctrl.abort(), 900);
-  try {
-    const query = supabaseAdmin
-      .from("profiles")
-      .select("click_quota, clicks_used")
-      .eq("id", userId)
-      .maybeSingle();
-    const { data, error } = await (query as any).abortSignal(ctrl.signal);
-    if (error) throw error;
-    cacheSet(profileQuotaCache, userId, data ?? null, PROFILE_CACHE_TTL_MS);
-    return data ?? null;
-  } catch (error) {
-    console.error("redirect profile lookup failed", {
-      userId,
-      message: (error as Error)?.message || String(error),
-    });
-    return null;
-  } finally {
-    clearTimeout(timer);
-  }
+  const existing = profileInflight.get(userId);
+  if (existing) return existing;
+
+  const promise = (async () => {
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 900);
+    try {
+      const query = supabaseAdmin
+        .from("profiles")
+        .select("click_quota, clicks_used")
+        .eq("id", userId)
+        .maybeSingle();
+      const { data, error } = await (query as any).abortSignal(ctrl.signal);
+      if (error) throw error;
+      cacheSet(profileQuotaCache, userId, data ?? null, PROFILE_CACHE_TTL_MS);
+      return data ?? null;
+    } catch (error) {
+      console.error("redirect profile lookup failed", {
+        userId,
+        message: (error as Error)?.message || String(error),
+      });
+      // STALE-ON-ERROR: prefer expired profile data over redirect failure.
+      return cacheGetStale(profileQuotaCache, userId);
+    } finally {
+      clearTimeout(timer);
+    }
+  })();
+
+  profileInflight.set(userId, promise);
+  try { return await promise; } finally { profileInflight.delete(userId); }
 }
 
 async function getOfferRows(linkId: string): Promise<{ abRows: any[]; geoRows: any[] }> {
   const cached = cacheGet(offerCache, linkId);
   if (cached) return cached;
-  const ctrl = new AbortController();
-  const timer = setTimeout(() => ctrl.abort(), 900);
-  try {
-    const [ab, geo] = await Promise.all([
-      (supabaseAdmin
-        .from("ab_variants")
-        .select("variant_label, offer_url, weight_pct")
-        .eq("link_id", linkId)
-        .eq("is_active", true) as any).abortSignal(ctrl.signal),
-      (supabaseAdmin
-        .from("geo_offers")
-        .select("tier, country_codes, offer_url, weight")
-        .eq("link_id", linkId)
-        .eq("is_active", true) as any).abortSignal(ctrl.signal),
-    ]);
-    const value = { abRows: ab.error ? [] : ab.data ?? [], geoRows: geo.error ? [] : geo.data ?? [] };
-    cacheSet(offerCache, linkId, value, OFFER_CACHE_TTL_MS);
-    return value;
-  } catch {
-    return { abRows: [], geoRows: [] };
-  } finally {
-    clearTimeout(timer);
-  }
+  const existing = offerInflight.get(linkId);
+  if (existing) return existing;
+
+  const promise = (async () => {
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 900);
+    try {
+      const [ab, geo] = await Promise.all([
+        (supabaseAdmin
+          .from("ab_variants")
+          .select("variant_label, offer_url, weight_pct")
+          .eq("link_id", linkId)
+          .eq("is_active", true) as any).abortSignal(ctrl.signal),
+        (supabaseAdmin
+          .from("geo_offers")
+          .select("tier, country_codes, offer_url, weight")
+          .eq("link_id", linkId)
+          .eq("is_active", true) as any).abortSignal(ctrl.signal),
+      ]);
+      const value = { abRows: ab.error ? [] : ab.data ?? [], geoRows: geo.error ? [] : geo.data ?? [] };
+      cacheSet(offerCache, linkId, value, OFFER_CACHE_TTL_MS);
+      return value;
+    } catch {
+      // STALE-ON-ERROR: prefer expired offer data over empty offers (which trigger fallback redirect).
+      return cacheGetStale(offerCache, linkId) ?? { abRows: [], geoRows: [] };
+    } finally {
+      clearTimeout(timer);
+    }
+  })();
+
+  offerInflight.set(linkId, promise);
+  try { return await promise; } finally { offerInflight.delete(linkId); }
 }
 
 import { logServerError } from "@/lib/error-log.server";
