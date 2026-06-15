@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import type { Json } from "@/integrations/supabase/types";
-import { type PrelandingTemplate, ARTICLE_TEMPLATES, pickArticleTemplateForCode } from "@/lib/prelanding-templates";
+import { type PrelandingTemplate, ARTICLE_TEMPLATES, pickArticleTemplateForCode, renderPrelanding } from "@/lib/prelanding-templates";
 import {
   analyzeSignals,
   classifyReferrer,
