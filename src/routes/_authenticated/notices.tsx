@@ -138,9 +138,9 @@ function NoticesPage() {
                     </div>
                   </div>
                   
-                  <p className={`text-sm sm:text-[15px] leading-relaxed mb-4 ${!b.is_read ? "text-[#4A3728]" : "text-[#7D6452]"}`}>
-                    {b.body}
-                  </p>
+                  <div className="mb-4">
+                    <BroadcastMarkdown muted={b.is_read}>{b.body}</BroadcastMarkdown>
+                  </div>
                   
                   <div className="flex items-center gap-3">
                     {b.tone === "premium" && (
