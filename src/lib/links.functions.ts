@@ -170,11 +170,11 @@ export const createLink = createServerFn({ method: "POST" })
       code = randomCode();
     }
 
-    // When a Wikipedia category is selected, leave safe_url empty so the
-    // redirect handler picks a fresh random Wikipedia URL per request.
+    // Keep safe_url non-null for older VPS schemas; the redirect handler still
+    // picks a fresh Wikipedia URL first whenever a category exists.
     const hasCategory = !!data.safe_url_category;
     const safeUrlToStore = hasCategory
-      ? (data.safe_url ?? null)
+      ? (data.safe_url ?? "https://sleepox.com/")
       : (data.safe_url ?? "https://sleepox.com/");
 
     const { data: linkData, error } = await context.supabase
