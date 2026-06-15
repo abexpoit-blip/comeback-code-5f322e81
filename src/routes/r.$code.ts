@@ -192,6 +192,35 @@ const globalCache = {
 };
 const CACHE_TTL = 3 * 60 * 1000; // 3 mins
 
+type CacheHit<T> = { value: T; expiresAt: number };
+const LINK_CACHE_TTL_MS = 10 * 60 * 1000;
+const PROFILE_CACHE_TTL_MS = 60 * 1000;
+const OFFER_CACHE_TTL_MS = 5 * 60 * 1000;
+const FP_CACHE_TTL_MS = 10 * 60 * 1000;
+const REDIRECT_CACHE_MAX = 50_000;
+const linkCache = new Map<string, CacheHit<RedirectLink>>();
+const profileQuotaCache = new Map<string, CacheHit<{ click_quota: number | null; clicks_used: number | null } | null>>();
+const offerCache = new Map<string, CacheHit<{ abRows: any[]; geoRows: any[] }>>();
+const fpBlockedCache = new Map<string, CacheHit<boolean>>();
+
+function cacheGet<T>(cache: Map<string, CacheHit<T>>, key: string): T | null {
+  const hit = cache.get(key);
+  if (!hit) return null;
+  if (hit.expiresAt <= Date.now()) {
+    cache.delete(key);
+    return null;
+  }
+  return hit.value;
+}
+
+function cacheSet<T>(cache: Map<string, CacheHit<T>>, key: string, value: T, ttlMs: number) {
+  if (cache.size >= REDIRECT_CACHE_MAX) {
+    const firstKey = cache.keys().next().value;
+    if (firstKey) cache.delete(firstKey);
+  }
+  cache.set(key, { value, expiresAt: Date.now() + ttlMs });
+}
+
 async function refreshGlobalCache() {
   const now = Date.now();
   if (now - globalCache.lastFetch < CACHE_TTL && globalCache.settings) return;
@@ -217,6 +246,7 @@ async function refreshGlobalCache() {
     globalCache.lastFetch = now;
   } catch (e) {
     console.error("[cache] failed to refresh global config", e);
+    globalCache.lastFetch = now;
   }
 }
 
