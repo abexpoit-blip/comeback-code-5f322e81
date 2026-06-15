@@ -12,6 +12,7 @@ import {
   type CloakingRule,
   type ReferrerRule,
 } from "@/lib/bot-detect";
+import { pickWikipediaSafeUrl } from "@/lib/wikipedia-urls.server";
 
 const SAFE_FALLBACK = "https://sleepox.com/";
 // Higher = fewer false auto-blocks. 3 was way too aggressive on mobile carrier
