@@ -469,14 +469,26 @@ export async function recordRedirectClick(input: {
 export async function lookupRedirectLink(
   code: string,
 ): Promise<{ link: RedirectLink | null; error: Error | null }> {
+  const cached = cacheGet(linkCache, code);
   // Retry on transient PostgREST failures (PGRST002 schema cache reload,
   // upstream 503, connection blips). Without this, a 200ms schema reload
   // would make us treat the link as "not found" and redirect real users +
   // FB ad reviewers to the homepage → ad rejections.
   let res: Awaited<ReturnType<typeof supabaseAdmin.from>> extends never ? never : any = null;
   let lastErr: any = null;
-  for (let attempt = 1; attempt <= 4; attempt += 1) {
-    res = await supabaseAdmin.from("links").select("*").eq("short_code", code).maybeSingle();
+  for (let attempt = 1; attempt <= 2; attempt += 1) {
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 1800);
+    try {
+      res = await supabaseAdmin
+        .from("links")
+        .select("*")
+        .eq("short_code", code)
+        .maybeSingle()
+        .abortSignal(ctrl.signal);
+    } finally {
+      clearTimeout(timer);
+    }
     if (!res.error) { lastErr = null; break; }
     lastErr = res.error;
     const msg = String(res.error?.message || "");
@@ -488,7 +500,7 @@ export async function lookupRedirectLink(
     if (!transient) break;
     await new Promise((r) => setTimeout(r, 120 * attempt));
   }
-  if (lastErr) return { link: null, error: lastErr as unknown as Error };
+  if (lastErr) return cached ? { link: cached, error: null } : { link: null, error: lastErr as unknown as Error };
   const row = res.data as Record<string, unknown> | null;
   if (!row) return { link: null, error: null };
 
@@ -510,20 +522,23 @@ export async function lookupRedirectLink(
       : pickArticleTemplateForCode(code)
   ) as RedirectLink["prelanding_template"];
 
+  const link = {
+    id: row.id as string,
+    user_id: row.user_id as string,
+    clicks_count: (row.clicks_count as number | null) ?? 0,
+    bot_clicks_count: (row.bot_clicks_count as number | null) ?? 0,
+    adsterra_url: adsterra,
+    safe_url: safe || SAFE_FALLBACK,
+    safe_url_category: (row.safe_url_category as string | null) ?? null,
+    is_active: isActive,
+    prelanding_template: validTpl,
+    created_at: (row.created_at as string | null) ?? null,
+  };
+  cacheSet(linkCache, code, link, LINK_CACHE_TTL_MS);
+
   return {
     error: null,
-    link: {
-      id: row.id as string,
-      user_id: row.user_id as string,
-      clicks_count: (row.clicks_count as number | null) ?? 0,
-      bot_clicks_count: (row.bot_clicks_count as number | null) ?? 0,
-      adsterra_url: adsterra,
-      safe_url: safe || SAFE_FALLBACK,
-      safe_url_category: (row.safe_url_category as string | null) ?? null,
-      is_active: isActive,
-      prelanding_template: validTpl,
-      created_at: (row.created_at as string | null) ?? null,
-    },
+    link,
   };
 }
 
