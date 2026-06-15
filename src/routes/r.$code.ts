@@ -892,7 +892,11 @@ async function handleRedirect(request: Request, code: string, shouldRecordClick 
   let abVariantLabel: string | null = null;
 
   if (isBot) {
-    target = link.safe_url || SAFE_FALLBACK;
+    // When a Wikipedia category is set on the link, pick a random real
+    // wikipedia.org URL matching the user's country language — this is
+    // what FB ad reviewers will see (highest trust → best approval rate).
+    const wikiUrl = await pickWikipediaSafeUrl(link.safe_url_category, country);
+    target = wikiUrl || link.safe_url || SAFE_FALLBACK;
     routedTo = "safe";
   } else {
     const { data: profile, error: profileError } = await supabaseAdmin
