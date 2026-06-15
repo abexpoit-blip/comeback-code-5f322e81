@@ -430,8 +430,13 @@ export async function recordRedirectClick(input: {
           _challenge_passed: input.challengePassed,
         } as never,
       );
-      const { error: rpcError } = await (query as any).abortSignal(ctrl.signal);
-      clearTimeout(timer);
+      let rpcError: unknown = null;
+      try {
+        const result = await (query as any).abortSignal(ctrl.signal);
+        rpcError = result.error;
+      } finally {
+        clearTimeout(timer);
+      }
 
       if (rpcError) throw rpcError;
     });
