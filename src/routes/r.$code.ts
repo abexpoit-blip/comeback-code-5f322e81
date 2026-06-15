@@ -480,12 +480,12 @@ export async function lookupRedirectLink(
     const ctrl = new AbortController();
     const timer = setTimeout(() => ctrl.abort(), 1800);
     try {
-      res = await supabaseAdmin
+      const query = supabaseAdmin
         .from("links")
         .select("*")
         .eq("short_code", code)
-        .maybeSingle()
-        .abortSignal(ctrl.signal);
+        .maybeSingle();
+      res = await (query as any).abortSignal(ctrl.signal);
     } finally {
       clearTimeout(timer);
     }
