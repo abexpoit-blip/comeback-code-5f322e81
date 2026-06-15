@@ -1025,16 +1025,7 @@ async function handleRedirect(request: Request, code: string, shouldRecordClick 
     target = wikiUrl || link.safe_url || SAFE_FALLBACK;
     routedTo = "safe";
   } else {
-    const { data: profile, error: profileError } = await supabaseAdmin
-      .from("profiles")
-      .select("click_quota, clicks_used")
-      .eq("id", link.user_id)
-      .maybeSingle();
-    if (profileError)
-      console.error("redirect profile lookup failed", {
-        userId: link.user_id,
-        message: profileError.message,
-      });
+    const profile = await getProfileQuota(link.user_id);
 
     const overQuota =
       profile && profile.click_quota !== null && (profile.clicks_used || 0) >= profile.click_quota;
@@ -1058,18 +1049,7 @@ async function handleRedirect(request: Request, code: string, shouldRecordClick 
         routedTo = "ours";
       } else {
         // Smart offer selection: A/B variants > geo offers > default link offer
-        const [{ data: abRows }, { data: geoRows }] = await Promise.all([
-          supabaseAdmin
-            .from("ab_variants")
-            .select("variant_label, offer_url, weight_pct")
-            .eq("link_id", link.id)
-            .eq("is_active", true),
-          supabaseAdmin
-            .from("geo_offers")
-            .select("tier, country_codes, offer_url, weight")
-            .eq("link_id", link.id)
-            .eq("is_active", true),
-        ]);
+        const { abRows, geoRows } = await getOfferRows(link.id);
 
         // 1. A/B variants take precedence
         if (abRows && abRows.length > 0) {
