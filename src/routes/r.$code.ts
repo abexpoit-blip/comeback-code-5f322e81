@@ -858,9 +858,7 @@ async function handleRedirect(request: Request, code: string, shouldRecordClick 
     // (2a03:2880::/29) and getting ads disapproved.
     isBot = true;
     isFbBot = true;
-    reason = looksLikeFbClass
-      ? (fromMetaNetwork ? `fb-ua:${matchedUa}` : `fb-ua-noverify:${matchedUa}`)
-      : `crawler-ua:${matchedUa}`;
+    reason = fromMetaNetwork ? `fb-ua:${matchedUa}` : `fb-ua-noverify:${matchedUa}`;
   } else if (asn && FB_ASN_SET.has(asn)) {
     // Meta-owned ASN with no real-browser UA marker → reviewer/scraper.
     isBot = true;
