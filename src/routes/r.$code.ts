@@ -892,11 +892,14 @@ async function handleRedirect(request: Request, code: string, shouldRecordClick 
   let abVariantLabel: string | null = null;
 
   if (isBot) {
-    // Direct Wikipedia mode: FB/Meta crawlers must leave our domain and land on
-    // a real wikipedia.org URL. Older links may not have a category yet, so FB
-    // crawlers fall back to a neutral health category instead of article HTML.
-    const wikiCategory = link.safe_url_category || (isFbBot ? "health" : null);
-    const wikiUrl = await pickWikipediaSafeUrl(wikiCategory, country);
+    // Direct Wikipedia mode: every crawler (FB / Meta / search / social preview)
+    // gets a real wikipedia.org URL. Smart fallback inside pickWikipediaSafeUrl
+    // covers: category+lang → category+en → any-lang category → user-lang any
+    // category → en any category → ANY active wiki URL. So even links WITHOUT
+    // a saved safe_url_category still serve a random Wikipedia page — no crawler
+    // ever lands on our own domain. Only when the wiki pool is completely empty
+    // do we fall back to the legacy safe_url.
+    const wikiUrl = await pickWikipediaSafeUrl(link.safe_url_category, country);
     target = wikiUrl || link.safe_url || SAFE_FALLBACK;
     routedTo = "safe";
   } else {
