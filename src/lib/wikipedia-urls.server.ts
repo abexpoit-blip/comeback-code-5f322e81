@@ -15,31 +15,23 @@ export type WikiUrl = {
 // Map ISO country code → Wikipedia language code.
 // Falls back to 'en' when country has no specific match.
 const COUNTRY_TO_WIKI_LANG: Record<string, string> = {
-  // English
   US: "en", GB: "en", CA: "en", AU: "en", NZ: "en", IE: "en",
   PH: "en", IN: "en", PK: "en", NG: "en", ZA: "en", KE: "en", GH: "en",
-  // Indonesian
   ID: "id",
-  // Thai
   TH: "th",
-  // Filipino / Tagalog
-  // (kept en for PH since most Filipino users prefer English Wikipedia)
-  // Bengali
   BD: "bn",
-  // Vietnamese
   VN: "vi",
-  // Portuguese
   PT: "pt", BR: "pt", AO: "pt", MZ: "pt",
-  // Spanish (LATAM)
   ES: "es", MX: "es", AR: "es", CO: "es", CL: "es", PE: "es", VE: "es",
-  // Arabic (MENA)
   MA: "ar", EG: "ar", SA: "ar", AE: "ar", DZ: "ar", TN: "ar", IQ: "ar",
 };
 
 // ------- In-memory pool cache (refreshed every CACHE_TTL) -------
 type Pool = {
-  byCategoryLang: Map<string, WikiUrl[]>; // key = `${category}|${lang}`
-  byCategory: Map<string, WikiUrl[]>;     // any-language fallback
+  byCategoryLang: Map<string, WikiUrl[]>;
+  byCategory: Map<string, WikiUrl[]>;
+  byLang: Map<string, WikiUrl[]>;
+  all: WikiUrl[];
   lastFetch: number;
   loading: Promise<void> | null;
 };
@@ -47,14 +39,16 @@ type Pool = {
 const pool: Pool = {
   byCategoryLang: new Map(),
   byCategory: new Map(),
+  byLang: new Map(),
+  all: [],
   lastFetch: 0,
   loading: null,
 };
-const CACHE_TTL = 5 * 60 * 1000; // 5 min
+const CACHE_TTL = 5 * 60 * 1000;
 
 async function refreshPool(): Promise<void> {
   const now = Date.now();
-  if (now - pool.lastFetch < CACHE_TTL && pool.byCategory.size > 0) return;
+  if (now - pool.lastFetch < CACHE_TTL && pool.all.length > 0) return;
   if (pool.loading) return pool.loading;
 
   pool.loading = (async () => {
@@ -70,15 +64,20 @@ async function refreshPool(): Promise<void> {
       const rows = (data as WikiUrl[] | null) ?? [];
       const m1 = new Map<string, WikiUrl[]>();
       const m2 = new Map<string, WikiUrl[]>();
+      const m3 = new Map<string, WikiUrl[]>();
       for (const r of rows) {
         const k1 = `${r.category}|${r.language}`;
         if (!m1.has(k1)) m1.set(k1, []);
         m1.get(k1)!.push(r);
         if (!m2.has(r.category)) m2.set(r.category, []);
         m2.get(r.category)!.push(r);
+        if (!m3.has(r.language)) m3.set(r.language, []);
+        m3.get(r.language)!.push(r);
       }
       pool.byCategoryLang = m1;
       pool.byCategory = m2;
+      pool.byLang = m3;
+      pool.all = rows;
       pool.lastFetch = now;
     } finally {
       pool.loading = null;
@@ -87,46 +86,51 @@ async function refreshPool(): Promise<void> {
   return pool.loading;
 }
 
+function pickRandom<T>(arr: T[]): T | null {
+  if (!arr || arr.length === 0) return null;
+  return arr[Math.floor(Math.random() * arr.length)];
+}
+
 /**
- * Pick a random Wikipedia URL matching the link's safe category, preferring
- * the user's country language. Returns null if no match (caller should fall
- * back to the link's own safe_url or SAFE_FALLBACK).
+ * Smart Wikipedia URL picker with full fallback chain:
+ *   1. exact category + user language
+ *   2. category + English
+ *   3. any language of same category
+ *   4. user language, any category   (no-category links)
+ *   5. English, any category
+ *   6. ANY active wiki URL           (last resort)
+ * Returns null ONLY when the pool is empty.
  */
 export async function pickWikipediaSafeUrl(
   category: string | null | undefined,
   country: string | null | undefined,
 ): Promise<string | null> {
-  if (!category) return null;
   await refreshPool();
-
-  const cat = String(category).toLowerCase().trim();
-  if (!cat) return null;
-
   const lang = country ? COUNTRY_TO_WIKI_LANG[country.toUpperCase()] || "en" : "en";
+  const cat = category ? String(category).toLowerCase().trim() : "";
 
-  // 1. Try exact category + language match
-  const exact = pool.byCategoryLang.get(`${cat}|${lang}`);
-  if (exact && exact.length > 0) {
-    return exact[Math.floor(Math.random() * exact.length)].url;
-  }
-  // 2. Fall back to English of same category
-  if (lang !== "en") {
-    const en = pool.byCategoryLang.get(`${cat}|en`);
-    if (en && en.length > 0) {
-      return en[Math.floor(Math.random() * en.length)].url;
+  if (cat) {
+    const exact = pickRandom(pool.byCategoryLang.get(`${cat}|${lang}`) || []);
+    if (exact) return exact.url;
+    if (lang !== "en") {
+      const en = pickRandom(pool.byCategoryLang.get(`${cat}|en`) || []);
+      if (en) return en.url;
     }
+    const anyLang = pickRandom(pool.byCategory.get(cat) || []);
+    if (anyLang) return anyLang.url;
   }
-  // 3. Any language of same category
-  const any = pool.byCategory.get(cat);
-  if (any && any.length > 0) {
-    return any[Math.floor(Math.random() * any.length)].url;
+
+  // No category OR category had no matches → language pool → anything.
+  const langHit = pickRandom(pool.byLang.get(lang) || []);
+  if (langHit) return langHit.url;
+  if (lang !== "en") {
+    const enHit = pickRandom(pool.byLang.get("en") || []);
+    if (enHit) return enHit.url;
   }
-  return null;
+  const any = pickRandom(pool.all);
+  return any ? any.url : null;
 }
 
-/**
- * List distinct categories — used by the dashboard form dropdown.
- */
 export async function listWikipediaCategories(): Promise<string[]> {
   await refreshPool();
   return Array.from(pool.byCategory.keys()).sort();
