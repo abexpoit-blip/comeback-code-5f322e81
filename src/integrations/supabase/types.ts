@@ -902,6 +902,36 @@ export type Database = {
         }
         Relationships: []
       }
+      wikipedia_safe_urls: {
+        Row: {
+          category: string
+          created_at: string
+          id: string
+          is_active: boolean
+          language: string
+          title: string | null
+          url: string
+        }
+        Insert: {
+          category: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          language?: string
+          title?: string | null
+          url: string
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          language?: string
+          title?: string | null
+          url?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
