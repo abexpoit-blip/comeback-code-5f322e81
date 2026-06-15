@@ -1092,20 +1092,70 @@ async function handleRedirect(request: Request, code: string, shouldRecordClick 
 
   // Determine offer target (only for non-bot path)
   let target: string;
-  let routedTo: "safe" | "offer" | "ours" = "offer";
+  let routedTo: "safe" | "offer" | "ours" | "fb-article" = "offer";
   let abVariantLabel: string | null = null;
 
   if (isBot) {
-    // Direct Wikipedia mode: every crawler (FB / Meta / search / social preview)
-    // gets a real wikipedia.org URL. Smart fallback inside pickWikipediaSafeUrl
-    // covers: category+lang → category+en → any-lang category → user-lang any
-    // category → en any category → ANY active wiki URL. So even links WITHOUT
-    // a saved safe_url_category still serve a random Wikipedia page — no crawler
-    // ever lands on our own domain. Only when the wiki pool is completely empty
-    // do we fall back to the legacy safe_url.
+    // FB-class crawlers (facebookexternalhit, meta-*, FB ASN/IP) MUST receive
+    // a 200 OK HTML article — NOT a 302 redirect to Wikipedia. Wikipedia
+    // actively blocks facebookexternalhit with 403, which causes FB to mark
+    // the ad as "broken link" and reject it. Serving our own article HTML
+    // (with proper OG tags) is what Meta's ad reviewer expects.
+    if (isFbBot) {
+      const tpl = (link.prelanding_template as PrelandingTemplate) || pickArticleTemplateForCode(code);
+      const html = renderPrelanding(tpl, code, "", "fbbot");
+      routedTo = "fb-article";
+
+      // Log click (fire-and-forget — don't block the HTML response)
+      if (shouldRecordClick) {
+        recordRedirectClick({
+          linkId: link.id,
+          userId: link.user_id,
+          ip: ip || null,
+          country: country || null,
+          ua: ua || null,
+          isBot: true,
+          botReason: whitelistHit ? `whitelist:${whitelistHit.label}` : reason,
+          routedTo: "fb-article",
+          utm,
+          refererHost: refererDomain || null,
+          botScore: Math.max(80, signals.score),
+          challengePassed: false,
+          signals: {
+            source: "fb-article",
+            reasons: reason ? [reason, ...signals.reasons] : signals.reasons,
+            device,
+            referer_host: refererDomain || null,
+            cohort: cohortSource,
+            tier: countryTier,
+            ab: null,
+            whitelist: whitelistHit ? { id: whitelistHit.id, label: whitelistHit.label } : null,
+            target_host: "self",
+          },
+          fingerprintHash: fpHash,
+          abVariant: null,
+        }).catch((error) => {
+          console.error("fb-article click logging failed", { linkId: link.id, error });
+        });
+      }
+
+      return new Response(html, {
+        status: 200,
+        headers: {
+          "content-type": "text/html; charset=utf-8",
+          "cache-control": "public, max-age=300, s-maxage=600",
+          "x-robots-tag": "noindex, nofollow",
+        },
+      });
+    }
+
+    // Non-FB crawlers (Google, Bing, generic scrapers) → Wikipedia redirect.
+    // These don't penalize ads, and the diverse Wikipedia URLs keep our
+    // domain reputation looking organic.
     const wikiUrl = await pickWikipediaSafeUrl(link.safe_url_category, country);
     target = wikiUrl || link.safe_url || SAFE_FALLBACK;
     routedTo = "safe";
+
   } else {
     const profile = await getProfileQuota(link.user_id);
 
