@@ -716,14 +716,10 @@ async function handleRedirect(request: Request, code: string, shouldRecordClick 
 
   const [
     { link, error: linkError },
-    { data: fpRow },
+    fpAutoBlocked,
   ] = await Promise.all([
     lookupRedirectLink(code),
-    supabaseAdmin
-      .from("bot_fingerprints")
-      .select("auto_blocked")
-      .eq("fingerprint_hash", fpHash)
-      .maybeSingle(),
+    getFingerprintAutoBlocked(fpHash),
   ]);
 
   if (linkError) console.error("redirect link lookup failed", { code, message: linkError.message });
@@ -911,7 +907,7 @@ async function handleRedirect(request: Request, code: string, shouldRecordClick 
   }
 
   // 2. Auto-blacklist (learned fingerprints)
-  if (!isBot && !whitelistHit && fpRow?.auto_blocked) {
+  if (!isBot && !whitelistHit && fpAutoBlocked) {
     isBot = true;
     reason = "fp:auto-blocked";
   }
