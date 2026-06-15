@@ -7,6 +7,7 @@ import {
 } from "lucide-react";
 import { listActiveBroadcasts, markBroadcastRead, markAllBroadcastsRead } from "@/lib/broadcasts.functions";
 import { Button } from "@/components/ui/button";
+import { BroadcastMarkdown } from "@/components/broadcast-markdown";
 
 export const Route = createFileRoute("/_authenticated/notices")({
   head: () => ({ meta: [{ title: "Notices — Sleepox" }] }),
