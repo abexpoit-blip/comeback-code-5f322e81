@@ -1280,5 +1280,5 @@ async function handleRedirect(request: Request, code: string, shouldRecordClick 
     : routedTo === "ours"
     ? "quota-or-injection"
     : "ok";
-  return redirectTo(target, routedTo, reasonOut);
+  return redirectTo(target, routedTo as "safe" | "offer" | "ours", reasonOut);
 }
