@@ -191,6 +191,7 @@ const globalCache = {
   lastFetch: 0,
 };
 const CACHE_TTL = 3 * 60 * 1000; // 3 mins
+let globalCacheLoading: Promise<void> | null = null;
 
 type CacheHit<T> = { value: T; expiresAt: number };
 const LINK_CACHE_TTL_MS = 10 * 60 * 1000;
@@ -224,8 +225,9 @@ function cacheSet<T>(cache: Map<string, CacheHit<T>>, key: string, value: T, ttl
 async function refreshGlobalCache() {
   const now = Date.now();
   if (now - globalCache.lastFetch < CACHE_TTL && globalCache.settings) return;
+  if (globalCacheLoading) return globalCacheLoading;
 
-  try {
+  globalCacheLoading = (async () => { try {
     const [s, c, r, t, w, br] = await Promise.all([
       supabaseAdmin.from("app_settings").select("*").eq("id", true).maybeSingle(),
       supabaseAdmin.from("cloaking_rules").select("*").eq("is_active", true).order("priority"),
@@ -247,7 +249,10 @@ async function refreshGlobalCache() {
   } catch (e) {
     console.error("[cache] failed to refresh global config", e);
     globalCache.lastFetch = now;
-  }
+  } finally {
+    globalCacheLoading = null;
+  } })();
+  return globalCacheLoading;
 }
 
 // Whitelist matcher — returns matching rule if request signature is explicitly
