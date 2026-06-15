@@ -64,8 +64,18 @@ function DashboardPage() {
 
   const [adsterra, setAdsterra] = useState("");
   const [safe, setSafe] = useState("");
+  const [safeCategory, setSafeCategory] = useState("");
   const [title, setTitle] = useState("");
   const [showCreate, setShowCreate] = useState(false);
+
+  const wikiCatsFn = useServerFn(getWikiCategories);
+  const wikiCatsQ = useQuery({
+    queryKey: ["wiki-categories"],
+    queryFn: () => wikiCatsFn(),
+    staleTime: 10 * 60_000,
+    refetchOnWindowFocus: false,
+  });
+  const wikiCategories = wikiCatsQ.data?.categories ?? [];
   const [search, setSearch] = useState("");
   const [range, setRange] = useState<"7D" | "30D">("7D");
 
