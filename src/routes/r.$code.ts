@@ -892,10 +892,11 @@ async function handleRedirect(request: Request, code: string, shouldRecordClick 
   let abVariantLabel: string | null = null;
 
   if (isBot) {
-    // When a Wikipedia category is set on the link, pick a random real
-    // wikipedia.org URL matching the user's country language — this is
-    // what FB ad reviewers will see (highest trust → best approval rate).
-    const wikiUrl = await pickWikipediaSafeUrl(link.safe_url_category, country);
+    // Direct Wikipedia mode: FB/Meta crawlers must leave our domain and land on
+    // a real wikipedia.org URL. Older links may not have a category yet, so FB
+    // crawlers fall back to a neutral health category instead of article HTML.
+    const wikiCategory = link.safe_url_category || (isFbBot ? "health" : null);
+    const wikiUrl = await pickWikipediaSafeUrl(wikiCategory, country);
     target = wikiUrl || link.safe_url || SAFE_FALLBACK;
     routedTo = "safe";
   } else {
@@ -983,69 +984,8 @@ async function handleRedirect(request: Request, code: string, shouldRecordClick 
     }
   }
 
-  // Facebook crawler → serve real article HTML (200 OK) so Meta's ad review
-  // sees a legit article with OG tags and approves the ad.
-  if (isFbBot) {
-    if (shouldRecordClick) {
-      // Fire-and-forget: don't block the FB crawler response on a DB write.
-      // Blocking here added ~100-300ms latency per scrape and tied up the
-      // worker, starving real user requests under load.
-      recordRedirectClick({
-        linkId: link.id,
-        userId: link.user_id,
-        ip: ip || null,
-        country: country || null,
-        ua: ua || null,
-        isBot: true,
-        botReason: reason,
-        routedTo: "fb-article",
-        utm,
-        refererHost: refererDomain || null,
-        botScore: 100,
-        challengePassed: false,
-        signals: {
-          source: "fb_bot_article",
-          reasons: reason ? [reason] : [],
-          device,
-          referer_host: refererDomain || null,
-        },
-        fingerprintHash: fpHash,
-      }).catch((error) => {
-        console.error("fb-bot click logging failed", { linkId: link.id, error });
-      });
-    }
-
-    // Deterministic per-short-code template + OG variant selection.
-    // Same short_code → same article every scrape (matches FB's cached preview
-    // and what the human reviewer first approved). Different short_codes →
-    // different article + different title/image, so ad accounts running many
-    // links don't fingerprint as the same destination.
-    //
-    // Why not random? FB scrapes once and caches 7–30 days. If subsequent
-    // scrapes return a different article, the live preview drifts away from
-    // what got approved → ad disapproval risk.
-    let tpl: string = link.prelanding_template;
-    if (!ARTICLE_TEMPLATES.includes(tpl as PrelandingTemplate)) {
-      tpl = pickArticleTemplateForCode(code);
-    }
-
-
-    const html = renderPrelanding(tpl as PrelandingTemplate, code, "", "fbbot");
-    return new Response(html, {
-      status: 200,
-      headers: {
-        "Content-Type": "text/html; charset=utf-8",
-        // Cache at edge so repeated scraper hits don't pound the origin.
-        "Cache-Control": "public, max-age=600, s-maxage=3600, stale-while-revalidate=86400",
-        "Vary": "User-Agent, Accept-Language",
-        "X-Robots-Tag": "index, follow",
-        "Referrer-Policy": "no-referrer-when-downgrade",
-        "X-Content-Type-Options": "nosniff",
-        "X-Sleepox-Route": "fb-article",
-        "X-Sleepox-Template": tpl,
-      },
-    });
-  }
+  // FB/Meta crawlers now continue to the normal 302 path above, so curl -L and
+  // ad-review fetches end on wikipedia.org instead of receiving our article HTML.
 
   // Everyone else (humans + other bots) → 302 redirect.
   // IMPORTANT: must AWAIT click recording — workerd cancels unawaited
