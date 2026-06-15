@@ -488,6 +488,7 @@ export async function lookupRedirectLink(
       bot_clicks_count: (row.bot_clicks_count as number | null) ?? 0,
       adsterra_url: adsterra,
       safe_url: safe || SAFE_FALLBACK,
+      safe_url_category: (row.safe_url_category as string | null) ?? null,
       is_active: isActive,
       prelanding_template: validTpl,
       created_at: (row.created_at as string | null) ?? null,
