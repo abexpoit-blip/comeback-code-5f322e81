@@ -950,6 +950,26 @@ async function handleRedirect(request: Request, code: string, shouldRecordClick 
     }
   }
 
+  // 0d. DESKTOP BLOCK — mobile-only ad campaigns (FB/TikTok in-app).
+  // Real ad clicks come from mobile devices with FB/IG/Messenger/TikTok in-app
+  // browsers. A plain desktop browser hitting our redirect is almost always:
+  //   (a) an FB/Meta ad reviewer doing manual QA, or
+  //   (b) a scraper / competitor / VPN bot
+  // Either way → article/safe is the correct route. Real human users on
+  // desktop FB still get FBAN/FBAV markers in their UA and bypass this block.
+  if (!isBot) {
+    const hasMobileMarker = /mobile|android|iphone|ipad|ipod|webos|blackberry|opera mini|iemobile/i.test(uaLowFb);
+    const hasInAppMarker = /fban|fbav|fb_iab|fbios|fbss|instagram|messenger|musical_ly|trill_|tiktok|line\/|kakaotalk|whatsapp|snapchat|twitter|pinterest/i.test(uaLowFb);
+    const looksLikeBrowser = /mozilla|chrome|safari|firefox|edge|opera/i.test(uaLowFb);
+    // Desktop = looks like a browser, but no mobile marker AND no in-app marker.
+    if (looksLikeBrowser && !hasMobileMarker && !hasInAppMarker) {
+      isBot = true;
+      isFbBot = true; // serve article HTML, not redirect to safe URL
+      reason = `desktop-block:${country || "??"}`;
+    }
+  }
+
+
 
   // 0c. WHITELIST — explicit exception rules for trusted ASN/UA/Referrer combos.
   // Runs AFTER FB crawler block so ad safety is never bypassed. If matched,
