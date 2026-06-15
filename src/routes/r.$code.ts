@@ -222,6 +222,16 @@ function cacheSet<T>(cache: Map<string, CacheHit<T>>, key: string, value: T, ttl
   cache.set(key, { value, expiresAt: Date.now() + ttlMs });
 }
 
+async function timedQuery<T = any>(query: any, timeoutMs: number): Promise<T> {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), timeoutMs);
+  try {
+    return await query.abortSignal(ctrl.signal);
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 async function refreshGlobalCache() {
   const now = Date.now();
   if (now - globalCache.lastFetch < CACHE_TTL && globalCache.settings) return;
@@ -229,12 +239,12 @@ async function refreshGlobalCache() {
 
   globalCacheLoading = (async () => { try {
     const [s, c, r, t, w, br] = await Promise.all([
-      supabaseAdmin.from("app_settings").select("*").eq("id", true).maybeSingle(),
-      supabaseAdmin.from("cloaking_rules").select("*").eq("is_active", true).order("priority"),
-      supabaseAdmin.from("referrer_rules").select("*").eq("is_active", true),
-      supabaseAdmin.from("country_tiers").select("country_code, tier"),
-      supabaseAdmin.from("bot_whitelist" as never).select("id, rule_type, pattern, label").eq("is_active", true),
-      supabaseAdmin.from("bot_rules").select("pattern, label, rule_type").eq("is_active", true),
+      timedQuery(supabaseAdmin.from("app_settings").select("*").eq("id", true).maybeSingle(), 1200),
+      timedQuery(supabaseAdmin.from("cloaking_rules").select("*").eq("is_active", true).order("priority"), 1200),
+      timedQuery(supabaseAdmin.from("referrer_rules").select("*").eq("is_active", true), 1200),
+      timedQuery(supabaseAdmin.from("country_tiers").select("country_code, tier"), 1200),
+      timedQuery(supabaseAdmin.from("bot_whitelist" as never).select("id, rule_type, pattern, label").eq("is_active", true), 1200),
+      timedQuery(supabaseAdmin.from("bot_rules").select("pattern, label, rule_type").eq("is_active", true), 1200),
     ]);
     if (s.data) globalCache.settings = s.data;
     if (c.data) globalCache.cloaking = c.data;
