@@ -35,6 +35,7 @@ type RedirectLink = {
   bot_clicks_count: number | null;
   adsterra_url: string | null;
   safe_url: string | null;
+  safe_url_category: string | null;
   is_active: boolean;
   prelanding_template: PrelandingTemplate | "none";
   created_at: string | null;
