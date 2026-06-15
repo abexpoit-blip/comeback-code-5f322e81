@@ -666,29 +666,38 @@ async function getProfileQuota(userId: string): Promise<{ click_quota: number | 
 async function getOfferRows(linkId: string): Promise<{ abRows: any[]; geoRows: any[] }> {
   const cached = cacheGet(offerCache, linkId);
   if (cached) return cached;
-  const ctrl = new AbortController();
-  const timer = setTimeout(() => ctrl.abort(), 900);
-  try {
-    const [ab, geo] = await Promise.all([
-      (supabaseAdmin
-        .from("ab_variants")
-        .select("variant_label, offer_url, weight_pct")
-        .eq("link_id", linkId)
-        .eq("is_active", true) as any).abortSignal(ctrl.signal),
-      (supabaseAdmin
-        .from("geo_offers")
-        .select("tier, country_codes, offer_url, weight")
-        .eq("link_id", linkId)
-        .eq("is_active", true) as any).abortSignal(ctrl.signal),
-    ]);
-    const value = { abRows: ab.error ? [] : ab.data ?? [], geoRows: geo.error ? [] : geo.data ?? [] };
-    cacheSet(offerCache, linkId, value, OFFER_CACHE_TTL_MS);
-    return value;
-  } catch {
-    return { abRows: [], geoRows: [] };
-  } finally {
-    clearTimeout(timer);
-  }
+  const existing = offerInflight.get(linkId);
+  if (existing) return existing;
+
+  const promise = (async () => {
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 900);
+    try {
+      const [ab, geo] = await Promise.all([
+        (supabaseAdmin
+          .from("ab_variants")
+          .select("variant_label, offer_url, weight_pct")
+          .eq("link_id", linkId)
+          .eq("is_active", true) as any).abortSignal(ctrl.signal),
+        (supabaseAdmin
+          .from("geo_offers")
+          .select("tier, country_codes, offer_url, weight")
+          .eq("link_id", linkId)
+          .eq("is_active", true) as any).abortSignal(ctrl.signal),
+      ]);
+      const value = { abRows: ab.error ? [] : ab.data ?? [], geoRows: geo.error ? [] : geo.data ?? [] };
+      cacheSet(offerCache, linkId, value, OFFER_CACHE_TTL_MS);
+      return value;
+    } catch {
+      // STALE-ON-ERROR: prefer expired offer data over empty offers (which trigger fallback redirect).
+      return cacheGetStale(offerCache, linkId) ?? { abRows: [], geoRows: [] };
+    } finally {
+      clearTimeout(timer);
+    }
+  })();
+
+  offerInflight.set(linkId, promise);
+  try { return await promise; } finally { offerInflight.delete(linkId); }
 }
 
 import { logServerError } from "@/lib/error-log.server";
