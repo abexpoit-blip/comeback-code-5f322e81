@@ -66,9 +66,9 @@ async function requestOverIpv4(input: RequestInfo | URL, init: RequestInit = {})
               status,
               statusText: res.statusMessage ?? "",
               headers: new Headers(
-                Object.entries(res.headers).flatMap(([key, value]) => {
-                  if (Array.isArray(value)) return value.map((v) => [key, v] as const);
-                  return value == null ? [] : [[key, String(value)] as const];
+                Object.entries(res.headers).flatMap(([key, value]): [string, string][] => {
+                  if (Array.isArray(value)) return value.map((v): [string, string] => [key, v]);
+                  return value == null ? [] : [[key, String(value)]];
                 }),
               ),
             }),
