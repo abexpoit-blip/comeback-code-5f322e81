@@ -491,6 +491,10 @@ export async function lookupRedirectLink(
         .eq("short_code", code)
         .maybeSingle();
       res = await (query as any).abortSignal(ctrl.signal);
+    } catch (error) {
+      lastErr = error;
+      await new Promise((r) => setTimeout(r, 120 * attempt));
+      continue;
     } finally {
       clearTimeout(timer);
     }
