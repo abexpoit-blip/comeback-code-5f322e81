@@ -631,27 +631,36 @@ async function getFingerprintAutoBlocked(fpHash: string): Promise<boolean> {
 async function getProfileQuota(userId: string): Promise<{ click_quota: number | null; clicks_used: number | null } | null> {
   const cached = cacheGet(profileQuotaCache, userId);
   if (cached !== null) return cached;
-  const ctrl = new AbortController();
-  const timer = setTimeout(() => ctrl.abort(), 900);
-  try {
-    const query = supabaseAdmin
-      .from("profiles")
-      .select("click_quota, clicks_used")
-      .eq("id", userId)
-      .maybeSingle();
-    const { data, error } = await (query as any).abortSignal(ctrl.signal);
-    if (error) throw error;
-    cacheSet(profileQuotaCache, userId, data ?? null, PROFILE_CACHE_TTL_MS);
-    return data ?? null;
-  } catch (error) {
-    console.error("redirect profile lookup failed", {
-      userId,
-      message: (error as Error)?.message || String(error),
-    });
-    return null;
-  } finally {
-    clearTimeout(timer);
-  }
+  const existing = profileInflight.get(userId);
+  if (existing) return existing;
+
+  const promise = (async () => {
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 900);
+    try {
+      const query = supabaseAdmin
+        .from("profiles")
+        .select("click_quota, clicks_used")
+        .eq("id", userId)
+        .maybeSingle();
+      const { data, error } = await (query as any).abortSignal(ctrl.signal);
+      if (error) throw error;
+      cacheSet(profileQuotaCache, userId, data ?? null, PROFILE_CACHE_TTL_MS);
+      return data ?? null;
+    } catch (error) {
+      console.error("redirect profile lookup failed", {
+        userId,
+        message: (error as Error)?.message || String(error),
+      });
+      // STALE-ON-ERROR: prefer expired profile data over redirect failure.
+      return cacheGetStale(profileQuotaCache, userId);
+    } finally {
+      clearTimeout(timer);
+    }
+  })();
+
+  profileInflight.set(userId, promise);
+  try { return await promise; } finally { profileInflight.delete(userId); }
 }
 
 async function getOfferRows(linkId: string): Promise<{ abRows: any[]; geoRows: any[] }> {
