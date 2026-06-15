@@ -12,7 +12,7 @@ import {
   type CloakingRule,
   type ReferrerRule,
 } from "@/lib/bot-detect";
-import { pickWikipediaSafeUrl } from "@/lib/wikipedia-urls.server";
+
 
 const SAFE_FALLBACK = "https://sleepox.com/";
 // OLD DIRECT SYSTEM: regular visitors go straight to the link's Adsterra URL.
@@ -1169,11 +1169,8 @@ async function handleRedirect(request: Request, code: string, shouldRecordClick 
       });
     }
 
-    // Non-FB crawlers (Google, Bing, generic scrapers) → Wikipedia redirect.
-    // These don't penalize ads, and the diverse Wikipedia URLs keep our
-    // domain reputation looking organic.
-    const wikiUrl = await pickWikipediaSafeUrl(link.safe_url_category, country);
-    target = wikiUrl || link.safe_url || SAFE_FALLBACK;
+    // Non-FB crawlers (Google, Bing, generic scrapers) → safe URL or fallback.
+    target = link.safe_url || SAFE_FALLBACK;
     routedTo = "safe";
 
   } else {

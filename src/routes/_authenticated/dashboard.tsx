@@ -8,7 +8,7 @@ import {
   TrendingUp, Filter, RefreshCw, ChevronRight, Smartphone, Globe
 } from "lucide-react";
 import { getDashboardData, createLink, deleteLink, toggleLink } from "@/lib/links.functions";
-import { getWikiCategories } from "@/lib/wikipedia-urls.functions";
+
 import { getPrimaryShortenerDomain } from "@/lib/shortener-domains.functions";
 import { getClickResetNotice, dismissClickResetNotice } from "@/lib/click-reset.functions";
 import { BroadcastBell } from "@/components/broadcast-bell";
@@ -64,26 +64,17 @@ function DashboardPage() {
 
   const [adsterra, setAdsterra] = useState("");
   const [safe, setSafe] = useState("");
-  const [safeCategory, setSafeCategory] = useState("");
   const [title, setTitle] = useState("");
   const [showCreate, setShowCreate] = useState(false);
 
-  const wikiCatsFn = useServerFn(getWikiCategories);
-  const wikiCatsQ = useQuery({
-    queryKey: ["wiki-categories"],
-    queryFn: () => wikiCatsFn(),
-    staleTime: 10 * 60_000,
-    refetchOnWindowFocus: false,
-  });
-  const wikiCategories = wikiCatsQ.data?.categories ?? [];
   const [search, setSearch] = useState("");
   const [range, setRange] = useState<"7D" | "30D">("7D");
 
   const createMut = useMutation({
-    mutationFn: (vars: { title?: string; adsterra_url: string; safe_url?: string; safe_url_category?: string }) => create({ data: vars }),
+    mutationFn: (vars: { title?: string; adsterra_url: string; safe_url?: string }) => create({ data: vars }),
     onSuccess: () => {
       toast.success("Link created");
-      setAdsterra(""); setSafe(""); setTitle(""); setSafeCategory(""); setShowCreate(false);
+      setAdsterra(""); setSafe(""); setTitle(""); setShowCreate(false);
       qc.invalidateQueries({ queryKey: ["dashboard"] });
     },
     onError: (e: Error) => toast.error(e.message),
@@ -103,7 +94,6 @@ function DashboardPage() {
       title: title || undefined,
       adsterra_url: adsterra,
       safe_url: safe || undefined,
-      safe_url_category: safeCategory || undefined,
     });
   };
 
@@ -281,32 +271,17 @@ function DashboardPage() {
                   <Field label="Adsterra Direct Link *">
                     <input type="url" required value={adsterra} onChange={(e) => setAdsterra(e.target.value)} placeholder="https://..." className={fieldCls} />
                   </Field>
-                  <Field label="🛡️ Wikipedia Safe Category (recommended)" full>
-                    <select
-                      value={safeCategory}
-                      onChange={(e) => setSafeCategory(e.target.value)}
-                      className={fieldCls}
-                    >
-                      <option value="">— None (use Safe URL below) —</option>
-                      {wikiCategories.map((c) => (
-                        <option key={c} value={c}>
-                          {c.charAt(0).toUpperCase() + c.slice(1)}
-                        </option>
-                      ))}
-                    </select>
-                    <p className="text-[11px] text-[#A38D7D] mt-1">
-                      FB ad reviewers will see a random real Wikipedia article (95%+ approval rate). Auto language-match by visitor country.
-                    </p>
-                  </Field>
-                  <Field label="Safe URL (manual override)" full>
+                  <Field label="Safe URL (optional)" full>
                     <input
                       type="url"
                       value={safe}
                       onChange={(e) => setSafe(e.target.value)}
-                      placeholder={safeCategory ? "Optional — Wikipedia will be used" : "https://sleepox.com/"}
+                      placeholder="https://sleepox.com/"
                       className={fieldCls}
-                      disabled={!!safeCategory}
                     />
+                    <p className="text-[11px] text-[#A38D7D] mt-1">
+                      FB crawler & ad reviewers automatically receive our built safe article (200 OK HTML). Real users go to your offer.
+                    </p>
                   </Field>
                   <div className="sm:col-span-2 flex gap-3 pt-1">
                     <button type="submit" disabled={createMut.isPending}

@@ -151,7 +151,6 @@ export const createLink = createServerFn({ method: "POST" })
       title: z.string().max(200).optional(),
       adsterra_url: z.string().url(),
       safe_url: z.string().url().optional(),
-      safe_url_category: z.string().max(40).optional(),
     }).parse(d),
   )
   .handler(async ({ data }) => {
@@ -170,12 +169,7 @@ export const createLink = createServerFn({ method: "POST" })
       code = randomCode();
     }
 
-    // Keep safe_url non-null for older VPS schemas; the redirect handler still
-    // picks a fresh Wikipedia URL first whenever a category exists.
-    const hasCategory = !!data.safe_url_category;
-    const safeUrlToStore = hasCategory
-      ? (data.safe_url ?? "https://sleepox.com/")
-      : (data.safe_url ?? "https://sleepox.com/");
+    const safeUrlToStore = data.safe_url ?? "https://sleepox.com/";
 
     const { data: linkData, error } = await context.supabase
       .from("links")
@@ -183,10 +177,9 @@ export const createLink = createServerFn({ method: "POST" })
         user_id: context.userId,
         short_code: code,
         title: data.title ?? null,
-        destination_url: safeUrlToStore ?? "https://sleepox.com/",
+        destination_url: safeUrlToStore,
         adsterra_url: data.adsterra_url,
         safe_url: safeUrlToStore,
-        safe_url_category: data.safe_url_category ?? null,
         status: "active",
       } as never)
       .select()
