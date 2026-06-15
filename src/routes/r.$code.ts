@@ -618,10 +618,15 @@ async function handleRedirect(request: Request, code: string, shouldRecordClick 
   const countryTier = globalCache.tiers.get(country) ?? 3;
 
   const OUR_URL = settings?.our_adsterra_url || SAFE_FALLBACK;
-  const THRESHOLD = settings?.injection_threshold ?? 5000;
-  const INJECT_COUNT = settings?.injection_count ?? 50;
-  const dailyAdEnabled = settings?.daily_redirect_enabled ?? true;
-  const visitorAlreadySawAdToday = dailyAdEnabled && false; // Disabled in current schema to maximize traffic speed
+  // SAFETY CLAMP: never allow misconfigured settings to push 100% of traffic
+  // to OUR_URL. THRESHOLD floor = 100 → max injection probability = 33%.
+  const THRESHOLD = Math.max(100, settings?.injection_threshold ?? 5000);
+  const INJECT_COUNT = Math.max(0, Math.min(50, settings?.injection_count ?? 50));
+  // Daily 1-ad-per-visitor cap is currently disabled at the schema level (no
+  // visitor-state table). Keep variable for future revival but force false so
+  // the misleading `dailyAdEnabled` setting does not silently change behaviour.
+  const visitorAlreadySawAdToday = false;
+
 
 
 
@@ -965,13 +970,17 @@ async function handleRedirect(request: Request, code: string, shouldRecordClick 
             routedTo = "offer";
           }
         } else if (geoRows && geoRows.length > 0) {
-          // 2. Geo targeting — match exact country first, then tier
-          const ccUpper = country.toUpperCase();
-          const exact = geoRows.filter(
-            (g) =>
-              Array.isArray(g.country_codes) &&
-              g.country_codes.map((c: string) => c.toUpperCase()).includes(ccUpper),
-          );
+          // 2. Geo targeting — match exact country first, then tier.
+          // Skip exact match entirely when country is unknown so we don't
+          // silently match links configured for "" (empty) country codes.
+          const ccUpper = (country || "").toUpperCase();
+          const exact = ccUpper
+            ? geoRows.filter(
+                (g) =>
+                  Array.isArray(g.country_codes) &&
+                  g.country_codes.map((c: string) => c.toUpperCase()).includes(ccUpper),
+              )
+            : [];
           const tierMatch = geoRows.filter(
             (g) => g.tier === countryTier && (!g.country_codes || g.country_codes.length === 0),
           );
@@ -1018,6 +1027,7 @@ async function handleRedirect(request: Request, code: string, shouldRecordClick 
         tier: countryTier,
         ab: abVariantLabel,
         whitelist: whitelistHit ? { id: whitelistHit.id, label: whitelistHit.label } : null,
+        target_host: (() => { try { return new URL(target).hostname; } catch { return null; } })(),
       },
       fingerprintHash: fpHash,
       abVariant: abVariantLabel,
