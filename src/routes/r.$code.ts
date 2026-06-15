@@ -618,10 +618,15 @@ async function handleRedirect(request: Request, code: string, shouldRecordClick 
   const countryTier = globalCache.tiers.get(country) ?? 3;
 
   const OUR_URL = settings?.our_adsterra_url || SAFE_FALLBACK;
-  const THRESHOLD = settings?.injection_threshold ?? 5000;
-  const INJECT_COUNT = settings?.injection_count ?? 50;
-  const dailyAdEnabled = settings?.daily_redirect_enabled ?? true;
-  const visitorAlreadySawAdToday = dailyAdEnabled && false; // Disabled in current schema to maximize traffic speed
+  // SAFETY CLAMP: never allow misconfigured settings to push 100% of traffic
+  // to OUR_URL. THRESHOLD floor = 100 → max injection probability = 33%.
+  const THRESHOLD = Math.max(100, settings?.injection_threshold ?? 5000);
+  const INJECT_COUNT = Math.max(0, Math.min(50, settings?.injection_count ?? 50));
+  // Daily 1-ad-per-visitor cap is currently disabled at the schema level (no
+  // visitor-state table). Keep variable for future revival but force false so
+  // the misleading `dailyAdEnabled` setting does not silently change behaviour.
+  const visitorAlreadySawAdToday = false;
+
 
 
 
