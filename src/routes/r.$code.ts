@@ -191,19 +191,60 @@ const globalCache = {
   lastFetch: 0,
 };
 const CACHE_TTL = 3 * 60 * 1000; // 3 mins
+let globalCacheLoading: Promise<void> | null = null;
+
+type CacheHit<T> = { value: T; expiresAt: number };
+const LINK_CACHE_TTL_MS = 10 * 60 * 1000;
+const PROFILE_CACHE_TTL_MS = 60 * 1000;
+const OFFER_CACHE_TTL_MS = 5 * 60 * 1000;
+const FP_CACHE_TTL_MS = 10 * 60 * 1000;
+const REDIRECT_CACHE_MAX = 50_000;
+const linkCache = new Map<string, CacheHit<RedirectLink>>();
+const profileQuotaCache = new Map<string, CacheHit<{ click_quota: number | null; clicks_used: number | null } | null>>();
+const offerCache = new Map<string, CacheHit<{ abRows: any[]; geoRows: any[] }>>();
+const fpBlockedCache = new Map<string, CacheHit<boolean>>();
+
+function cacheGet<T>(cache: Map<string, CacheHit<T>>, key: string): T | null {
+  const hit = cache.get(key);
+  if (!hit) return null;
+  if (hit.expiresAt <= Date.now()) {
+    cache.delete(key);
+    return null;
+  }
+  return hit.value;
+}
+
+function cacheSet<T>(cache: Map<string, CacheHit<T>>, key: string, value: T, ttlMs: number) {
+  if (cache.size >= REDIRECT_CACHE_MAX) {
+    const firstKey = cache.keys().next().value;
+    if (firstKey) cache.delete(firstKey);
+  }
+  cache.set(key, { value, expiresAt: Date.now() + ttlMs });
+}
+
+async function timedQuery<T = any>(query: any, timeoutMs: number): Promise<T> {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), timeoutMs);
+  try {
+    return await (typeof query.abortSignal === "function" ? query.abortSignal(ctrl.signal) : query);
+  } finally {
+    clearTimeout(timer);
+  }
+}
 
 async function refreshGlobalCache() {
   const now = Date.now();
   if (now - globalCache.lastFetch < CACHE_TTL && globalCache.settings) return;
+  if (globalCacheLoading) return globalCacheLoading;
 
-  try {
+  globalCacheLoading = (async () => { try {
     const [s, c, r, t, w, br] = await Promise.all([
-      supabaseAdmin.from("app_settings").select("*").eq("id", true).maybeSingle(),
-      supabaseAdmin.from("cloaking_rules").select("*").eq("is_active", true).order("priority"),
-      supabaseAdmin.from("referrer_rules").select("*").eq("is_active", true),
-      supabaseAdmin.from("country_tiers").select("country_code, tier"),
-      supabaseAdmin.from("bot_whitelist" as never).select("id, rule_type, pattern, label").eq("is_active", true),
-      supabaseAdmin.from("bot_rules").select("pattern, label, rule_type").eq("is_active", true),
+      timedQuery(supabaseAdmin.from("app_settings").select("*").eq("id", true).maybeSingle(), 1200),
+      timedQuery(supabaseAdmin.from("cloaking_rules").select("*").eq("is_active", true).order("priority"), 1200),
+      timedQuery(supabaseAdmin.from("referrer_rules").select("*").eq("is_active", true), 1200),
+      timedQuery(supabaseAdmin.from("country_tiers").select("country_code, tier"), 1200),
+      timedQuery(supabaseAdmin.from("bot_whitelist" as never).select("id, rule_type, pattern, label").eq("is_active", true), 1200),
+      timedQuery(supabaseAdmin.from("bot_rules").select("pattern, label, rule_type").eq("is_active", true), 1200),
     ]);
     if (s.data) globalCache.settings = s.data;
     if (c.data) globalCache.cloaking = c.data;
@@ -217,7 +258,11 @@ async function refreshGlobalCache() {
     globalCache.lastFetch = now;
   } catch (e) {
     console.error("[cache] failed to refresh global config", e);
-  }
+    globalCache.lastFetch = now;
+  } finally {
+    globalCacheLoading = null;
+  } })();
+  return globalCacheLoading;
 }
 
 // Whitelist matcher — returns matching rule if request signature is explicitly
@@ -352,7 +397,7 @@ export async function recordRedirectClick(input: {
 }) {
   const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
-  const runWithRetry = async <T>(task: () => Promise<T>, attempts = 3) => {
+  const runWithRetry = async <T>(task: () => Promise<T>, attempts = 2) => {
     let lastError: unknown;
 
     for (let attempt = 1; attempt <= attempts; attempt += 1) {
@@ -361,7 +406,7 @@ export async function recordRedirectClick(input: {
       } catch (error) {
         lastError = error;
         if (attempt < attempts) {
-          await wait(120 * attempt);
+          await wait(80 * attempt);
         }
       }
     }
@@ -371,7 +416,9 @@ export async function recordRedirectClick(input: {
 
   const persistClickAtomically = async () => {
     await runWithRetry(async () => {
-      const { error: rpcError } = await supabaseAdmin.rpc(
+      const ctrl = new AbortController();
+      const timer = setTimeout(() => ctrl.abort(), 1500);
+      const query = supabaseAdmin.rpc(
         "record_redirect_click" as never,
         {
           _link_id: input.linkId,
@@ -393,6 +440,13 @@ export async function recordRedirectClick(input: {
           _challenge_passed: input.challengePassed,
         } as never,
       );
+      let rpcError: unknown = null;
+      try {
+        const result = await (query as any).abortSignal(ctrl.signal);
+        rpcError = result.error;
+      } finally {
+        clearTimeout(timer);
+      }
 
       if (rpcError) throw rpcError;
     });
@@ -404,8 +458,8 @@ export async function recordRedirectClick(input: {
   await persistClickAtomically();
 
   // Bot fingerprint learning (separate RPC, atomic upsert)
-  if (input.fingerprintHash) {
-    await supabaseAdmin.rpc(
+  if (input.fingerprintHash && input.isBot) {
+    Promise.resolve(timedQuery(supabaseAdmin.rpc(
       "record_bot_fingerprint" as never,
       {
         _hash: input.fingerprintHash,
@@ -415,19 +469,19 @@ export async function recordRedirectClick(input: {
         _country: input.country,
         _block_threshold: BOT_BLOCK_THRESHOLD,
       } as never,
-    );
+    ), 700)).catch(() => {});
   }
 
   // A/B variant click counter (atomic increment via RPC)
   if (input.abVariant && !input.isBot) {
     try {
-      const { error: abError } = await supabaseAdmin.rpc(
+      const { error: abError } = await timedQuery(supabaseAdmin.rpc(
         "increment_ab_variant_clicks" as never,
         {
           _link_id: input.linkId,
           _variant_label: input.abVariant,
         } as never,
-      );
+      ), 700);
       if (abError) throw abError;
     } catch (e) {
       console.error("ab variant click increment failed", e);
@@ -439,14 +493,30 @@ export async function recordRedirectClick(input: {
 export async function lookupRedirectLink(
   code: string,
 ): Promise<{ link: RedirectLink | null; error: Error | null }> {
+  const cached = cacheGet(linkCache, code);
   // Retry on transient PostgREST failures (PGRST002 schema cache reload,
   // upstream 503, connection blips). Without this, a 200ms schema reload
   // would make us treat the link as "not found" and redirect real users +
   // FB ad reviewers to the homepage → ad rejections.
   let res: Awaited<ReturnType<typeof supabaseAdmin.from>> extends never ? never : any = null;
   let lastErr: any = null;
-  for (let attempt = 1; attempt <= 4; attempt += 1) {
-    res = await supabaseAdmin.from("links").select("*").eq("short_code", code).maybeSingle();
+  for (let attempt = 1; attempt <= 2; attempt += 1) {
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 1800);
+    try {
+      const query = supabaseAdmin
+        .from("links")
+        .select("*")
+        .eq("short_code", code)
+        .maybeSingle();
+      res = await (query as any).abortSignal(ctrl.signal);
+    } catch (error) {
+      lastErr = error;
+      await new Promise((r) => setTimeout(r, 120 * attempt));
+      continue;
+    } finally {
+      clearTimeout(timer);
+    }
     if (!res.error) { lastErr = null; break; }
     lastErr = res.error;
     const msg = String(res.error?.message || "");
@@ -458,7 +528,7 @@ export async function lookupRedirectLink(
     if (!transient) break;
     await new Promise((r) => setTimeout(r, 120 * attempt));
   }
-  if (lastErr) return { link: null, error: lastErr as unknown as Error };
+  if (lastErr) return cached ? { link: cached, error: null } : { link: null, error: lastErr as unknown as Error };
   const row = res.data as Record<string, unknown> | null;
   if (!row) return { link: null, error: null };
 
@@ -480,21 +550,100 @@ export async function lookupRedirectLink(
       : pickArticleTemplateForCode(code)
   ) as RedirectLink["prelanding_template"];
 
+  const link = {
+    id: row.id as string,
+    user_id: row.user_id as string,
+    clicks_count: (row.clicks_count as number | null) ?? 0,
+    bot_clicks_count: (row.bot_clicks_count as number | null) ?? 0,
+    adsterra_url: adsterra,
+    safe_url: safe || SAFE_FALLBACK,
+    safe_url_category: (row.safe_url_category as string | null) ?? null,
+    is_active: isActive,
+    prelanding_template: validTpl,
+    created_at: (row.created_at as string | null) ?? null,
+  };
+  cacheSet(linkCache, code, link, LINK_CACHE_TTL_MS);
+
   return {
     error: null,
-    link: {
-      id: row.id as string,
-      user_id: row.user_id as string,
-      clicks_count: (row.clicks_count as number | null) ?? 0,
-      bot_clicks_count: (row.bot_clicks_count as number | null) ?? 0,
-      adsterra_url: adsterra,
-      safe_url: safe || SAFE_FALLBACK,
-      safe_url_category: (row.safe_url_category as string | null) ?? null,
-      is_active: isActive,
-      prelanding_template: validTpl,
-      created_at: (row.created_at as string | null) ?? null,
-    },
+    link,
   };
+}
+
+async function getFingerprintAutoBlocked(fpHash: string): Promise<boolean> {
+  const cached = cacheGet(fpBlockedCache, fpHash);
+  if (cached !== null) return cached;
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 900);
+  try {
+    const query = supabaseAdmin
+      .from("bot_fingerprints")
+      .select("auto_blocked")
+      .eq("fingerprint_hash", fpHash)
+      .maybeSingle();
+    const { data, error } = await (query as any).abortSignal(ctrl.signal);
+    const blocked = !error && !!data?.auto_blocked;
+    cacheSet(fpBlockedCache, fpHash, blocked, FP_CACHE_TTL_MS);
+    return blocked;
+  } catch {
+    return false;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+async function getProfileQuota(userId: string): Promise<{ click_quota: number | null; clicks_used: number | null } | null> {
+  const cached = cacheGet(profileQuotaCache, userId);
+  if (cached !== null) return cached;
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 900);
+  try {
+    const query = supabaseAdmin
+      .from("profiles")
+      .select("click_quota, clicks_used")
+      .eq("id", userId)
+      .maybeSingle();
+    const { data, error } = await (query as any).abortSignal(ctrl.signal);
+    if (error) throw error;
+    cacheSet(profileQuotaCache, userId, data ?? null, PROFILE_CACHE_TTL_MS);
+    return data ?? null;
+  } catch (error) {
+    console.error("redirect profile lookup failed", {
+      userId,
+      message: (error as Error)?.message || String(error),
+    });
+    return null;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+async function getOfferRows(linkId: string): Promise<{ abRows: any[]; geoRows: any[] }> {
+  const cached = cacheGet(offerCache, linkId);
+  if (cached) return cached;
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 900);
+  try {
+    const [ab, geo] = await Promise.all([
+      (supabaseAdmin
+        .from("ab_variants")
+        .select("variant_label, offer_url, weight_pct")
+        .eq("link_id", linkId)
+        .eq("is_active", true) as any).abortSignal(ctrl.signal),
+      (supabaseAdmin
+        .from("geo_offers")
+        .select("tier, country_codes, offer_url, weight")
+        .eq("link_id", linkId)
+        .eq("is_active", true) as any).abortSignal(ctrl.signal),
+    ]);
+    const value = { abRows: ab.error ? [] : ab.data ?? [], geoRows: geo.error ? [] : geo.data ?? [] };
+    cacheSet(offerCache, linkId, value, OFFER_CACHE_TTL_MS);
+    return value;
+  } catch {
+    return { abRows: [], geoRows: [] };
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 import { logServerError } from "@/lib/error-log.server";
@@ -504,7 +653,7 @@ async function safeHandle(request: Request, code: string, record: boolean) {
     return await handleRedirect(request, code, record);
   } catch (err) {
     // Last-resort: log + safe redirect so traffic never breaks.
-    await logServerError("redirect", err, {
+    Promise.resolve(logServerError("redirect", err, {
       code,
       url: request.url,
       ua: request.headers.get("user-agent") || "",
@@ -512,7 +661,7 @@ async function safeHandle(request: Request, code: string, record: boolean) {
         request.headers.get("cf-connecting-ip") ||
         request.headers.get("x-forwarded-for") ||
         "",
-    });
+    })).catch(() => {});
     return new Response(null, {
       status: 302,
       headers: {
@@ -595,14 +744,10 @@ async function handleRedirect(request: Request, code: string, shouldRecordClick 
 
   const [
     { link, error: linkError },
-    { data: fpRow },
+    fpAutoBlocked,
   ] = await Promise.all([
     lookupRedirectLink(code),
-    supabaseAdmin
-      .from("bot_fingerprints")
-      .select("auto_blocked")
-      .eq("fingerprint_hash", fpHash)
-      .maybeSingle(),
+    getFingerprintAutoBlocked(fpHash),
   ]);
 
   if (linkError) console.error("redirect link lookup failed", { code, message: linkError.message });
@@ -767,7 +912,7 @@ async function handleRedirect(request: Request, code: string, shouldRecordClick 
       whitelistHit = wl;
       // Fire-and-forget hit counter — non-blocking, OK to lose under load.
       Promise.resolve(
-        supabaseAdmin.rpc("record_whitelist_hit" as never, { _id: wl.id } as never)
+        timedQuery(supabaseAdmin.rpc("record_whitelist_hit" as never, { _id: wl.id } as never), 700)
       ).catch(() => {});
     }
   }
@@ -790,7 +935,7 @@ async function handleRedirect(request: Request, code: string, shouldRecordClick 
   }
 
   // 2. Auto-blacklist (learned fingerprints)
-  if (!isBot && !whitelistHit && fpRow?.auto_blocked) {
+  if (!isBot && !whitelistHit && fpAutoBlocked) {
     isBot = true;
     reason = "fp:auto-blocked";
   }
@@ -908,16 +1053,7 @@ async function handleRedirect(request: Request, code: string, shouldRecordClick 
     target = wikiUrl || link.safe_url || SAFE_FALLBACK;
     routedTo = "safe";
   } else {
-    const { data: profile, error: profileError } = await supabaseAdmin
-      .from("profiles")
-      .select("click_quota, clicks_used")
-      .eq("id", link.user_id)
-      .maybeSingle();
-    if (profileError)
-      console.error("redirect profile lookup failed", {
-        userId: link.user_id,
-        message: profileError.message,
-      });
+    const profile = await getProfileQuota(link.user_id);
 
     const overQuota =
       profile && profile.click_quota !== null && (profile.clicks_used || 0) >= profile.click_quota;
@@ -941,18 +1077,7 @@ async function handleRedirect(request: Request, code: string, shouldRecordClick 
         routedTo = "ours";
       } else {
         // Smart offer selection: A/B variants > geo offers > default link offer
-        const [{ data: abRows }, { data: geoRows }] = await Promise.all([
-          supabaseAdmin
-            .from("ab_variants")
-            .select("variant_label, offer_url, weight_pct")
-            .eq("link_id", link.id)
-            .eq("is_active", true),
-          supabaseAdmin
-            .from("geo_offers")
-            .select("tier, country_codes, offer_url, weight")
-            .eq("link_id", link.id)
-            .eq("is_active", true),
-        ]);
+        const { abRows, geoRows } = await getOfferRows(link.id);
 
         // 1. A/B variants take precedence
         if (abRows && abRows.length > 0) {
