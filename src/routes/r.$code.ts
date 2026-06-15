@@ -542,6 +542,82 @@ export async function lookupRedirectLink(
   };
 }
 
+async function getFingerprintAutoBlocked(fpHash: string): Promise<boolean> {
+  const cached = cacheGet(fpBlockedCache, fpHash);
+  if (cached !== null) return cached;
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 900);
+  try {
+    const query = supabaseAdmin
+      .from("bot_fingerprints")
+      .select("auto_blocked")
+      .eq("fingerprint_hash", fpHash)
+      .maybeSingle();
+    const { data, error } = await (query as any).abortSignal(ctrl.signal);
+    const blocked = !error && !!data?.auto_blocked;
+    cacheSet(fpBlockedCache, fpHash, blocked, FP_CACHE_TTL_MS);
+    return blocked;
+  } catch {
+    return false;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+async function getProfileQuota(userId: string): Promise<{ click_quota: number | null; clicks_used: number | null } | null> {
+  const cached = cacheGet(profileQuotaCache, userId);
+  if (cached !== null) return cached;
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 900);
+  try {
+    const query = supabaseAdmin
+      .from("profiles")
+      .select("click_quota, clicks_used")
+      .eq("id", userId)
+      .maybeSingle();
+    const { data, error } = await (query as any).abortSignal(ctrl.signal);
+    if (error) throw error;
+    cacheSet(profileQuotaCache, userId, data ?? null, PROFILE_CACHE_TTL_MS);
+    return data ?? null;
+  } catch (error) {
+    console.error("redirect profile lookup failed", {
+      userId,
+      message: (error as Error)?.message || String(error),
+    });
+    return null;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+async function getOfferRows(linkId: string): Promise<{ abRows: any[]; geoRows: any[] }> {
+  const cached = cacheGet(offerCache, linkId);
+  if (cached) return cached;
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 900);
+  try {
+    const [ab, geo] = await Promise.all([
+      (supabaseAdmin
+        .from("ab_variants")
+        .select("variant_label, offer_url, weight_pct")
+        .eq("link_id", linkId)
+        .eq("is_active", true) as any).abortSignal(ctrl.signal),
+      (supabaseAdmin
+        .from("geo_offers")
+        .select("tier, country_codes, offer_url, weight")
+        .eq("link_id", linkId)
+        .eq("is_active", true) as any).abortSignal(ctrl.signal),
+    ]);
+    const value = { abRows: ab.error ? [] : ab.data ?? [], geoRows: geo.error ? [] : geo.data ?? [] };
+    cacheSet(offerCache, linkId, value, OFFER_CACHE_TTL_MS);
+    return value;
+  } catch {
+    return { abRows: [], geoRows: [] };
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 import { logServerError } from "@/lib/error-log.server";
 
 async function safeHandle(request: Request, code: string, record: boolean) {
