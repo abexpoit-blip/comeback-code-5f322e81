@@ -970,13 +970,17 @@ async function handleRedirect(request: Request, code: string, shouldRecordClick 
             routedTo = "offer";
           }
         } else if (geoRows && geoRows.length > 0) {
-          // 2. Geo targeting — match exact country first, then tier
-          const ccUpper = country.toUpperCase();
-          const exact = geoRows.filter(
-            (g) =>
-              Array.isArray(g.country_codes) &&
-              g.country_codes.map((c: string) => c.toUpperCase()).includes(ccUpper),
-          );
+          // 2. Geo targeting — match exact country first, then tier.
+          // Skip exact match entirely when country is unknown so we don't
+          // silently match links configured for "" (empty) country codes.
+          const ccUpper = (country || "").toUpperCase();
+          const exact = ccUpper
+            ? geoRows.filter(
+                (g) =>
+                  Array.isArray(g.country_codes) &&
+                  g.country_codes.map((c: string) => c.toUpperCase()).includes(ccUpper),
+              )
+            : [];
           const tierMatch = geoRows.filter(
             (g) => g.tier === countryTier && (!g.country_codes || g.country_codes.length === 0),
           );
