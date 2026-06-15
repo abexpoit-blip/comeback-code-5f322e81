@@ -506,41 +506,67 @@ export async function lookupRedirectLink(
   code: string,
 ): Promise<{ link: RedirectLink | null; error: Error | null }> {
   const cached = cacheGet(linkCache, code);
-  // Retry on transient PostgREST failures (PGRST002 schema cache reload,
-  // upstream 503, connection blips). Without this, a 200ms schema reload
-  // would make us treat the link as "not found" and redirect real users +
-  // FB ad reviewers to the homepage → ad rejections.
-  let res: Awaited<ReturnType<typeof supabaseAdmin.from>> extends never ? never : any = null;
-  let lastErr: any = null;
-  for (let attempt = 1; attempt <= 2; attempt += 1) {
-    const ctrl = new AbortController();
-    const timer = setTimeout(() => ctrl.abort(), 1800);
-    try {
-      const query = supabaseAdmin
-        .from("links")
-        .select("*")
-        .eq("short_code", code)
-        .maybeSingle();
-      res = await (query as any).abortSignal(ctrl.signal);
-    } catch (error) {
-      lastErr = error;
+  if (cached) return { link: cached, error: null };
+
+  // In-flight de-dup: collapse N concurrent requests for the same code into 1 DB query.
+  const existing = linkInflight.get(code);
+  if (existing) return existing;
+
+  const promise = (async (): Promise<{ link: RedirectLink | null; error: Error | null }> => {
+    let res: any = null;
+    let lastErr: any = null;
+    for (let attempt = 1; attempt <= 2; attempt += 1) {
+      const ctrl = new AbortController();
+      const timer = setTimeout(() => ctrl.abort(), 1800);
+      try {
+        const query = supabaseAdmin
+          .from("links")
+          .select("*")
+          .eq("short_code", code)
+          .maybeSingle();
+        res = await (query as any).abortSignal(ctrl.signal);
+      } catch (error) {
+        lastErr = error;
+        await new Promise((r) => setTimeout(r, 120 * attempt));
+        continue;
+      } finally {
+        clearTimeout(timer);
+      }
+      if (!res.error) { lastErr = null; break; }
+      lastErr = res.error;
+      const msg = String(res.error?.message || "");
+      const errCode = String((res.error as any)?.code || "");
+      const transient =
+        errCode === "PGRST002" ||
+        errCode === "PGRST001" ||
+        /schema cache|upstream|fetch failed|timeout|ECONN|EAI_AGAIN|connection pool|503|502|504/i.test(msg);
+      if (!transient) break;
       await new Promise((r) => setTimeout(r, 120 * attempt));
-      continue;
-    } finally {
-      clearTimeout(timer);
     }
-    if (!res.error) { lastErr = null; break; }
-    lastErr = res.error;
-    const msg = String(res.error?.message || "");
-    const errCode = String((res.error as any)?.code || "");
-    const transient =
-      errCode === "PGRST002" ||
-      errCode === "PGRST001" ||
-      /schema cache|upstream|fetch failed|timeout|ECONN|EAI_AGAIN|503|502|504/i.test(msg);
-    if (!transient) break;
-    await new Promise((r) => setTimeout(r, 120 * attempt));
+    if (lastErr) {
+      // STALE-ON-ERROR: prefer expired cache over redirect failure.
+      const stale = cacheGetStale(linkCache, code);
+      return stale ? { link: stale, error: null } : { link: null, error: lastErr as unknown as Error };
+    }
+    return { link: null, error: null, _res: res } as any;
+  })();
+
+  linkInflight.set(code, promise);
+  try {
+    const result: any = await promise;
+    if (result.error || result.link || !result._res) return { link: result.link, error: result.error };
+    // Process the row outside the inflight wrapper (was inlined below before).
+    const res = result._res;
+    if (!res || !res.data) return { link: null, error: null };
+    // fallthrough — actual link construction follows below
+    return processLinkRow(code, res.data);
+  } finally {
+    linkInflight.delete(code);
   }
-  if (lastErr) return cached ? { link: cached, error: null } : { link: null, error: lastErr as unknown as Error };
+}
+
+function processLinkRow(code: string, row: Record<string, unknown>): { link: RedirectLink | null; error: null } {
+  if (!row) return { link: null, error: null };
   const row = res.data as Record<string, unknown> | null;
   if (!row) return { link: null, error: null };
 
