@@ -8,6 +8,7 @@ import {
   TrendingUp, Filter, RefreshCw, ChevronRight, Smartphone, Globe
 } from "lucide-react";
 import { getDashboardData, createLink, deleteLink, toggleLink } from "@/lib/links.functions";
+import { getWikiCategories } from "@/lib/wikipedia-urls.functions";
 import { getPrimaryShortenerDomain } from "@/lib/shortener-domains.functions";
 import { getClickResetNotice, dismissClickResetNotice } from "@/lib/click-reset.functions";
 import { BroadcastBell } from "@/components/broadcast-bell";
