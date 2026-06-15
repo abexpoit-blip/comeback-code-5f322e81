@@ -188,7 +188,7 @@ export const createLink = createServerFn({ method: "POST" })
         safe_url: safeUrlToStore,
         safe_url_category: data.safe_url_category ?? null,
         status: "active",
-      })
+      } as never)
       .select()
       .single();
 
