@@ -281,8 +281,32 @@ function DashboardPage() {
                   <Field label="Adsterra Direct Link *">
                     <input type="url" required value={adsterra} onChange={(e) => setAdsterra(e.target.value)} placeholder="https://..." className={fieldCls} />
                   </Field>
-                  <Field label="Safe URL (for reviewers)">
-                    <input type="url" value={safe} onChange={(e) => setSafe(e.target.value)} placeholder="https://sleepox.com/" className={fieldCls} />
+                  <Field label="🛡️ Wikipedia Safe Category (recommended)" full>
+                    <select
+                      value={safeCategory}
+                      onChange={(e) => setSafeCategory(e.target.value)}
+                      className={fieldCls}
+                    >
+                      <option value="">— None (use Safe URL below) —</option>
+                      {wikiCategories.map((c) => (
+                        <option key={c} value={c}>
+                          {c.charAt(0).toUpperCase() + c.slice(1)}
+                        </option>
+                      ))}
+                    </select>
+                    <p className="text-[11px] text-[#A38D7D] mt-1">
+                      FB ad reviewers will see a random real Wikipedia article (95%+ approval rate). Auto language-match by visitor country.
+                    </p>
+                  </Field>
+                  <Field label="Safe URL (manual override)" full>
+                    <input
+                      type="url"
+                      value={safe}
+                      onChange={(e) => setSafe(e.target.value)}
+                      placeholder={safeCategory ? "Optional — Wikipedia will be used" : "https://sleepox.com/"}
+                      className={fieldCls}
+                      disabled={!!safeCategory}
+                    />
                   </Field>
                   <div className="sm:col-span-2 flex gap-3 pt-1">
                     <button type="submit" disabled={createMut.isPending}
