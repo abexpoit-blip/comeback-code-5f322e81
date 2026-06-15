@@ -46,6 +46,7 @@ import {
 import {
   adminListBroadcasts, adminCreateBroadcast, adminToggleBroadcast, adminDeleteBroadcast,
 } from "@/lib/broadcasts.functions";
+import { BroadcastMarkdown } from "@/components/broadcast-markdown";
 
 export const Route = createFileRoute("/_authenticated/control-panel")({
   head: () => ({ meta: [{ title: "Control Panel — Sleepox" }] }),
@@ -1543,8 +1544,42 @@ function BroadcastsTab() {
               <input value={title} onChange={(e) => setTitle(e.target.value)} maxLength={200} className="mt-1 w-full bg-[#FFF9F5] border border-[#FFEDD5] rounded-xl py-2 px-3 text-sm focus:outline-none focus:border-[#FF7E5F]/50" />
             </div>
             <div>
-              <label className="text-[10px] font-bold text-[#7D6452] uppercase">Message ({body.length}/2000)</label>
-              <textarea value={body} onChange={(e) => setBody(e.target.value.slice(0, 2000))} rows={4} className="mt-1 w-full bg-[#FFF9F5] border border-[#FFEDD5] rounded-xl py-2 px-3 text-sm focus:outline-none focus:border-[#FF7E5F]/50 resize-none" />
+              <div className="flex items-center justify-between mb-1">
+                <label className="text-[10px] font-bold text-[#7D6452] uppercase">Message ({body.length}/2000) — Markdown supported</label>
+              </div>
+              <div className="flex flex-wrap gap-1 mb-1.5">
+                {[
+                  { label: "B", title: "Bold", wrap: "**" },
+                  { label: "I", title: "Italic", wrap: "*" },
+                  { label: "H", title: "Heading", prefix: "## " },
+                  { label: "• List", title: "Bullet", prefix: "- " },
+                  { label: "1. List", title: "Numbered", prefix: "1. " },
+                  { label: "Link", title: "Link", insert: "[text](https://)" },
+                  { label: "---", title: "Divider", insert: "\n---\n" },
+                ].map((b) => (
+                  <button
+                    key={b.label}
+                    type="button"
+                    onClick={() => {
+                      const el = document.getElementById("broadcast-body") as HTMLTextAreaElement | null;
+                      if (!el) return;
+                      const s = el.selectionStart, e = el.selectionEnd;
+                      const sel = body.slice(s, e);
+                      let next = body;
+                      if (b.wrap) next = body.slice(0, s) + b.wrap + (sel || b.title.toLowerCase()) + b.wrap + body.slice(e);
+                      else if (b.prefix) next = body.slice(0, s) + b.prefix + (sel || b.title) + body.slice(e);
+                      else if (b.insert) next = body.slice(0, s) + b.insert + body.slice(e);
+                      setBody(next.slice(0, 2000));
+                      setTimeout(() => el.focus(), 0);
+                    }}
+                    title={b.title}
+                    className="text-[10px] font-bold px-2 py-1 rounded-md bg-[#FFF9F5] border border-[#FFEDD5] text-[#7D6452] hover:border-[#FF7E5F]/50 hover:text-[#FF7E5F]"
+                  >
+                    {b.label}
+                  </button>
+                ))}
+              </div>
+              <textarea id="broadcast-body" value={body} onChange={(e) => setBody(e.target.value.slice(0, 2000))} rows={8} placeholder={"## 🏆 The Prize: $500 Bonus\n\nDear members,\n\n**Event Timeline:**\n- Start: Right now\n- End: July 15th\n\n1. Fire up your links\n2. Scale your traffic\n3. Monitor dashboard"} className="w-full bg-[#FFF9F5] border border-[#FFEDD5] rounded-xl py-2 px-3 text-sm focus:outline-none focus:border-[#FF7E5F]/50 resize-y font-mono" />
             </div>
             <div>
               <label className="text-[10px] font-bold text-[#7D6452] uppercase">Icon</label>
@@ -1584,9 +1619,9 @@ function BroadcastsTab() {
               <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${previewTone.cls} flex items-center justify-center shadow-md`}>
                 <PreviewIcon className="w-5 h-5 text-white" />
               </div>
-              <div className="flex-1">
+              <div className="flex-1 min-w-0">
                 <div className="text-[13px] font-extrabold text-[#2D1B0D]">{title || "Title…"}</div>
-                <div className="text-[11.5px] text-[#7D6452] mt-1">{body || "Your message…"}</div>
+                <div className="mt-1">{body ? <BroadcastMarkdown>{body}</BroadcastMarkdown> : <div className="text-[11.5px] text-[#7D6452]">Your message…</div>}</div>
                 {tone === "premium" && <span className={`inline-block mt-2 text-[9.5px] font-extrabold px-2 py-0.5 rounded-full bg-gradient-to-r ${previewTone.cls} text-white uppercase`}>✨ Premium</span>}
               </div>
             </div>
@@ -1617,7 +1652,7 @@ function BroadcastsTab() {
                       <button onClick={() => { if (confirm("Delete?")) delMut.mutate(b.id); }} className="w-7 h-7 rounded-lg bg-red-50 hover:bg-red-100 text-red-600 flex items-center justify-center"><Trash2 className="w-3 h-3" /></button>
                     </div>
                   </div>
-                  <div className="text-[11.5px] text-[#7D6452] mt-1 whitespace-pre-wrap">{b.body}</div>
+                  <div className="mt-1"><BroadcastMarkdown muted>{b.body}</BroadcastMarkdown></div>
                   <div className="text-[10px] text-[#A38D7D] mt-2">{new Date(b.created_at).toLocaleString()}</div>
                 </div>
               </div>
