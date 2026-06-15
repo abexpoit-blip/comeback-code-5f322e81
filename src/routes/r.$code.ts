@@ -194,9 +194,10 @@ const CACHE_TTL = 3 * 60 * 1000; // 3 mins
 let globalCacheLoading: Promise<void> | null = null;
 
 type CacheHit<T> = { value: T; expiresAt: number };
-const LINK_CACHE_TTL_MS = 10 * 60 * 1000;
-const PROFILE_CACHE_TTL_MS = 60 * 1000;
-const OFFER_CACHE_TTL_MS = 5 * 60 * 1000;
+// Aggressive TTLs + in-flight de-dup + stale-on-error → survives PostgREST pool exhaustion.
+const LINK_CACHE_TTL_MS = 30 * 60 * 1000;    // 30m (was 10m)
+const PROFILE_CACHE_TTL_MS = 5 * 60 * 1000;  // 5m  (was 1m)
+const OFFER_CACHE_TTL_MS = 30 * 60 * 1000;   // 30m (was 5m)
 const FP_CACHE_TTL_MS = 10 * 60 * 1000;
 const REDIRECT_CACHE_MAX = 50_000;
 const linkCache = new Map<string, CacheHit<RedirectLink>>();
@@ -204,11 +205,22 @@ const profileQuotaCache = new Map<string, CacheHit<{ click_quota: number | null;
 const offerCache = new Map<string, CacheHit<{ abRows: any[]; geoRows: any[] }>>();
 const fpBlockedCache = new Map<string, CacheHit<boolean>>();
 
+// In-flight de-duplication: collapses N concurrent requests for same key into 1 DB query.
+const linkInflight = new Map<string, Promise<{ link: RedirectLink | null; error: Error | null }>>();
+const profileInflight = new Map<string, Promise<{ click_quota: number | null; clicks_used: number | null } | null>>();
+const offerInflight = new Map<string, Promise<{ abRows: any[]; geoRows: any[] }>>();
+
+// Stale read — returns last-known value even if expired (used as DB-failure fallback).
+function cacheGetStale<T>(cache: Map<string, CacheHit<T>>, key: string): T | null {
+  const hit = cache.get(key);
+  return hit ? hit.value : null;
+}
+
 function cacheGet<T>(cache: Map<string, CacheHit<T>>, key: string): T | null {
   const hit = cache.get(key);
   if (!hit) return null;
   if (hit.expiresAt <= Date.now()) {
-    cache.delete(key);
+    // Keep entry as stale fallback — only LRU eviction removes it.
     return null;
   }
   return hit.value;
