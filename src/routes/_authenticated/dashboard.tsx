@@ -80,10 +80,10 @@ function DashboardPage() {
   const [range, setRange] = useState<"7D" | "30D">("7D");
 
   const createMut = useMutation({
-    mutationFn: (vars: { title?: string; adsterra_url: string; safe_url?: string }) => create({ data: vars }),
+    mutationFn: (vars: { title?: string; adsterra_url: string; safe_url?: string; safe_url_category?: string }) => create({ data: vars }),
     onSuccess: () => {
       toast.success("Link created");
-      setAdsterra(""); setSafe(""); setTitle(""); setShowCreate(false);
+      setAdsterra(""); setSafe(""); setTitle(""); setSafeCategory(""); setShowCreate(false);
       qc.invalidateQueries({ queryKey: ["dashboard"] });
     },
     onError: (e: Error) => toast.error(e.message),
@@ -99,7 +99,12 @@ function DashboardPage() {
 
   const onSubmit = (e: FormEvent) => {
     e.preventDefault();
-    createMut.mutate({ title: title || undefined, adsterra_url: adsterra, safe_url: safe || undefined });
+    createMut.mutate({
+      title: title || undefined,
+      adsterra_url: adsterra,
+      safe_url: safe || undefined,
+      safe_url_category: safeCategory || undefined,
+    });
   };
 
   const primaryFn = useServerFn(getPrimaryShortenerDomain);
