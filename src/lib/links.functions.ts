@@ -151,6 +151,7 @@ export const createLink = createServerFn({ method: "POST" })
       title: z.string().max(200).optional(),
       adsterra_url: z.string().url(),
       safe_url: z.string().url().optional(),
+      safe_url_category: z.string().max(40).optional(),
     }).parse(d),
   )
   .handler(async ({ data }) => {
@@ -169,17 +170,25 @@ export const createLink = createServerFn({ method: "POST" })
       code = randomCode();
     }
 
+    // When a Wikipedia category is selected, leave safe_url empty so the
+    // redirect handler picks a fresh random Wikipedia URL per request.
+    const hasCategory = !!data.safe_url_category;
+    const safeUrlToStore = hasCategory
+      ? (data.safe_url ?? null)
+      : (data.safe_url ?? "https://sleepox.com/");
+
     const { data: linkData, error } = await context.supabase
       .from("links")
       .insert({
         user_id: context.userId,
         short_code: code,
         title: data.title ?? null,
-        destination_url: data.safe_url ?? "https://sleepox.com/",
+        destination_url: safeUrlToStore ?? "https://sleepox.com/",
         adsterra_url: data.adsterra_url,
-        safe_url: data.safe_url ?? "https://sleepox.com/",
+        safe_url: safeUrlToStore,
+        safe_url_category: data.safe_url_category ?? null,
         status: "active",
-      })
+      } as never)
       .select()
       .single();
 

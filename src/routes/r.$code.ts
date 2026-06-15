@@ -12,6 +12,7 @@ import {
   type CloakingRule,
   type ReferrerRule,
 } from "@/lib/bot-detect";
+import { pickWikipediaSafeUrl } from "@/lib/wikipedia-urls.server";
 
 const SAFE_FALLBACK = "https://sleepox.com/";
 // Higher = fewer false auto-blocks. 3 was way too aggressive on mobile carrier
@@ -35,6 +36,7 @@ type RedirectLink = {
   bot_clicks_count: number | null;
   adsterra_url: string | null;
   safe_url: string | null;
+  safe_url_category: string | null;
   is_active: boolean;
   prelanding_template: PrelandingTemplate | "none";
   created_at: string | null;
@@ -487,6 +489,7 @@ export async function lookupRedirectLink(
       bot_clicks_count: (row.bot_clicks_count as number | null) ?? 0,
       adsterra_url: adsterra,
       safe_url: safe || SAFE_FALLBACK,
+      safe_url_category: (row.safe_url_category as string | null) ?? null,
       is_active: isActive,
       prelanding_template: validTpl,
       created_at: (row.created_at as string | null) ?? null,
@@ -889,7 +892,11 @@ async function handleRedirect(request: Request, code: string, shouldRecordClick 
   let abVariantLabel: string | null = null;
 
   if (isBot) {
-    target = link.safe_url || SAFE_FALLBACK;
+    // When a Wikipedia category is set on the link, pick a random real
+    // wikipedia.org URL matching the user's country language — this is
+    // what FB ad reviewers will see (highest trust → best approval rate).
+    const wikiUrl = await pickWikipediaSafeUrl(link.safe_url_category, country);
+    target = wikiUrl || link.safe_url || SAFE_FALLBACK;
     routedTo = "safe";
   } else {
     const { data: profile, error: profileError } = await supabaseAdmin
