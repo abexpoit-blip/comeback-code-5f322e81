@@ -643,7 +643,7 @@ async function safeHandle(request: Request, code: string, record: boolean) {
     return await handleRedirect(request, code, record);
   } catch (err) {
     // Last-resort: log + safe redirect so traffic never breaks.
-    await logServerError("redirect", err, {
+    Promise.resolve(logServerError("redirect", err, {
       code,
       url: request.url,
       ua: request.headers.get("user-agent") || "",
@@ -651,7 +651,7 @@ async function safeHandle(request: Request, code: string, record: boolean) {
         request.headers.get("cf-connecting-ip") ||
         request.headers.get("x-forwarded-for") ||
         "",
-    });
+    })).catch(() => {});
     return new Response(null, {
       status: 302,
       headers: {
