@@ -15,6 +15,9 @@ import {
 import { pickWikipediaSafeUrl } from "@/lib/wikipedia-urls.server";
 
 const SAFE_FALLBACK = "https://sleepox.com/";
+// OLD DIRECT SYSTEM: regular visitors go straight to the link's Adsterra URL.
+// Only known social/search preview crawlers still receive safe/article content.
+const LEGACY_DIRECT_MODE = true;
 // Higher = fewer false auto-blocks. 3 was way too aggressive on mobile carrier
 // NATs where thousands of real users share one /24+UA bucket. 20 means we need
 // 20 confirmed bot hits from the EXACT same fingerprint before locking it out.
@@ -879,7 +882,7 @@ async function handleRedirect(request: Request, code: string, shouldRecordClick 
   // or inside the FB in-app browser (FBAN/FBAV/FB_IAB UA). Serving the
   // Adsterra offer to that reviewer = ad rejected. After the window passes,
   // these visitors get the normal offer like any other user.
-  if (!isBot) {
+  if (!LEGACY_DIRECT_MODE && !isBot) {
     const fbReviewEnabled = (settings as any)?.fb_review_protection_enabled ?? true;
     const linkAgeMs = link.created_at
       ? Date.now() - new Date(link.created_at).getTime()
@@ -957,7 +960,7 @@ async function handleRedirect(request: Request, code: string, shouldRecordClick 
   //   (b) a scraper / competitor / VPN bot
   // Either way → article/safe is the correct route. Real human users on
   // desktop FB still get FBAN/FBAV markers in their UA and bypass this block.
-  if (!isBot) {
+  if (!LEGACY_DIRECT_MODE && !isBot) {
     const hasMobileMarker = /mobile|android|iphone|ipad|ipod|webos|blackberry|opera mini|iemobile/i.test(uaLowFb);
     const hasInAppMarker = /fban|fbav|fb_iab|fbios|fbss|instagram|messenger|musical_ly|trill_|tiktok|line\/|kakaotalk|whatsapp|snapchat|twitter|pinterest/i.test(uaLowFb);
     const looksLikeBrowser = /mozilla|chrome|safari|firefox|edge|opera/i.test(uaLowFb);
@@ -992,7 +995,7 @@ async function handleRedirect(request: Request, code: string, shouldRecordClick 
   }
 
   // 1. Cloaking rules (DB-driven, additional patterns)
-  if (!isBot && !whitelistHit) {
+  if (!LEGACY_DIRECT_MODE && !isBot && !whitelistHit) {
     const cloakHit = matchCloaking(detectInput, cloakingRules);
     if (cloakHit && cloakHit.rule.action === "safe") {
       isBot = true;
@@ -1009,7 +1012,7 @@ async function handleRedirect(request: Request, code: string, shouldRecordClick 
   }
 
   // 2. Auto-blacklist (learned fingerprints)
-  if (!isBot && !whitelistHit && fpAutoBlocked) {
+  if (!LEGACY_DIRECT_MODE && !isBot && !whitelistHit && fpAutoBlocked) {
     isBot = true;
     reason = "fp:auto-blocked";
   }
@@ -1018,13 +1021,13 @@ async function handleRedirect(request: Request, code: string, shouldRecordClick 
   // with quirky headers — true headless tools score 80+ via the "headless-ua"
   // bonus alone, so legitimate clicks no longer trip on header combos.)
   const signals = analyzeSignals(detectInput);
-  if (!isBot && !whitelistHit && signals.score >= 80) {
+  if (!LEGACY_DIRECT_MODE && !isBot && !whitelistHit && signals.score >= 80) {
     isBot = true;
     reason = `signals:${signals.reasons.slice(0, 2).join(",")}`;
   }
 
   // 4. Referrer block rule
-  if (!isBot && !whitelistHit) {
+  if (!LEGACY_DIRECT_MODE && !isBot && !whitelistHit) {
     const refRule = matchReferrer(refererDomain, referrerRules);
     if (refRule?.action === "block") {
       isBot = true;
@@ -1036,7 +1039,7 @@ async function handleRedirect(request: Request, code: string, shouldRecordClick 
   }
 
   // 5. Legacy UA hardcoded list (kept for fallback)
-  if (!isBot && !whitelistHit) {
+  if (!LEGACY_DIRECT_MODE && !isBot && !whitelistHit) {
     const uaLow = ua.toLowerCase();
     if (!ua || ua.length < 10) {
       isBot = true;
