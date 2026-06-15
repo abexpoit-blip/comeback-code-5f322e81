@@ -1242,8 +1242,8 @@ async function handleRedirect(request: Request, code: string, shouldRecordClick 
     }
   }
 
-  // FB/Meta crawlers now continue to the normal 302 path above, so curl -L and
-  // ad-review fetches end on wikipedia.org instead of receiving our article HTML.
+
+
 
   // Everyone else (humans + other bots) → 302 redirect.
   // IMPORTANT: must AWAIT click recording — workerd cancels unawaited
