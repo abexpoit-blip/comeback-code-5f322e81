@@ -71,16 +71,21 @@ function AuthenticatedLayout() {
 
   useEffect(() => {
     if (!user) return;
+    let cancelled = false;
     (async () => {
       const { data } = await supabase
         .from("user_roles").select("role").eq("user_id", user?.id).eq("role", "admin").maybeSingle();
+      if (cancelled) return;
       setIsAdmin(!!data);
       // Check ban status + track last login
       const { data: prof } = await supabase
         .from("profiles").select("is_banned").eq("id", user?.id).maybeSingle();
+      if (cancelled) return;
       setIsBanned(!!prof?.is_banned);
+      setBanChecked(true);
       await supabase.from("profiles").update({ last_login_at: new Date().toISOString() }).eq("id", user?.id);
     })();
+    return () => { cancelled = true; };
   }, [user]);
 
   useEffect(() => {
