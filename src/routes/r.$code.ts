@@ -511,7 +511,12 @@ export async function recordRedirectClick(input: {
   };
 
   const persistClickAtomically = async () => {
-    await acquire();
+    const acquired = await acquire();
+    if (!acquired) {
+      // Click was dropped due to queue overflow (counter already incremented).
+      // Skip the RPC entirely — no slot was granted, so DO NOT call release().
+      return;
+    }
     try {
       await runWithRetry(async () => {
         const ctrl = new AbortController();
