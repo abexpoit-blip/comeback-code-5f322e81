@@ -741,6 +741,14 @@ function processLinkRow(code: string, row: Record<string, unknown> | null): { li
 async function getFingerprintAutoBlocked(fpHash: string): Promise<boolean> {
   const cached = cacheGet(fpBlockedCache, fpHash);
   if (cached !== null) return cached;
+
+  // L2 Redis shared lookup.
+  const l2 = await redisGet<boolean>(L2_FP_PREFIX + fpHash);
+  if (l2 !== null) {
+    cacheSet(fpBlockedCache, fpHash, l2, FP_L1_TTL_MS);
+    return l2;
+  }
+
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), 900);
   try {
@@ -751,7 +759,8 @@ async function getFingerprintAutoBlocked(fpHash: string): Promise<boolean> {
       .maybeSingle();
     const { data, error } = await (query as any).abortSignal(ctrl.signal);
     const blocked = !error && !!data?.auto_blocked;
-    cacheSet(fpBlockedCache, fpHash, blocked, FP_CACHE_TTL_MS);
+    cacheSet(fpBlockedCache, fpHash, blocked, FP_L1_TTL_MS);
+    redisSetAsync(L2_FP_PREFIX + fpHash, blocked, FP_CACHE_TTL_MS);
     return blocked;
   } catch {
     return false;
