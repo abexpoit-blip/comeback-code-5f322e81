@@ -133,7 +133,7 @@ export const scanMonitoredDomain = createServerFn({ method: "POST" })
     const { data: row, error } = await supabaseAdmin
       .from("monitored_domains").select("id, domain").eq("id", data.id).maybeSingle();
     if (error || !row) throw new Error(error?.message || "Not found");
-    const { runDomainHealthCheck } = await import("./domain-health.server");
+    const { runDomainHealthCheck } = await import(/* @vite-ignore */ "./domain-health.server");
     const r = await runDomainHealthCheck((row as any).domain);
     await saveCheckResult((row as any).id, (row as any).domain, r);
     // Avoid returning raw (unknown-typed jsonb) over RPC — not serializable-typed
