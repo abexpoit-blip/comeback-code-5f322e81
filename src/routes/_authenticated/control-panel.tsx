@@ -376,7 +376,7 @@ function UsersTab() {
           <thead>
             <tr className="text-left text-[10px] font-bold uppercase tracking-widest text-[#7A5C45]">
               <Th><input type="checkbox" checked={selected.size > 0 && selected.size === filtered.length} onChange={toggleAll} /></Th>
-              <Th>Email</Th><Th>Plan</Th><Th>Change</Th><Th>Links</Th><Th>Clicks</Th><Th>Ours</Th><Th>Status</Th><Th></Th>
+              <Th>Email</Th><Th>Plan</Th><Th>Change</Th><Th>Links</Th><Th>Clicks</Th><Th>Ours</Th><Th>Started</Th><Th>Expires</Th><Th>Status</Th><Th></Th>
             </tr>
           </thead>
           <tbody>
