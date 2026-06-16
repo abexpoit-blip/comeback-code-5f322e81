@@ -37,6 +37,7 @@ function AuthenticatedLayout() {
   const [authChecked, setAuthChecked] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
   const [isBanned, setIsBanned] = useState(false);
+  const [banChecked, setBanChecked] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const authCheckedRef = useRef(false);
   const dailyFn = useServerFn(consumeDailyRedirect);
@@ -70,16 +71,21 @@ function AuthenticatedLayout() {
 
   useEffect(() => {
     if (!user) return;
+    let cancelled = false;
     (async () => {
       const { data } = await supabase
         .from("user_roles").select("role").eq("user_id", user?.id).eq("role", "admin").maybeSingle();
+      if (cancelled) return;
       setIsAdmin(!!data);
       // Check ban status + track last login
       const { data: prof } = await supabase
         .from("profiles").select("is_banned").eq("id", user?.id).maybeSingle();
+      if (cancelled) return;
       setIsBanned(!!prof?.is_banned);
+      setBanChecked(true);
       await supabase.from("profiles").update({ last_login_at: new Date().toISOString() }).eq("id", user?.id);
     })();
+    return () => { cancelled = true; };
   }, [user]);
 
   useEffect(() => {
@@ -100,8 +106,10 @@ function AuthenticatedLayout() {
     navigate({ to: "/login" });
   };
 
-  // Don't render protected UI until we've confirmed an authenticated session.
-  if (!authChecked || !user) {
+  // Don't render protected UI until we've confirmed an authenticated session
+  // AND the ban check has completed. Otherwise banned users see a flash of
+  // the dashboard before the suspension screen appears.
+  if (!authChecked || !user || !banChecked) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-[#FFF9F5] text-[#7A5C45] text-sm">
         Loading…

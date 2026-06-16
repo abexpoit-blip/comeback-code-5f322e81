@@ -4,15 +4,30 @@ import { getRequestAuth } from "@/lib/request-auth.server";
 
 export const getAppSettings = createServerFn({ method: "GET" })
   .handler(async () => {
-    await getRequestAuth();
-    // Use admin client for bypass RLS on system-wide settings
+    // H1 FIX: This returns the full admin settings row (signup rules, FB
+    // protection thresholds, etc.). Previously any authenticated user could
+    // call it and read internal config. Restrict to admins only.
+    const context = await getRequestAuth();
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
+    const { data: roleRow } = await supabaseAdmin
+      .from("user_roles")
+      .select("role")
+      .eq("user_id", context.userId)
+      .eq("role", "admin")
+      .maybeSingle();
+
+    if (!roleRow) {
+      console.error("[app-settings] unauthorized read attempt by", context.userId);
+      throw new Error("Admin only");
+    }
+
     const { data, error } = await supabaseAdmin
       .from("app_settings")
       .select("*")
       .eq("id", true)
       .maybeSingle();
-    
+
     if (error) {
       console.error("[app-settings] fetch failed:", error.message);
       throw new Error(error.message);
