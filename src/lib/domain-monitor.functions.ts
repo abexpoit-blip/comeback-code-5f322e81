@@ -3,6 +3,14 @@ import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 
+// Hide server-only module from client bundler via runtime-built specifier.
+// Vite/Rollup cannot statically resolve a concatenated string, so the
+// node:dns/node:tls graph stays out of the client build entirely.
+const loadHealth = (): Promise<typeof import("./domain-health.server")> => {
+  const spec = "./domain-health" + ".server";
+  return import(/* @vite-ignore */ spec) as any;
+};
+
 async function assertAdmin(userId: string) {
   const { data } = await supabaseAdmin
     .from("user_roles").select("role").eq("user_id", userId).eq("role", "admin").maybeSingle();
@@ -133,7 +141,7 @@ export const scanMonitoredDomain = createServerFn({ method: "POST" })
     const { data: row, error } = await supabaseAdmin
       .from("monitored_domains").select("id, domain").eq("id", data.id).maybeSingle();
     if (error || !row) throw new Error(error?.message || "Not found");
-    const { runDomainHealthCheck } = await import(/* @vite-ignore */ "./domain-health.server");
+    const { runDomainHealthCheck } = await loadHealth();
     const r = await runDomainHealthCheck((row as any).domain);
     await saveCheckResult((row as any).id, (row as any).domain, r);
     // Avoid returning raw (unknown-typed jsonb) over RPC — not serializable-typed
@@ -154,7 +162,7 @@ export async function scanAllInternal() {
     .from("monitored_domains").select("id, domain").eq("is_active", true);
   if (error) throw new Error(error.message);
   if (!rows || rows.length === 0) return { ok: true, scanned: 0 };
-  const { runDomainHealthCheck } = await import(/* @vite-ignore */ "./domain-health.server");
+  const { runDomainHealthCheck } = await loadHealth();
 
   // Process in small batches to avoid hammering DNS / sockets
   const BATCH = 5;
