@@ -980,6 +980,7 @@ export type Database = {
           date: string
         }[]
       }
+      delete_inactive_free_users: { Args: never; Returns: Json }
       expire_monthly_plans: { Args: never; Returns: Json }
       expire_old_upgrade_requests: { Args: never; Returns: undefined }
       get_admin_overview_stats: { Args: never; Returns: Json }
