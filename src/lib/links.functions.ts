@@ -88,12 +88,20 @@ export const listMyLinks = createServerFn({ method: "GET" })
 export const getDashboardData = createServerFn({ method: "GET" })
   .handler(async () => {
     const context = await getRequestAuth();
-    const [linksRes, profileRes, statsRes, domainsRes, archivedRes] = await Promise.all([
-      selectLinks(context.supabase),
-      context.supabase.from("profiles").select("*").eq("id", context.userId).single(),
+    // M1/M2 fix: fetch links once, then use linksRes.data for daily_stats; cap window to 30 days
+    const linksRes = await selectLinks(context.supabase);
+    const linkIds = (linksRes.data ?? []).map((l: any) => l.id);
+    const thirtyDaysAgo = new Date(Date.now() - 30 * 86400000).toISOString().slice(0, 10);
+    const [profileRes, statsRes, domainsRes, archivedRes] = await Promise.all([
+      // M8 fix: explicit column list — never SELECT * on profiles for client payloads
+      context.supabase.from("profiles").select(
+        "id, email, full_name, plan_slug, link_limit, links_used, click_quota, clicks_used, ours_clicks, plan_expires_at, avatar_url, is_banned, clicks_period_start"
+      ).eq("id", context.userId).single(),
       context.supabase.rpc("get_dashboard_stats" as never, { _user_id: context.userId } as never),
       context.supabase.from("custom_domains").select("domain").eq("user_id", context.userId).eq("verified", true),
-      context.supabase.from("daily_stats").select("day, human_clicks").in("link_id", (await selectLinks(context.supabase)).data?.map((l: any) => l.id) ?? []),
+      linkIds.length
+        ? context.supabase.from("daily_stats").select("day, human_clicks").in("link_id", linkIds).gte("day", thirtyDaysAgo)
+        : Promise.resolve({ data: [] as any[], error: null as any }),
     ]);
     if (linksRes.error) throw new Error(linksRes.error.message);
     if (profileRes.error) throw new Error(profileRes.error.message);

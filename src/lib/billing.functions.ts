@@ -27,6 +27,16 @@ export const createInvoice = createServerFn({ method: "POST" })
     // Add 2% network/processing fee so customer pays it ($5 -> $5.10, $50 -> $51.00)
     const chargeAmount = (Number(pkg.price_usd) * 1.02).toFixed(2);
 
+    // M4 fix: prevent unbounded pending-invoice spam (Plisio API cost + DB bloat)
+    const { count: pendingCount } = await supabaseAdmin
+      .from("upgrade_requests")
+      .select("id", { count: "exact", head: true })
+      .eq("user_id", context.userId)
+      .eq("status", "pending");
+    if ((pendingCount ?? 0) >= 3) {
+      throw new Error("You already have 3 pending orders. Please complete or cancel one before creating a new invoice.");
+    }
+
     // Create local order first
     const { data: req, error: reqErr } = await supabaseAdmin
       .from("upgrade_requests")
