@@ -412,7 +412,7 @@ export async function recordRedirectClick(input: {
 }) {
   const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
-  const runWithRetry = async <T>(task: () => Promise<T>, attempts = 2) => {
+  const runWithRetry = async <T>(task: () => Promise<T>, attempts = 4) => {
     let lastError: unknown;
 
     for (let attempt = 1; attempt <= attempts; attempt += 1) {
@@ -421,7 +421,9 @@ export async function recordRedirectClick(input: {
       } catch (error) {
         lastError = error;
         if (attempt < attempts) {
-          await wait(80 * attempt);
+          // Exponential backoff: 150ms, 400ms, 1000ms
+          const delay = attempt === 1 ? 150 : attempt === 2 ? 400 : 1000;
+          await wait(delay);
         }
       }
     }
@@ -432,7 +434,8 @@ export async function recordRedirectClick(input: {
   const persistClickAtomically = async () => {
     await runWithRetry(async () => {
       const ctrl = new AbortController();
-      const timer = setTimeout(() => ctrl.abort(), 1500);
+      // 15s per attempt — DB writes under load can take >1.5s
+      const timer = setTimeout(() => ctrl.abort(), 15000);
       const query = supabaseAdmin.rpc(
         "record_redirect_click" as never,
         {
