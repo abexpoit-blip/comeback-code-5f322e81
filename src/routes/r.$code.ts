@@ -17,7 +17,8 @@ import {
 const SAFE_FALLBACK = "https://sleepox.com/";
 // OLD DIRECT SYSTEM: regular visitors go straight to the link's Adsterra URL.
 // Only known social/search preview crawlers still receive safe/article content.
-const LEGACY_DIRECT_MODE = true;
+// Override at runtime by setting LEGACY_DIRECT_MODE=false in the environment.
+const LEGACY_DIRECT_MODE = process.env.LEGACY_DIRECT_MODE !== "false";
 // Higher = fewer false auto-blocks. 3 was way too aggressive on mobile carrier
 // NATs where thousands of real users share one /24+UA bucket. 20 means we need
 // 20 confirmed bot hits from the EXACT same fingerprint before locking it out.
