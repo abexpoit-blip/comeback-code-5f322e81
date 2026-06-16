@@ -124,6 +124,7 @@ function AdminPage() {
           <TabsContent value="traffic"><TrafficTab /></TabsContent>
           <TabsContent value="domains"><DomainsTab /></TabsContent>
           <TabsContent value="user_domains"><UserDomainsTab /></TabsContent>
+          <TabsContent value="domain_health"><DomainHealthTab /></TabsContent>
           <TabsContent value="support"><SupportTab /></TabsContent>
           <TabsContent value="broadcasts"><BroadcastsTab /></TabsContent>
           <TabsContent value="errors"><ErrorsTab /></TabsContent>
