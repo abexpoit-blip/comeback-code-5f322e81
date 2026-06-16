@@ -106,8 +106,10 @@ function AuthenticatedLayout() {
     navigate({ to: "/login" });
   };
 
-  // Don't render protected UI until we've confirmed an authenticated session.
-  if (!authChecked || !user) {
+  // Don't render protected UI until we've confirmed an authenticated session
+  // AND the ban check has completed. Otherwise banned users see a flash of
+  // the dashboard before the suspension screen appears.
+  if (!authChecked || !user || !banChecked) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-[#FFF9F5] text-[#7A5C45] text-sm">
         Loading…
