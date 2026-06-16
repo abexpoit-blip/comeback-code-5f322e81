@@ -19,29 +19,22 @@ async function applyPackageToProfileIds(userIds: string[], pkg: PackageQuota) {
   const ids = [...new Set(userIds)];
   const resetAt = new Date().toISOString();
 
-  const { error: planErr } = await supabaseAdmin
+  // L2 FIX: single atomic UPDATE — no intermediate window where plan_slug is
+  // set but quota fields still hold the previous plan's values.
+  const { error } = await supabaseAdmin
     .from("profiles")
     .update({
       plan_slug: pkg.slug,
-      clicks_used: 0,
-      clicks_period_start: resetAt,
-    } as any)
-    .in("id", ids);
-  if (planErr) throw new Error(planErr.message);
-
-  const { error: quotaErr } = await supabaseAdmin
-    .from("profiles")
-    .update({
       click_quota: pkg.click_quota,
       link_limit: pkg.link_limit,
       clicks_used: 0,
       clicks_period_start: resetAt,
     } as any)
     .in("id", ids);
-  if (quotaErr) throw new Error(quotaErr.message);
+  if (error) throw new Error(error.message);
 }
 
-// No longer used, pulling directly from package row
+
 
 
 export const adminStats = createServerFn({ method: "GET" })
