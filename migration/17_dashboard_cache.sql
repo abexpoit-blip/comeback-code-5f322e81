@@ -89,9 +89,6 @@ BEGIN
     (SELECT jsonb_object_agg(COALESCE(country, 'Unknown'), cnt) FROM combined_cty)
   INTO v_clicks_by_day, v_country_stats;
 
-  WITH sample AS (
-    SELECT ua FROM c30_sample LIMIT 0  -- placeholder, replaced below
-  ) SELECT 0 INTO v_mobile_pct;
 
   -- Mobile %
   WITH sample AS (
