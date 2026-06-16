@@ -500,7 +500,7 @@ export const adminToggleLink = createServerFn({ method: "POST" })
 
 export const adminUpdateLink = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator(z.object({ id: z.string().uuid(), title: z.string().nullable(), adsterra_url: z.string(), safe_url: z.string() }).parse)
+  .inputValidator(z.object({ id: z.string().uuid(), title: z.string().nullable(), adsterra_url: z.string().url(), safe_url: z.string().url() }).parse)
   .handler(async ({ context, data }) => {
     await assertAdmin(context.userId);
     const { error } = await supabaseAdmin
@@ -765,7 +765,7 @@ export const adminPurgeBatch = createServerFn({ method: "POST" })
 
 export const adminDeleteUsers = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator(z.object({ ids: z.array(z.string().uuid()) }).parse)
+  .inputValidator(z.object({ ids: z.array(z.string().uuid()).min(1).max(100) }).parse)
   .handler(async ({ context, data }) => {
     await assertAdmin(context.userId);
 

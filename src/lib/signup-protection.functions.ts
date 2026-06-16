@@ -73,11 +73,11 @@ export const preSignupCheck = createServerFn({ method: "POST" })
     const cap = settings.signup_ip_max_per_day ?? 2;
     if (ip && cap > 0) {
       const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+      // M7 fix: count ALL attempts (not just success) so bots can't bypass cap with failed checks
       const { count } = await supabaseAdmin
         .from("signup_attempts")
         .select("id", { count: "exact", head: true })
         .eq("ip", ip)
-        .eq("success", true)
         .gte("created_at", since);
       if ((count ?? 0) >= cap) {
         await log(false, "ip_rate_limit");

@@ -62,12 +62,17 @@ export const addCustomDomain = createServerFn({ method: "POST" })
     const domain = normalize(data.domain);
     if (!domainRegex.test(domain)) throw new Error("Invalid domain format (e.g. links.yoursite.com)");
 
-    const { data: existing } = await supabase
+    // M6 fix: RLS-scoped check missed other users' rows; use admin client for global uniqueness
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: existing } = await supabaseAdmin
       .from("custom_domains")
-      .select("id")
+      .select("id, user_id")
       .eq("domain", domain)
       .maybeSingle();
-    if (existing) throw new Error("This domain is already registered.");
+    if (existing) {
+      if (existing.user_id === userId) throw new Error("You have already registered this domain.");
+      throw new Error("This domain is already registered by another account.");
+    }
 
     // Generate verification token in app code (don't rely on DB default
     // which uses extensions.gen_random_bytes — may be missing on self-host).
