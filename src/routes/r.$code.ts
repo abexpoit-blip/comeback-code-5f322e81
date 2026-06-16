@@ -420,13 +420,50 @@ export async function recordRedirectClick(input: {
   const MAX_QUEUE = 1500;
   const g = globalThis as any;
   if (!g.__clickGate) {
-    g.__clickGate = { inflight: 0, queue: [] as Array<() => void>, dropped: 0 };
+    g.__clickGate = {
+      inflight: 0,
+      queue: [] as Array<() => void>,
+      dropped: 0,
+      accepted: 0,
+      failed: 0,
+      maxQueueSeen: 0,
+      maxInflightSeen: 0,
+      lastReportAt: Date.now(),
+    };
+    // Periodic stats reporter — every 30s log a snapshot so spikes are visible.
+    const reportInterval = setInterval(() => {
+      const s = g.__clickGate;
+      if (!s) return;
+      const sinceMs = Date.now() - s.lastReportAt;
+      console.log(
+        `[click-gate][stats] inflight=${s.inflight} queue=${s.queue.length} ` +
+        `maxQueue=${s.maxQueueSeen} maxInflight=${s.maxInflightSeen} ` +
+        `accepted=${s.accepted} dropped=${s.dropped} failed=${s.failed} windowMs=${sinceMs}`,
+      );
+      // Reset peak watermarks for next window so we see per-window spikes.
+      s.maxQueueSeen = s.queue.length;
+      s.maxInflightSeen = s.inflight;
+      s.lastReportAt = Date.now();
+    }, 30_000);
+    if (typeof reportInterval === "object" && "unref" in reportInterval) {
+      (reportInterval as { unref: () => void }).unref();
+    }
   }
-  const gate = g.__clickGate as { inflight: number; queue: Array<() => void>; dropped: number };
+  const gate = g.__clickGate as {
+    inflight: number;
+    queue: Array<() => void>;
+    dropped: number;
+    accepted: number;
+    failed: number;
+    maxQueueSeen: number;
+    maxInflightSeen: number;
+    lastReportAt: number;
+  };
 
   const acquire = () => new Promise<void>((resolve) => {
     if (gate.inflight < MAX_INFLIGHT) {
       gate.inflight += 1;
+      if (gate.inflight > gate.maxInflightSeen) gate.maxInflightSeen = gate.inflight;
       resolve();
       return;
     }
@@ -434,13 +471,19 @@ export async function recordRedirectClick(input: {
       // Drop oldest waiter — its click will be skipped.
       const oldest = gate.queue.shift();
       gate.dropped += 1;
-      if (gate.dropped % 100 === 1) {
-        console.warn(`[click-gate] dropped ${gate.dropped} clicks (queue full)`);
+      // Warn early (first drop in window) and then every 50 to avoid log spam.
+      if (gate.dropped === 1 || gate.dropped % 50 === 0) {
+        console.warn(
+          `[click-gate][DROP] total=${gate.dropped} queue=${gate.queue.length}/${MAX_QUEUE} ` +
+          `inflight=${gate.inflight}/${MAX_INFLIGHT}`,
+        );
       }
       if (oldest) oldest(); // resolve so it stops waiting; we'll mark skip via flag
     }
     gate.queue.push(resolve);
+    if (gate.queue.length > gate.maxQueueSeen) gate.maxQueueSeen = gate.queue.length;
   });
+
   const release = () => {
     gate.inflight -= 1;
     const next = gate.queue.shift();
@@ -501,10 +544,21 @@ export async function recordRedirectClick(input: {
         }
         if (rpcError) throw rpcError;
       });
+      gate.accepted += 1;
+    } catch (err) {
+      gate.failed += 1;
+      if (gate.failed === 1 || gate.failed % 25 === 0) {
+        console.warn(
+          `[click-gate][FAIL] total=${gate.failed} accepted=${gate.accepted} ` +
+          `err=${(err as Error)?.message ?? String(err)}`,
+        );
+      }
+      throw err;
     } finally {
       release();
     }
   };
+
 
 
   // Use the long-lived DB function already present in the schema cache.
