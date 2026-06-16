@@ -422,7 +422,7 @@ export async function recordRedirectClick(input: {
   if (!g.__clickGate) {
     g.__clickGate = {
       inflight: 0,
-      queue: [] as Array<() => void>,
+      queue: [] as Array<(acquired: boolean) => void>,
       dropped: 0,
       accepted: 0,
       failed: 0,
@@ -451,7 +451,7 @@ export async function recordRedirectClick(input: {
   }
   const gate = g.__clickGate as {
     inflight: number;
-    queue: Array<() => void>;
+    queue: Array<(acquired: boolean) => void>;
     dropped: number;
     accepted: number;
     failed: number;
@@ -460,25 +460,28 @@ export async function recordRedirectClick(input: {
     lastReportAt: number;
   };
 
-  const acquire = () => new Promise<void>((resolve) => {
+  // C2 FIX: acquire returns whether a slot was actually obtained.
+  // When the queue is full we drop the OLDEST waiter (resolve(false)) so it
+  // skips the RPC entirely — previously it resolved with no slot, ran the
+  // RPC anyway, and then release() decremented inflight → counter drift,
+  // MAX_INFLIGHT bypassed, and Kong/PostgREST got hammered.
+  const acquire = () => new Promise<boolean>((resolve) => {
     if (gate.inflight < MAX_INFLIGHT) {
       gate.inflight += 1;
       if (gate.inflight > gate.maxInflightSeen) gate.maxInflightSeen = gate.inflight;
-      resolve();
+      resolve(true);
       return;
     }
     if (gate.queue.length >= MAX_QUEUE) {
-      // Drop oldest waiter — its click will be skipped.
       const oldest = gate.queue.shift();
       gate.dropped += 1;
-      // Warn early (first drop in window) and then every 50 to avoid log spam.
       if (gate.dropped === 1 || gate.dropped % 50 === 0) {
         console.warn(
           `[click-gate][DROP] total=${gate.dropped} queue=${gate.queue.length}/${MAX_QUEUE} ` +
           `inflight=${gate.inflight}/${MAX_INFLIGHT}`,
         );
       }
-      if (oldest) oldest(); // resolve so it stops waiting; we'll mark skip via flag
+      if (oldest) oldest(false); // explicitly dropped — no slot granted
     }
     gate.queue.push(resolve);
     if (gate.queue.length > gate.maxQueueSeen) gate.maxQueueSeen = gate.queue.length;
@@ -489,7 +492,8 @@ export async function recordRedirectClick(input: {
     const next = gate.queue.shift();
     if (next) {
       gate.inflight += 1;
-      next();
+      if (gate.inflight > gate.maxInflightSeen) gate.maxInflightSeen = gate.inflight;
+      next(true);
     }
   };
 
