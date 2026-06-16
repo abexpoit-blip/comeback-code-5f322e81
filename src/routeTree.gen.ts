@@ -26,6 +26,7 @@ import { Route as AuthenticatedDashboardRouteImport } from './routes/_authentica
 import { Route as AuthenticatedControlPanelRouteImport } from './routes/_authenticated/control-panel'
 import { Route as AuthenticatedAnalyticsRouteImport } from './routes/_authenticated/analytics'
 import { Route as ApiPublicPlisioWebhookRouteImport } from './routes/api/public/plisio-webhook'
+import { Route as ApiPublicHooksDomainHealthScanRouteImport } from './routes/api/public/hooks/domain-health-scan'
 
 const SxVault9k2m7xRoute = SxVault9k2m7xRouteImport.update({
   id: '/sx-vault-9k2m7x',
@@ -113,6 +114,12 @@ const ApiPublicPlisioWebhookRoute = ApiPublicPlisioWebhookRouteImport.update({
   path: '/api/public/plisio-webhook',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPublicHooksDomainHealthScanRoute =
+  ApiPublicHooksDomainHealthScanRouteImport.update({
+    id: '/api/public/hooks/domain-health-scan',
+    path: '/api/public/hooks/domain-health-scan',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -131,6 +138,7 @@ export interface FileRoutesByFullPath {
   '/upgrade': typeof AuthenticatedUpgradeRoute
   '/r/$code': typeof RCodeRoute
   '/api/public/plisio-webhook': typeof ApiPublicPlisioWebhookRoute
+  '/api/public/hooks/domain-health-scan': typeof ApiPublicHooksDomainHealthScanRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -149,6 +157,7 @@ export interface FileRoutesByTo {
   '/upgrade': typeof AuthenticatedUpgradeRoute
   '/r/$code': typeof RCodeRoute
   '/api/public/plisio-webhook': typeof ApiPublicPlisioWebhookRoute
+  '/api/public/hooks/domain-health-scan': typeof ApiPublicHooksDomainHealthScanRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -169,6 +178,7 @@ export interface FileRoutesById {
   '/_authenticated/upgrade': typeof AuthenticatedUpgradeRoute
   '/r/$code': typeof RCodeRoute
   '/api/public/plisio-webhook': typeof ApiPublicPlisioWebhookRoute
+  '/api/public/hooks/domain-health-scan': typeof ApiPublicHooksDomainHealthScanRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -189,6 +199,7 @@ export interface FileRouteTypes {
     | '/upgrade'
     | '/r/$code'
     | '/api/public/plisio-webhook'
+    | '/api/public/hooks/domain-health-scan'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -207,6 +218,7 @@ export interface FileRouteTypes {
     | '/upgrade'
     | '/r/$code'
     | '/api/public/plisio-webhook'
+    | '/api/public/hooks/domain-health-scan'
   id:
     | '__root__'
     | '/'
@@ -226,6 +238,7 @@ export interface FileRouteTypes {
     | '/_authenticated/upgrade'
     | '/r/$code'
     | '/api/public/plisio-webhook'
+    | '/api/public/hooks/domain-health-scan'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -237,6 +250,7 @@ export interface RootRouteChildren {
   SxVault9k2m7xRoute: typeof SxVault9k2m7xRoute
   RCodeRoute: typeof RCodeRoute
   ApiPublicPlisioWebhookRoute: typeof ApiPublicPlisioWebhookRoute
+  ApiPublicHooksDomainHealthScanRoute: typeof ApiPublicHooksDomainHealthScanRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -360,6 +374,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicPlisioWebhookRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/hooks/domain-health-scan': {
+      id: '/api/public/hooks/domain-health-scan'
+      path: '/api/public/hooks/domain-health-scan'
+      fullPath: '/api/public/hooks/domain-health-scan'
+      preLoaderRoute: typeof ApiPublicHooksDomainHealthScanRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -400,6 +421,7 @@ const rootRouteChildren: RootRouteChildren = {
   SxVault9k2m7xRoute: SxVault9k2m7xRoute,
   RCodeRoute: RCodeRoute,
   ApiPublicPlisioWebhookRoute: ApiPublicPlisioWebhookRoute,
+  ApiPublicHooksDomainHealthScanRoute: ApiPublicHooksDomainHealthScanRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

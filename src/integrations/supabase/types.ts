@@ -484,6 +484,74 @@ export type Database = {
           },
         ]
       }
+      domain_health_checks: {
+        Row: {
+          blacklist_sources: Json | null
+          blacklisted: boolean | null
+          checked_at: string
+          dns_ok: boolean | null
+          domain: string
+          domain_id: string
+          error_message: string | null
+          http_final_url: string | null
+          http_status: number | null
+          id: number
+          raw: Json | null
+          redirect_count: number | null
+          ssl_days_remaining: number | null
+          ssl_expires_at: string | null
+          ssl_issuer: string | null
+          ssl_valid: boolean | null
+          status: string
+        }
+        Insert: {
+          blacklist_sources?: Json | null
+          blacklisted?: boolean | null
+          checked_at?: string
+          dns_ok?: boolean | null
+          domain: string
+          domain_id: string
+          error_message?: string | null
+          http_final_url?: string | null
+          http_status?: number | null
+          id?: number
+          raw?: Json | null
+          redirect_count?: number | null
+          ssl_days_remaining?: number | null
+          ssl_expires_at?: string | null
+          ssl_issuer?: string | null
+          ssl_valid?: boolean | null
+          status: string
+        }
+        Update: {
+          blacklist_sources?: Json | null
+          blacklisted?: boolean | null
+          checked_at?: string
+          dns_ok?: boolean | null
+          domain?: string
+          domain_id?: string
+          error_message?: string | null
+          http_final_url?: string | null
+          http_status?: number | null
+          id?: number
+          raw?: Json | null
+          redirect_count?: number | null
+          ssl_days_remaining?: number | null
+          ssl_expires_at?: string | null
+          ssl_issuer?: string | null
+          ssl_valid?: boolean | null
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "domain_health_checks_domain_id_fkey"
+            columns: ["domain_id"]
+            isOneToOne: false
+            referencedRelation: "monitored_domains"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       error_logs: {
         Row: {
           context: Json | null
@@ -641,6 +709,75 @@ export type Database = {
           title?: string | null
           updated_at?: string
           user_id?: string
+        }
+        Relationships: []
+      }
+      monitored_domains: {
+        Row: {
+          blacklist_sources: Json | null
+          blacklisted: boolean | null
+          created_at: string
+          dns_ok: boolean | null
+          domain: string
+          http_final_url: string | null
+          http_status: number | null
+          id: string
+          is_active: boolean
+          last_checked_at: string | null
+          last_error: string | null
+          notes: string | null
+          redirect_count: number | null
+          source: string
+          ssl_days_remaining: number | null
+          ssl_expires_at: string | null
+          ssl_issuer: string | null
+          ssl_valid: boolean | null
+          status: string | null
+          updated_at: string
+        }
+        Insert: {
+          blacklist_sources?: Json | null
+          blacklisted?: boolean | null
+          created_at?: string
+          dns_ok?: boolean | null
+          domain: string
+          http_final_url?: string | null
+          http_status?: number | null
+          id?: string
+          is_active?: boolean
+          last_checked_at?: string | null
+          last_error?: string | null
+          notes?: string | null
+          redirect_count?: number | null
+          source?: string
+          ssl_days_remaining?: number | null
+          ssl_expires_at?: string | null
+          ssl_issuer?: string | null
+          ssl_valid?: boolean | null
+          status?: string | null
+          updated_at?: string
+        }
+        Update: {
+          blacklist_sources?: Json | null
+          blacklisted?: boolean | null
+          created_at?: string
+          dns_ok?: boolean | null
+          domain?: string
+          http_final_url?: string | null
+          http_status?: number | null
+          id?: string
+          is_active?: boolean
+          last_checked_at?: string | null
+          last_error?: string | null
+          notes?: string | null
+          redirect_count?: number | null
+          source?: string
+          ssl_days_remaining?: number | null
+          ssl_expires_at?: string | null
+          ssl_issuer?: string | null
+          ssl_valid?: boolean | null
+          status?: string | null
+          updated_at?: string
         }
         Relationships: []
       }
@@ -1063,6 +1200,7 @@ export type Database = {
         Args: { _candidates: string[]; _link_id: string }
         Returns: string
       }
+      prune_domain_health_history: { Args: never; Returns: undefined }
       record_bot_fingerprint: {
         Args: {
           _block_threshold?: number

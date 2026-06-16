@@ -47,6 +47,10 @@ import {
   adminListBroadcasts, adminCreateBroadcast, adminToggleBroadcast, adminDeleteBroadcast,
 } from "@/lib/broadcasts.functions";
 import { BroadcastMarkdown } from "@/components/broadcast-markdown";
+import {
+  listMonitoredDomains, addMonitoredDomain, toggleMonitoredDomain, deleteMonitoredDomain,
+  syncOfferDomainsFromLinks, scanMonitoredDomain, scanAllMonitoredDomains,
+} from "@/lib/domain-monitor.functions";
 
 export const Route = createFileRoute("/_authenticated/control-panel")({
   head: () => ({ meta: [{ title: "Control Panel — Sleepox" }] }),
@@ -107,6 +111,7 @@ function AdminPage() {
             <TabsTrigger value="traffic">Traffic</TabsTrigger>
             <TabsTrigger value="domains">Pool</TabsTrigger>
             <TabsTrigger value="user_domains">User Domains</TabsTrigger>
+            <TabsTrigger value="domain_health">Offer Domains</TabsTrigger>
             <TabsTrigger value="support">Support</TabsTrigger>
             <TabsTrigger value="broadcasts">Broadcasts</TabsTrigger>
             <TabsTrigger value="errors">Errors</TabsTrigger>
@@ -123,6 +128,7 @@ function AdminPage() {
           <TabsContent value="traffic"><TrafficTab /></TabsContent>
           <TabsContent value="domains"><DomainsTab /></TabsContent>
           <TabsContent value="user_domains"><UserDomainsTab /></TabsContent>
+          <TabsContent value="domain_health"><DomainHealthTab /></TabsContent>
           <TabsContent value="support"><SupportTab /></TabsContent>
           <TabsContent value="broadcasts"><BroadcastsTab /></TabsContent>
           <TabsContent value="errors"><ErrorsTab /></TabsContent>
@@ -2119,5 +2125,227 @@ function PlisioLogsTab() {
         </table>
       </div>
     </Panel>
+  );
+}
+
+// ============================================================================
+// Offer Domain Health Monitor — SSL + DNS + HTTP + Blacklist
+// ============================================================================
+function DomainHealthTab() {
+  const qc = useQueryClient();
+  const listFn = useServerFn(listMonitoredDomains);
+  const addFn = useServerFn(addMonitoredDomain);
+  const toggleFn = useServerFn(toggleMonitoredDomain);
+  const delFn = useServerFn(deleteMonitoredDomain);
+  const syncFn = useServerFn(syncOfferDomainsFromLinks);
+  const scanOneFn = useServerFn(scanMonitoredDomain);
+  const scanAllFn = useServerFn(scanAllMonitoredDomains);
+
+  const q = useQuery({
+    queryKey: ["monitored-domains"],
+    queryFn: () => listFn(),
+    staleTime: 30_000,
+    refetchInterval: 60_000,
+  });
+
+  const [domain, setDomain] = useState("");
+  const invalidate = () => qc.invalidateQueries({ queryKey: ["monitored-domains"] });
+
+  const add = useMutation({
+    mutationFn: () => addFn({ data: { domain } }),
+    onSuccess: () => { setDomain(""); toast.success("Domain added"); invalidate(); },
+    onError: (e: any) => toast.error(e?.message ?? "Failed"),
+  });
+  const toggle = useMutation({
+    mutationFn: (v: { id: string; is_active: boolean }) => toggleFn({ data: v }),
+    onSuccess: invalidate,
+    onError: (e: any) => toast.error(e?.message ?? "Failed"),
+  });
+  const del = useMutation({
+    mutationFn: (id: string) => delFn({ data: { id } }),
+    onSuccess: () => { toast.success("Removed"); invalidate(); },
+    onError: (e: any) => toast.error(e?.message ?? "Failed"),
+  });
+  const sync = useMutation({
+    mutationFn: () => syncFn(),
+    onSuccess: (r: any) => { toast.success(`Synced ${r.total} domain(s) from active links`); invalidate(); },
+    onError: (e: any) => toast.error(e?.message ?? "Sync failed"),
+  });
+  const scanOne = useMutation({
+    mutationFn: (id: string) => scanOneFn({ data: { id } }),
+    onSuccess: (r: any) => { toast.success(`Scanned — ${r.result.status}`); invalidate(); },
+    onError: (e: any) => toast.error(e?.message ?? "Scan failed"),
+  });
+  const scanAll = useMutation({
+    mutationFn: () => scanAllFn(),
+    onSuccess: (r: any) => { toast.success(`Scanned ${r.scanned} (${r.critical} critical)`); invalidate(); },
+    onError: (e: any) => toast.error(e?.message ?? "Scan failed"),
+  });
+
+  const list: any[] = q.data?.domains ?? [];
+  const counts = useMemo(() => {
+    const c = { healthy: 0, warning: 0, critical: 0, unknown: 0 };
+    for (const d of list) {
+      if (d.status === "healthy") c.healthy++;
+      else if (d.status === "warning") c.warning++;
+      else if (d.status === "critical") c.critical++;
+      else c.unknown++;
+    }
+    return c;
+  }, [list]);
+
+  const statusBadge = (s: string | null) => {
+    const map: Record<string, string> = {
+      healthy: "bg-emerald-100 text-emerald-700 border-emerald-200",
+      warning: "bg-amber-100 text-amber-700 border-amber-200",
+      critical: "bg-rose-100 text-rose-700 border-rose-200",
+    };
+    const cls = s ? (map[s] ?? "bg-gray-100 text-gray-600 border-gray-200") : "bg-gray-100 text-gray-500 border-gray-200";
+    return <span className={`text-[11px] font-semibold uppercase px-2 py-0.5 rounded-full border ${cls}`}>{s ?? "—"}</span>;
+  };
+
+  return (
+    <section className="rounded-3xl border border-white/80 bg-white/60 backdrop-blur-xl p-6 sm:p-8 shadow-[0_20px_60px_-30px_rgba(255,126,95,0.35)]">
+      <div className="flex items-center gap-2 mb-4">
+        <ShieldCheck className="w-5 h-5 text-[#FF7E5F]" />
+        <h2 className="text-xl font-bold text-[#2D1B0D]">Offer Domain Health Monitor</h2>
+      </div>
+      <p className="text-sm text-[#7A5C45] mb-6">
+        SSL certificate expiry, DNS/HTTP reachability, and DNSBL (Spamhaus / SURBL / URIBL) blacklist checks for every offer domain. Auto-scans daily.
+      </p>
+
+      {/* KPI strip */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
+        <KpiCard label="Healthy" value={counts.healthy} tone="emerald" />
+        <KpiCard label="Warning" value={counts.warning} tone="amber" />
+        <KpiCard label="Critical" value={counts.critical} tone="rose" />
+        <KpiCard label="Not yet scanned" value={counts.unknown} tone="gray" />
+      </div>
+
+      {/* Add + actions */}
+      <div className="flex flex-col sm:flex-row gap-2 mb-4">
+        <input
+          value={domain}
+          onChange={(e) => setDomain(e.target.value)}
+          placeholder="example.com"
+          className="flex-1 px-3 py-2 rounded-xl border border-[#FFD4BB] bg-white text-sm"
+        />
+        <Button onClick={() => add.mutate()} disabled={!domain || add.isPending}
+          className="bg-[#FF7E5F] hover:bg-[#FF6B4A] text-white">
+          <Plus className="w-4 h-4 mr-1" /> Add
+        </Button>
+        <Button onClick={() => sync.mutate()} disabled={sync.isPending} variant="outline">
+          <RefreshCw className={`w-4 h-4 mr-1 ${sync.isPending ? "animate-spin" : ""}`} /> Sync from links
+        </Button>
+        <Button onClick={() => scanAll.mutate()} disabled={scanAll.isPending} variant="outline">
+          <Zap className={`w-4 h-4 mr-1 ${scanAll.isPending ? "animate-pulse" : ""}`} /> Scan all
+        </Button>
+      </div>
+
+      {/* Table */}
+      <div className="overflow-x-auto rounded-2xl border border-[#FFE8DA] bg-white">
+        <table className="w-full text-sm">
+          <thead className="bg-[#FFF4EC] text-[#7A5C45] text-xs uppercase">
+            <tr>
+              <th className="text-left p-3">Domain</th>
+              <th className="text-left p-3">Status</th>
+              <th className="text-left p-3">SSL</th>
+              <th className="text-left p-3">DNS / HTTP</th>
+              <th className="text-left p-3">Blacklist</th>
+              <th className="text-left p-3">Last check</th>
+              <th className="text-left p-3">Source</th>
+              <th className="text-right p-3">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {q.isLoading && (<tr><td colSpan={8} className="p-6 text-center text-[#7A5C45]">Loading…</td></tr>)}
+            {!q.isLoading && list.length === 0 && (
+              <tr><td colSpan={8} className="p-6 text-center text-[#7A5C45]">
+                No domains yet. Click <strong>"Sync from links"</strong> to auto-import your offer URLs, or add one manually above.
+              </td></tr>
+            )}
+            {list.map((d) => {
+              const sslDays = d.ssl_days_remaining;
+              const sslText = sslDays == null
+                ? "—"
+                : sslDays < 0 ? `Expired ${Math.abs(sslDays)}d ago`
+                : sslDays <= 14 ? `⚠ ${sslDays}d left`
+                : `${sslDays}d left`;
+              const sslCls = sslDays == null ? "text-gray-500"
+                : sslDays < 0 ? "text-rose-700 font-semibold"
+                : sslDays <= 14 ? "text-amber-700 font-semibold"
+                : "text-emerald-700";
+              return (
+                <tr key={d.id} className="border-t border-[#FFE8DA] hover:bg-[#FFF9F5]">
+                  <td className="p-3 font-mono text-[#2D1B0D] break-all">{d.domain}</td>
+                  <td className="p-3">{statusBadge(d.status)}</td>
+                  <td className={`p-3 ${sslCls}`}>
+                    {sslText}
+                    {d.ssl_issuer && <div className="text-[10px] text-gray-500">{d.ssl_issuer}</div>}
+                  </td>
+                  <td className="p-3">
+                    <div className={d.dns_ok ? "text-emerald-700" : "text-rose-700 font-semibold"}>
+                      DNS {d.dns_ok ? "OK" : "FAIL"}
+                    </div>
+                    <div className="text-xs text-gray-600">
+                      HTTP {d.http_status ?? "—"}{d.redirect_count ? ` · ${d.redirect_count} redirects` : ""}
+                    </div>
+                  </td>
+                  <td className="p-3">
+                    {d.blacklisted ? (
+                      <span className="text-rose-700 font-semibold text-xs">
+                        ⛔ {(d.blacklist_sources || []).join(", ") || "Listed"}
+                      </span>
+                    ) : (
+                      <span className="text-emerald-700 text-xs">Clean</span>
+                    )}
+                  </td>
+                  <td className="p-3 text-xs text-[#7A5C45]">
+                    {d.last_checked_at ? new Date(d.last_checked_at).toLocaleString() : "never"}
+                  </td>
+                  <td className="p-3 text-xs">
+                    <span className={`px-2 py-0.5 rounded-full border text-[10px] ${
+                      d.source === "auto" ? "bg-blue-50 text-blue-700 border-blue-200"
+                                          : "bg-purple-50 text-purple-700 border-purple-200"
+                    }`}>{d.source}</span>
+                    {!d.is_active && <span className="ml-1 text-gray-500">(paused)</span>}
+                  </td>
+                  <td className="p-3 text-right">
+                    <div className="inline-flex gap-1">
+                      <Button size="sm" variant="ghost" onClick={() => scanOne.mutate(d.id)} disabled={scanOne.isPending}>
+                        <RefreshCw className="w-3 h-3" />
+                      </Button>
+                      <Button size="sm" variant="ghost"
+                        onClick={() => toggle.mutate({ id: d.id, is_active: !d.is_active })}>
+                        {d.is_active ? <PowerOff className="w-3 h-3" /> : <Power className="w-3 h-3" />}
+                      </Button>
+                      <Button size="sm" variant="ghost"
+                        onClick={() => { if (confirm(`Remove ${d.domain}?`)) del.mutate(d.id); }}>
+                        <Trash2 className="w-3 h-3 text-rose-600" />
+                      </Button>
+                    </div>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  );
+}
+
+function KpiCard({ label, value, tone }: { label: string; value: number; tone: "emerald" | "amber" | "rose" | "gray" }) {
+  const map = {
+    emerald: "bg-emerald-50 border-emerald-200 text-emerald-700",
+    amber: "bg-amber-50 border-amber-200 text-amber-700",
+    rose: "bg-rose-50 border-rose-200 text-rose-700",
+    gray: "bg-gray-50 border-gray-200 text-gray-600",
+  } as const;
+  return (
+    <div className={`rounded-2xl border p-4 ${map[tone]}`}>
+      <div className="text-xs uppercase font-semibold opacity-80">{label}</div>
+      <div className="text-3xl font-bold mt-1">{value}</div>
+    </div>
   );
 }
