@@ -26,7 +26,7 @@ export const Route = createFileRoute("/api/public/hooks/domain-health-scan")({
           await supabaseAdmin.rpc("prune_domain_health_history" as any);
 
           const res = await scanAllInternal();
-          return new Response(JSON.stringify({ ok: true, ...res, at: new Date().toISOString() }), {
+          return new Response(JSON.stringify({ ...res, at: new Date().toISOString() }), {
             headers: { "Content-Type": "application/json" },
           });
         } catch (e: any) {
