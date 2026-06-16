@@ -376,7 +376,7 @@ function UsersTab() {
           <thead>
             <tr className="text-left text-[10px] font-bold uppercase tracking-widest text-[#7A5C45]">
               <Th><input type="checkbox" checked={selected.size > 0 && selected.size === filtered.length} onChange={toggleAll} /></Th>
-              <Th>Email</Th><Th>Plan</Th><Th>Change</Th><Th>Links</Th><Th>Clicks</Th><Th>Ours</Th><Th>Status</Th><Th></Th>
+              <Th>Email</Th><Th>Plan</Th><Th>Change</Th><Th>Links</Th><Th>Clicks</Th><Th>Ours</Th><Th>Started</Th><Th>Expires</Th><Th>Status</Th><Th></Th>
             </tr>
           </thead>
           <tbody>
@@ -395,6 +395,15 @@ function UsersTab() {
                 <Td className="text-[#7A5C45]">{u.links_used} / {u.link_limit == null ? "∞" : u.link_limit}</Td>
                 <Td className="text-[#7A5C45]">{u.clicks_used.toLocaleString()}{u.click_quota == null ? " / ∞" : ` / ${u.click_quota.toLocaleString()}`}</Td>
                 <Td><span className="inline-flex px-2 py-0.5 rounded-md bg-gradient-to-r from-[#FF7E5F]/15 to-[#FEB47B]/15 text-[#FF7E5F] text-xs font-bold">{(u.ours_clicks ?? 0).toLocaleString()}</span></Td>
+                <Td className="text-[#7A5C45] text-xs whitespace-nowrap">{u.plan_started_at ? new Date(u.plan_started_at).toLocaleDateString() : "—"}</Td>
+                <Td className="text-xs whitespace-nowrap">{(() => {
+                  if (u.plan_slug === "lifetime" || u.plan_slug === "unlimited") return <span className="text-emerald-600 font-semibold">Never</span>;
+                  if (!u.plan_expires_at) return <span className="text-[#7A5C45]">—</span>;
+                  const exp = new Date(u.plan_expires_at);
+                  const daysLeft = Math.ceil((exp.getTime() - Date.now()) / 86400000);
+                  const cls = daysLeft < 0 ? "text-rose-600 font-semibold" : daysLeft <= 3 ? "text-amber-600 font-semibold" : "text-[#7A5C45]";
+                  return <span className={cls} title={exp.toLocaleString()}>{exp.toLocaleDateString()} ({daysLeft < 0 ? `expired ${-daysLeft}d ago` : `${daysLeft}d left`})</span>;
+                })()}</Td>
                 <Td>{u.is_banned ? <span className="text-rose-600 font-semibold">Banned</span> : <span className="text-emerald-600 font-semibold">Active</span>}</Td>
                 <Td>
                   <div className="flex gap-1">
