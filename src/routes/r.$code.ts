@@ -776,6 +776,12 @@ async function getProfileQuota(userId: string): Promise<{ click_quota: number | 
   if (existing) return existing;
 
   const promise = (async () => {
+    // L2 Redis shared lookup.
+    const l2 = await redisGet<{ click_quota: number | null; clicks_used: number | null } | null>(L2_PROFILE_PREFIX + userId);
+    if (l2 !== null) {
+      cacheSet(profileQuotaCache, userId, l2, PROFILE_L1_TTL_MS);
+      return l2;
+    }
     const ctrl = new AbortController();
     const timer = setTimeout(() => ctrl.abort(), 900);
     try {
@@ -786,7 +792,8 @@ async function getProfileQuota(userId: string): Promise<{ click_quota: number | 
         .maybeSingle();
       const { data, error } = await (query as any).abortSignal(ctrl.signal);
       if (error) throw error;
-      cacheSet(profileQuotaCache, userId, data ?? null, PROFILE_CACHE_TTL_MS);
+      cacheSet(profileQuotaCache, userId, data ?? null, PROFILE_L1_TTL_MS);
+      redisSetAsync(L2_PROFILE_PREFIX + userId, data ?? null, PROFILE_CACHE_TTL_MS);
       return data ?? null;
     } catch (error) {
       console.error("redirect profile lookup failed", {
