@@ -154,7 +154,7 @@ export async function scanAllInternal() {
     .from("monitored_domains").select("id, domain").eq("is_active", true);
   if (error) throw new Error(error.message);
   if (!rows || rows.length === 0) return { ok: true, scanned: 0 };
-  const { runDomainHealthCheck } = await import("./domain-health.server");
+  const { runDomainHealthCheck } = await import(/* @vite-ignore */ "./domain-health.server");
 
   // Process in small batches to avoid hammering DNS / sockets
   const BATCH = 5;
