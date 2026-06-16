@@ -48,9 +48,27 @@ async function applyPackageToProfile(
     ? null
     : new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000).toISOString();
 
+  const { data: profile, error: fetchErr } = await supabaseAdmin
+    .from("profiles")
+    .select("plan_slug, plan_expires_at")
+    .eq("id", userId)
+    .maybeSingle();
+  if (fetchErr) throw fetchErr;
+
+  const expiry = profile?.plan_expires_at ? new Date(profile.plan_expires_at).getTime() : null;
+  const keepExistingUsage =
+    pkg.slug !== "free" &&
+    profile?.plan_slug === pkg.slug &&
+    (expiry == null || Number.isNaN(expiry) || expiry > now.getTime());
+
   const { error } = await supabaseAdmin
     .from("profiles")
-    .update({
+    .update((keepExistingUsage ? {
+      plan_slug: pkg.slug,
+      click_quota: pkg.click_quota,
+      link_limit: pkg.link_limit,
+      plan_expires_at: expiresAt,
+    } : {
       plan_slug: pkg.slug,
       click_quota: pkg.click_quota,
       link_limit: pkg.link_limit,
@@ -58,7 +76,7 @@ async function applyPackageToProfile(
       clicks_period_start: resetAt,
       plan_started_at: resetAt,
       plan_expires_at: expiresAt,
-    } as any)
+    }) as any)
     .eq("id", userId);
   if (error) throw error;
 }

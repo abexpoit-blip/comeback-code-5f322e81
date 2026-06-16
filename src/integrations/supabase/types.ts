@@ -785,6 +785,48 @@ export type Database = {
         }
         Relationships: []
       }
+      quota_reset_snapshots: {
+        Row: {
+          click_quota: number | null
+          clicks_period_start: string | null
+          clicks_used: number | null
+          created_at: string
+          email: string | null
+          id: string
+          plan_expires_at: string | null
+          plan_slug: string | null
+          profile_id: string
+          reset_at: string
+          reset_id: string
+        }
+        Insert: {
+          click_quota?: number | null
+          clicks_period_start?: string | null
+          clicks_used?: number | null
+          created_at?: string
+          email?: string | null
+          id?: string
+          plan_expires_at?: string | null
+          plan_slug?: string | null
+          profile_id: string
+          reset_at?: string
+          reset_id: string
+        }
+        Update: {
+          click_quota?: number | null
+          clicks_period_start?: string | null
+          clicks_used?: number | null
+          created_at?: string
+          email?: string | null
+          id?: string
+          plan_expires_at?: string | null
+          plan_slug?: string | null
+          profile_id?: string
+          reset_at?: string
+          reset_id?: string
+        }
+        Relationships: []
+      }
       referrer_rules: {
         Row: {
           action: string | null
@@ -1056,6 +1098,10 @@ export type Database = {
       }
       record_whitelist_hit: { Args: { _id: string }; Returns: undefined }
       reset_all_clicks: { Args: never; Returns: Json }
+      restore_paid_quota_from_reset_snapshot: {
+        Args: { _reset_id?: string }
+        Returns: Json
+      }
       resync_profile_click_counters: { Args: never; Returns: Json }
     }
     Enums: {

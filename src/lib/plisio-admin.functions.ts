@@ -11,27 +11,34 @@ async function assertAdmin(userId: string) {
 
 async function applyPackageToProfile(userId: string, pkg: { slug: string; click_quota: number | null; link_limit: number | null }) {
   const resetAt = new Date().toISOString();
-
-  const { error: planErr } = await supabaseAdmin
+  const { data: profile, error: fetchErr } = await supabaseAdmin
     .from("profiles")
-    .update({
+    .select("plan_slug, plan_expires_at")
+    .eq("id", userId)
+    .maybeSingle();
+  if (fetchErr) throw new Error(fetchErr.message);
+
+  const expiry = profile?.plan_expires_at ? new Date(profile.plan_expires_at).getTime() : null;
+  const keepExistingUsage =
+    pkg.slug !== "free" &&
+    profile?.plan_slug === pkg.slug &&
+    (expiry == null || Number.isNaN(expiry) || expiry > Date.now());
+
+  const { error } = await supabaseAdmin
+    .from("profiles")
+    .update((keepExistingUsage ? {
+      plan_slug: pkg.slug,
+      click_quota: pkg.click_quota,
+      link_limit: pkg.link_limit,
+    } : {
+      click_quota: pkg.click_quota,
+      link_limit: pkg.link_limit,
       plan_slug: pkg.slug,
       clicks_used: 0,
       clicks_period_start: resetAt,
-    } as any)
+    }) as any)
     .eq("id", userId);
-  if (planErr) throw new Error(planErr.message);
-
-  const { error: quotaErr } = await supabaseAdmin
-    .from("profiles")
-    .update({
-      click_quota: pkg.click_quota,
-      link_limit: pkg.link_limit,
-      clicks_used: 0,
-      clicks_period_start: resetAt,
-    } as any)
-    .eq("id", userId);
-  if (quotaErr) throw new Error(quotaErr.message);
+  if (error) throw new Error(error.message);
 }
 
 export const adminListPlisioLogs = createServerFn({ method: "GET" })

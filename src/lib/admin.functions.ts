@@ -18,20 +18,50 @@ type PackageQuota = {
 async function applyPackageToProfileIds(userIds: string[], pkg: PackageQuota) {
   const ids = [...new Set(userIds)];
   const resetAt = new Date().toISOString();
+  const nowMs = Date.now();
 
-  // L2 FIX: single atomic UPDATE — no intermediate window where plan_slug is
-  // set but quota fields still hold the previous plan's values.
-  const { error } = await supabaseAdmin
+  const { data: profiles, error: fetchErr } = await supabaseAdmin
     .from("profiles")
-    .update({
-      plan_slug: pkg.slug,
-      click_quota: pkg.click_quota,
-      link_limit: pkg.link_limit,
-      clicks_used: 0,
-      clicks_period_start: resetAt,
-    } as any)
+    .select("id, plan_slug, plan_expires_at")
     .in("id", ids);
-  if (error) throw new Error(error.message);
+  if (fetchErr) throw new Error(fetchErr.message);
+
+  const shouldPreserveUsage = (profile: any) => {
+    if (pkg.slug === "free") return false;
+    if (profile?.plan_slug !== pkg.slug) return false;
+    const expiry = profile?.plan_expires_at ? new Date(profile.plan_expires_at).getTime() : null;
+    return expiry == null || Number.isNaN(expiry) || expiry > nowMs;
+  };
+
+  const preserveIds = (profiles ?? []).filter(shouldPreserveUsage).map((p: any) => p.id);
+  const preserveSet = new Set(preserveIds);
+  const resetIds = ids.filter((id) => !preserveSet.has(id));
+
+  const quotaUpdate = {
+    plan_slug: pkg.slug,
+    click_quota: pkg.click_quota,
+    link_limit: pkg.link_limit,
+  };
+
+  if (preserveIds.length > 0) {
+    const { error } = await supabaseAdmin
+      .from("profiles")
+      .update(quotaUpdate as any)
+      .in("id", preserveIds);
+    if (error) throw new Error(error.message);
+  }
+
+  if (resetIds.length > 0) {
+    const { error } = await supabaseAdmin
+      .from("profiles")
+      .update({
+        ...quotaUpdate,
+        clicks_used: 0,
+        clicks_period_start: resetAt,
+      } as any)
+      .in("id", resetIds);
+    if (error) throw new Error(error.message);
+  }
 }
 
 
@@ -156,8 +186,8 @@ export const adminTopUsers = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
     await assertAdmin(context.userId);
-    // Aggregate from links table — profiles.clicks_used gets zeroed by reset_all_clicks,
-    // but per-link counters keep growing with new traffic.
+    // Aggregate from links table for dashboard ranking; quota usage lives in
+    // profiles.clicks_used and must not be recomputed from resettable counters.
     const { data: links } = await supabaseAdmin
       .from("links")
       .select("user_id, clicks_count, bot_clicks_count, ours_clicks_count");
