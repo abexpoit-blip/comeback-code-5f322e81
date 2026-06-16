@@ -135,16 +135,26 @@ export const Route = createFileRoute("/api/public/plisio-webhook")({
         }
 
         // Now safe to log the verified event.
+        // L4 FIX: capture the inserted row id so the later processed_at update
+        // targets *this* log row, not every prior pending/completed row that
+        // happens to share the same txn_id.
+        let logRowId: string | null = null;
         try {
-          await supabaseAdmin.from("plisio_event_logs").insert({
-            txn_id: txnId,
-            order_number: orderNumber,
-            status: status,
-            raw_body: body,
-          });
+          const { data: inserted } = await supabaseAdmin
+            .from("plisio_event_logs")
+            .insert({
+              txn_id: txnId,
+              order_number: orderNumber,
+              status: status,
+              raw_body: body,
+            })
+            .select("id")
+            .single();
+          logRowId = (inserted as any)?.id ?? null;
         } catch (logErr) {
           console.error("[plisio] logging failed", logErr);
         }
+
 
         // H6 FIX: "mismatch" means user paid less than invoiced amount.
         // Do NOT auto-grant full package — that's revenue loss. Mark order as
