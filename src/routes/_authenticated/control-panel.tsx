@@ -47,6 +47,10 @@ import {
   adminListBroadcasts, adminCreateBroadcast, adminToggleBroadcast, adminDeleteBroadcast,
 } from "@/lib/broadcasts.functions";
 import { BroadcastMarkdown } from "@/components/broadcast-markdown";
+import {
+  listMonitoredDomains, addMonitoredDomain, toggleMonitoredDomain, deleteMonitoredDomain,
+  syncOfferDomainsFromLinks, scanMonitoredDomain, scanAllMonitoredDomains,
+} from "@/lib/domain-monitor.functions";
 
 export const Route = createFileRoute("/_authenticated/control-panel")({
   head: () => ({ meta: [{ title: "Control Panel — Sleepox" }] }),
