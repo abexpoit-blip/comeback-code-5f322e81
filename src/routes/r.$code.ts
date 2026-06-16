@@ -634,6 +634,14 @@ export async function lookupRedirectLink(
   const existing = linkInflight.get(code);
   if (existing) return existing;
 
+  // L2 (Redis): try shared cache before DB. Populated by any of the 8 workers.
+  const l2 = await redisGet<RedirectLink>(L2_LINK_PREFIX + code);
+  if (l2) {
+    cacheSet(linkCache, code, l2, LINK_L1_TTL_MS);
+    return { link: l2, error: null };
+  }
+
+
   const promise = (async (): Promise<{ link: RedirectLink | null; error: Error | null }> => {
     let res: any = null;
     let lastErr: any = null;
