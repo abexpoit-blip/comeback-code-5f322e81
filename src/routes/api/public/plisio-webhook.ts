@@ -162,21 +162,21 @@ export const Route = createFileRoute("/api/public/plisio-webhook")({
         let userId = "";
         let packageSlug = "";
 
-        let req: { id: string; user_id: string; package_slug: string; status: string } | null = null;
+        let req: any = null;
         try {
           const { data } = await supabaseAdmin
             .from("upgrade_requests")
             .select("id, user_id, package_slug, status")
             .eq("id", orderNumber)
             .maybeSingle();
-          req = data as typeof req;
+          req = data;
         } catch (e) {
           console.error("[plisio] upgrade_requests query failed", e);
         }
 
         if (!req) {
           console.warn("[plisio] recovery: order missing from DB", { txnId, orderNumber });
-          let previousLog: { order_number: string | null } | null = null;
+          let previousLog: any = null;
           try {
             const { data } = await supabaseAdmin
               .from("plisio_event_logs")
@@ -184,7 +184,7 @@ export const Route = createFileRoute("/api/public/plisio-webhook")({
               .eq("txn_id", txnId)
               .not("order_number", "is", null)
               .maybeSingle();
-            previousLog = data as typeof previousLog;
+            previousLog = data;
           } catch (_e) {}
 
           const recoveryId = orderNumber || previousLog?.order_number;
@@ -195,9 +195,9 @@ export const Route = createFileRoute("/api/public/plisio-webhook")({
               .eq("id", recoveryId)
               .maybeSingle();
             if (recoveredReq) {
-              req = recoveredReq as typeof req;
-              userId = req!.user_id;
-              packageSlug = req!.package_slug;
+              req = recoveredReq;
+              userId = req.user_id;
+              packageSlug = req.package_slug;
               console.log("[plisio] recovered order for user", userId);
             }
           }
