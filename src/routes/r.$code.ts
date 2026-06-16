@@ -412,63 +412,100 @@ export async function recordRedirectClick(input: {
 }) {
   const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
-  const runWithRetry = async <T>(task: () => Promise<T>, attempts = 4) => {
-    let lastError: unknown;
+  // ---- Per-process concurrency gate ----
+  // PostgREST/Kong gets saturated when 8 PM2 workers each fire dozens of
+  // concurrent click RPCs. Cap in-flight RPCs per process; queue the rest.
+  // If queue overflows we drop oldest to protect memory (clicks are best-effort).
+  const MAX_INFLIGHT = 6;
+  const MAX_QUEUE = 1500;
+  const g = globalThis as any;
+  if (!g.__clickGate) {
+    g.__clickGate = { inflight: 0, queue: [] as Array<() => void>, dropped: 0 };
+  }
+  const gate = g.__clickGate as { inflight: number; queue: Array<() => void>; dropped: number };
 
+  const acquire = () => new Promise<void>((resolve) => {
+    if (gate.inflight < MAX_INFLIGHT) {
+      gate.inflight += 1;
+      resolve();
+      return;
+    }
+    if (gate.queue.length >= MAX_QUEUE) {
+      // Drop oldest waiter — its click will be skipped.
+      const oldest = gate.queue.shift();
+      gate.dropped += 1;
+      if (gate.dropped % 100 === 1) {
+        console.warn(`[click-gate] dropped ${gate.dropped} clicks (queue full)`);
+      }
+      if (oldest) oldest(); // resolve so it stops waiting; we'll mark skip via flag
+    }
+    gate.queue.push(resolve);
+  });
+  const release = () => {
+    gate.inflight -= 1;
+    const next = gate.queue.shift();
+    if (next) {
+      gate.inflight += 1;
+      next();
+    }
+  };
+
+  const runWithRetry = async <T>(task: () => Promise<T>, attempts = 2) => {
+    let lastError: unknown;
     for (let attempt = 1; attempt <= attempts; attempt += 1) {
       try {
         return await task();
       } catch (error) {
         lastError = error;
-        if (attempt < attempts) {
-          // Exponential backoff: 150ms, 400ms, 1000ms
-          const delay = attempt === 1 ? 150 : attempt === 2 ? 400 : 1000;
-          await wait(delay);
-        }
+        if (attempt < attempts) await wait(attempt === 1 ? 250 : 600);
       }
     }
-
     throw lastError;
   };
 
   const persistClickAtomically = async () => {
-    await runWithRetry(async () => {
-      const ctrl = new AbortController();
-      // 15s per attempt — DB writes under load can take >1.5s
-      const timer = setTimeout(() => ctrl.abort(), 15000);
-      const query = supabaseAdmin.rpc(
-        "record_redirect_click" as never,
-        {
-          _link_id: input.linkId,
-          _user_id: input.userId,
-          _ip: input.ip,
-          _country: input.country,
-          _ua: input.ua,
-          _is_bot: input.isBot,
-          _bot_reason: input.botReason,
-          _routed_to: input.routedTo,
-          _utm_source: input.utm?.utm_source ?? null,
-          _utm_medium: input.utm?.utm_medium ?? null,
-          _utm_campaign: input.utm?.utm_campaign ?? null,
-          _utm_term: input.utm?.utm_term ?? null,
-          _utm_content: input.utm?.utm_content ?? null,
-          _referer_host: input.refererHost ?? null,
-          _bot_score: input.botScore ?? null,
-          _signals: (input.signals ?? {}) as Json,
-          _challenge_passed: input.challengePassed,
-        } as never,
-      );
-      let rpcError: unknown = null;
-      try {
-        const result = await (query as any).abortSignal(ctrl.signal);
-        rpcError = result.error;
-      } finally {
-        clearTimeout(timer);
-      }
-
-      if (rpcError) throw rpcError;
-    });
+    await acquire();
+    try {
+      await runWithRetry(async () => {
+        const ctrl = new AbortController();
+        // 8s per attempt — long enough for slow DB, short enough to free the slot.
+        const timer = setTimeout(() => ctrl.abort(), 8000);
+        const query = supabaseAdmin.rpc(
+          "record_redirect_click" as never,
+          {
+            _link_id: input.linkId,
+            _user_id: input.userId,
+            _ip: input.ip,
+            _country: input.country,
+            _ua: input.ua,
+            _is_bot: input.isBot,
+            _bot_reason: input.botReason,
+            _routed_to: input.routedTo,
+            _utm_source: input.utm?.utm_source ?? null,
+            _utm_medium: input.utm?.utm_medium ?? null,
+            _utm_campaign: input.utm?.utm_campaign ?? null,
+            _utm_term: input.utm?.utm_term ?? null,
+            _utm_content: input.utm?.utm_content ?? null,
+            _referer_host: input.refererHost ?? null,
+            _bot_score: input.botScore ?? null,
+            _signals: (input.signals ?? {}) as Json,
+            _challenge_passed: input.challengePassed,
+          } as never,
+        );
+        let rpcError: unknown = null;
+        try {
+          const result = await (query as any).abortSignal(ctrl.signal);
+          rpcError = result.error;
+        } finally {
+          clearTimeout(timer);
+        }
+        if (rpcError) throw rpcError;
+      });
+    } finally {
+      release();
+    }
   };
+
 
   // Use the long-lived DB function already present in the schema cache.
   // It inserts the click and increments counters with SQL-side +1 updates,
