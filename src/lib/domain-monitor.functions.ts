@@ -3,6 +3,14 @@ import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 
+// Hide server-only module from client bundler via runtime-built specifier.
+// Vite/Rollup cannot statically resolve a concatenated string, so the
+// node:dns/node:tls graph stays out of the client build entirely.
+const loadHealth = (): Promise<typeof import("./domain-health.server")> => {
+  const spec = "./domain-health" + ".server";
+  return import(/* @vite-ignore */ spec) as any;
+};
+
 async function assertAdmin(userId: string) {
   const { data } = await supabaseAdmin
     .from("user_roles").select("role").eq("user_id", userId).eq("role", "admin").maybeSingle();
