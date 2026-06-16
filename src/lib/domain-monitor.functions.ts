@@ -136,7 +136,9 @@ export const scanMonitoredDomain = createServerFn({ method: "POST" })
     const { runDomainHealthCheck } = await import("./domain-health.server");
     const r = await runDomainHealthCheck((row as any).domain);
     await saveCheckResult((row as any).id, (row as any).domain, r);
-    return { ok: true, result: r };
+    // Avoid returning raw (unknown-typed jsonb) over RPC — not serializable-typed
+    const { raw: _raw, ...safe } = r;
+    return { ok: true, result: safe };
   });
 
 // ---- Scan all active domains (used by cron + admin "Scan all" button) ----
