@@ -544,10 +544,21 @@ export async function recordRedirectClick(input: {
         }
         if (rpcError) throw rpcError;
       });
+      gate.accepted += 1;
+    } catch (err) {
+      gate.failed += 1;
+      if (gate.failed === 1 || gate.failed % 25 === 0) {
+        console.warn(
+          `[click-gate][FAIL] total=${gate.failed} accepted=${gate.accepted} ` +
+          `err=${(err as Error)?.message ?? String(err)}`,
+        );
+      }
+      throw err;
     } finally {
       release();
     }
   };
+
 
 
   // Use the long-lived DB function already present in the schema cache.
