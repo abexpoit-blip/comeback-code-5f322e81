@@ -197,11 +197,20 @@ const CACHE_TTL = 3 * 60 * 1000; // 3 mins
 let globalCacheLoading: Promise<void> | null = null;
 
 type CacheHit<T> = { value: T; expiresAt: number };
-// Aggressive TTLs + in-flight de-dup + stale-on-error → survives PostgREST pool exhaustion.
-const LINK_CACHE_TTL_MS = 30 * 60 * 1000;    // 30m (was 10m)
-const PROFILE_CACHE_TTL_MS = 5 * 60 * 1000;  // 5m  (was 1m)
-const OFFER_CACHE_TTL_MS = 30 * 60 * 1000;   // 30m (was 5m)
-const FP_CACHE_TTL_MS = 10 * 60 * 1000;
+// Hybrid cache: L1 (in-memory, short TTL for request coalescing) + L2 (Redis, full TTL, shared across all 8 workers).
+// L2 TTL = source of truth across processes. L1 TTL kept short so any DB-fresh write on another worker
+// propagates within seconds via L2 lookups.
+const LINK_CACHE_TTL_MS = 30 * 60 * 1000;    // L2 = 30m
+const PROFILE_CACHE_TTL_MS = 5 * 60 * 1000;  // L2 = 5m
+const OFFER_CACHE_TTL_MS = 30 * 60 * 1000;   // L2 = 30m
+const FP_CACHE_TTL_MS = 10 * 60 * 1000;      // L2 = 10m
+
+// L1 TTLs — short. Just coalesces bursts within a single worker.
+const LINK_L1_TTL_MS = 30 * 1000;
+const PROFILE_L1_TTL_MS = 15 * 1000;
+const OFFER_L1_TTL_MS = 30 * 1000;
+const FP_L1_TTL_MS = 60 * 1000;
+
 const REDIRECT_CACHE_MAX = 50_000;
 const linkCache = new Map<string, CacheHit<RedirectLink>>();
 const profileQuotaCache = new Map<string, CacheHit<{ click_quota: number | null; clicks_used: number | null } | null>>();
@@ -212,6 +221,13 @@ const fpBlockedCache = new Map<string, CacheHit<boolean>>();
 const linkInflight = new Map<string, Promise<{ link: RedirectLink | null; error: Error | null }>>();
 const profileInflight = new Map<string, Promise<{ click_quota: number | null; clicks_used: number | null } | null>>();
 const offerInflight = new Map<string, Promise<{ abRows: any[]; geoRows: any[] }>>();
+
+// L2 Redis cache (shared across all 8 PM2 workers). Best-effort: never throws.
+import { redisGet, redisSetAsync } from "@/lib/redis-cache.server";
+const L2_LINK_PREFIX = "rd:link:";
+const L2_PROFILE_PREFIX = "rd:prof:";
+const L2_OFFER_PREFIX = "rd:offer:";
+const L2_FP_PREFIX = "rd:fp:";
 
 // Stale read — returns last-known value even if expired (used as DB-failure fallback).
 function cacheGetStale<T>(cache: Map<string, CacheHit<T>>, key: string): T | null {
@@ -618,6 +634,14 @@ export async function lookupRedirectLink(
   const existing = linkInflight.get(code);
   if (existing) return existing;
 
+  // L2 (Redis): try shared cache before DB. Populated by any of the 8 workers.
+  const l2 = await redisGet<RedirectLink>(L2_LINK_PREFIX + code);
+  if (l2) {
+    cacheSet(linkCache, code, l2, LINK_L1_TTL_MS);
+    return { link: l2, error: null };
+  }
+
+
   const promise = (async (): Promise<{ link: RedirectLink | null; error: Error | null }> => {
     let res: any = null;
     let lastErr: any = null;
@@ -704,7 +728,9 @@ function processLinkRow(code: string, row: Record<string, unknown> | null): { li
     prelanding_template: validTpl,
     created_at: (row.created_at as string | null) ?? null,
   };
-  cacheSet(linkCache, code, link, LINK_CACHE_TTL_MS);
+  cacheSet(linkCache, code, link, LINK_L1_TTL_MS);
+  redisSetAsync(L2_LINK_PREFIX + code, link, LINK_CACHE_TTL_MS);
+
 
   return {
     error: null,
@@ -715,6 +741,14 @@ function processLinkRow(code: string, row: Record<string, unknown> | null): { li
 async function getFingerprintAutoBlocked(fpHash: string): Promise<boolean> {
   const cached = cacheGet(fpBlockedCache, fpHash);
   if (cached !== null) return cached;
+
+  // L2 Redis shared lookup.
+  const l2 = await redisGet<boolean>(L2_FP_PREFIX + fpHash);
+  if (l2 !== null) {
+    cacheSet(fpBlockedCache, fpHash, l2, FP_L1_TTL_MS);
+    return l2;
+  }
+
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), 900);
   try {
@@ -725,7 +759,8 @@ async function getFingerprintAutoBlocked(fpHash: string): Promise<boolean> {
       .maybeSingle();
     const { data, error } = await (query as any).abortSignal(ctrl.signal);
     const blocked = !error && !!data?.auto_blocked;
-    cacheSet(fpBlockedCache, fpHash, blocked, FP_CACHE_TTL_MS);
+    cacheSet(fpBlockedCache, fpHash, blocked, FP_L1_TTL_MS);
+    redisSetAsync(L2_FP_PREFIX + fpHash, blocked, FP_CACHE_TTL_MS);
     return blocked;
   } catch {
     return false;
@@ -741,6 +776,12 @@ async function getProfileQuota(userId: string): Promise<{ click_quota: number | 
   if (existing) return existing;
 
   const promise = (async () => {
+    // L2 Redis shared lookup.
+    const l2 = await redisGet<{ click_quota: number | null; clicks_used: number | null } | null>(L2_PROFILE_PREFIX + userId);
+    if (l2 !== null) {
+      cacheSet(profileQuotaCache, userId, l2, PROFILE_L1_TTL_MS);
+      return l2;
+    }
     const ctrl = new AbortController();
     const timer = setTimeout(() => ctrl.abort(), 900);
     try {
@@ -751,7 +792,8 @@ async function getProfileQuota(userId: string): Promise<{ click_quota: number | 
         .maybeSingle();
       const { data, error } = await (query as any).abortSignal(ctrl.signal);
       if (error) throw error;
-      cacheSet(profileQuotaCache, userId, data ?? null, PROFILE_CACHE_TTL_MS);
+      cacheSet(profileQuotaCache, userId, data ?? null, PROFILE_L1_TTL_MS);
+      redisSetAsync(L2_PROFILE_PREFIX + userId, data ?? null, PROFILE_CACHE_TTL_MS);
       return data ?? null;
     } catch (error) {
       console.error("redirect profile lookup failed", {
@@ -776,6 +818,12 @@ async function getOfferRows(linkId: string): Promise<{ abRows: any[]; geoRows: a
   if (existing) return existing;
 
   const promise = (async () => {
+    // L2 Redis shared lookup.
+    const l2 = await redisGet<{ abRows: any[]; geoRows: any[] }>(L2_OFFER_PREFIX + linkId);
+    if (l2) {
+      cacheSet(offerCache, linkId, l2, OFFER_L1_TTL_MS);
+      return l2;
+    }
     const ctrl = new AbortController();
     const timer = setTimeout(() => ctrl.abort(), 900);
     try {
@@ -792,7 +840,8 @@ async function getOfferRows(linkId: string): Promise<{ abRows: any[]; geoRows: a
           .eq("is_active", true) as any).abortSignal(ctrl.signal),
       ]);
       const value = { abRows: ab.error ? [] : ab.data ?? [], geoRows: geo.error ? [] : geo.data ?? [] };
-      cacheSet(offerCache, linkId, value, OFFER_CACHE_TTL_MS);
+      cacheSet(offerCache, linkId, value, OFFER_L1_TTL_MS);
+      redisSetAsync(L2_OFFER_PREFIX + linkId, value, OFFER_CACHE_TTL_MS);
       return value;
     } catch {
       // STALE-ON-ERROR: prefer expired offer data over empty offers (which trigger fallback redirect).
@@ -801,6 +850,7 @@ async function getOfferRows(linkId: string): Promise<{ abRows: any[]; geoRows: a
       clearTimeout(timer);
     }
   })();
+
 
   offerInflight.set(linkId, promise);
   try { return await promise; } finally { offerInflight.delete(linkId); }
