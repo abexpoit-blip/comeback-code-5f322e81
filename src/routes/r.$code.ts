@@ -422,7 +422,7 @@ export async function recordRedirectClick(input: {
   if (!g.__clickGate) {
     g.__clickGate = {
       inflight: 0,
-      queue: [] as Array<() => void>,
+      queue: [] as Array<(acquired: boolean) => void>,
       dropped: 0,
       accepted: 0,
       failed: 0,
@@ -451,7 +451,7 @@ export async function recordRedirectClick(input: {
   }
   const gate = g.__clickGate as {
     inflight: number;
-    queue: Array<() => void>;
+    queue: Array<(acquired: boolean) => void>;
     dropped: number;
     accepted: number;
     failed: number;
@@ -460,25 +460,28 @@ export async function recordRedirectClick(input: {
     lastReportAt: number;
   };
 
-  const acquire = () => new Promise<void>((resolve) => {
+  // C2 FIX: acquire returns whether a slot was actually obtained.
+  // When the queue is full we drop the OLDEST waiter (resolve(false)) so it
+  // skips the RPC entirely — previously it resolved with no slot, ran the
+  // RPC anyway, and then release() decremented inflight → counter drift,
+  // MAX_INFLIGHT bypassed, and Kong/PostgREST got hammered.
+  const acquire = () => new Promise<boolean>((resolve) => {
     if (gate.inflight < MAX_INFLIGHT) {
       gate.inflight += 1;
       if (gate.inflight > gate.maxInflightSeen) gate.maxInflightSeen = gate.inflight;
-      resolve();
+      resolve(true);
       return;
     }
     if (gate.queue.length >= MAX_QUEUE) {
-      // Drop oldest waiter — its click will be skipped.
       const oldest = gate.queue.shift();
       gate.dropped += 1;
-      // Warn early (first drop in window) and then every 50 to avoid log spam.
       if (gate.dropped === 1 || gate.dropped % 50 === 0) {
         console.warn(
           `[click-gate][DROP] total=${gate.dropped} queue=${gate.queue.length}/${MAX_QUEUE} ` +
           `inflight=${gate.inflight}/${MAX_INFLIGHT}`,
         );
       }
-      if (oldest) oldest(); // resolve so it stops waiting; we'll mark skip via flag
+      if (oldest) oldest(false); // explicitly dropped — no slot granted
     }
     gate.queue.push(resolve);
     if (gate.queue.length > gate.maxQueueSeen) gate.maxQueueSeen = gate.queue.length;
@@ -489,7 +492,8 @@ export async function recordRedirectClick(input: {
     const next = gate.queue.shift();
     if (next) {
       gate.inflight += 1;
-      next();
+      if (gate.inflight > gate.maxInflightSeen) gate.maxInflightSeen = gate.inflight;
+      next(true);
     }
   };
 
@@ -507,7 +511,12 @@ export async function recordRedirectClick(input: {
   };
 
   const persistClickAtomically = async () => {
-    await acquire();
+    const acquired = await acquire();
+    if (!acquired) {
+      // Click was dropped due to queue overflow (counter already incremented).
+      // Skip the RPC entirely — no slot was granted, so DO NOT call release().
+      return;
+    }
     try {
       await runWithRetry(async () => {
         const ctrl = new AbortController();
@@ -1067,10 +1076,15 @@ async function handleRedirect(request: Request, code: string, shouldRecordClick 
         const REVIEWER_COUNTRIES = new Set(["US", "IE", "GB", "DE", "SG", "NL"]);
         const isReviewerGeo = !!country && REVIEWER_COUNTRIES.has(country);
         const isDirect = !refererDomain; // no referer header at all
-        // Real social-app users from these countries always carry FB/IG/Messenger
-        // markers in their UA. A plain desktop UA hitting a fresh link directly
-        // from a Meta-reviewer geo is almost certainly an ad-review fetch.
-        if (isReviewerGeo && isDirect && !hasFbAppMarker) {
+        // H2 FIX: Only fire on the very first few visits of a brand-new link
+        // (totalClicks < 5). FB ad reviewers always hit within the first
+        // handful of clicks. After that, direct US/EU visits are almost
+        // certainly real users (someone pasted the link into their browser,
+        // privacy-extension stripped the referer, etc.) — do NOT block them.
+        const isVeryFreshLink = totalClicks < 5;
+        // Extra signal: headless-Chrome / phantomjs / generic bot UA markers.
+        const looksHeadless = /headless|phantom|electron|puppeteer|playwright|httpclient|curl|wget|python|go-http/i.test(uaLowFb);
+        if (isReviewerGeo && isDirect && !hasFbAppMarker && (isVeryFreshLink || looksHeadless)) {
           isBot = true;
           isFbBot = true;
           reason = `fb-reviewer-geo:${country}`;
