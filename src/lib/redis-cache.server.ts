@@ -31,6 +31,13 @@ function getClient(): Redis | null {
       retryStrategy: (times) => (times > 10 ? null : Math.min(times * 200, 3000)),
     });
     client.on("error", (err) => logErr("conn", err));
+    // L6 FIX: when retryStrategy returns null (>10 failed attempts), ioredis
+    // emits "end" and the socket stays dead. Flip the fast-exit flag so
+    // getClient() stops returning a permanently-broken client.
+    client.on("end", () => {
+      disabled = true;
+      client = null;
+    });
     return client;
   } catch (err) {
     logErr("init", err);
