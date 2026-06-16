@@ -231,12 +231,14 @@ export const Route = createFileRoute("/api/public/plisio-webhook")({
               .single();
             if (pkg) {
               await applyPackageToProfile(userId, pkg);
-              try {
-                await supabaseAdmin
-                  .from("plisio_event_logs")
-                  .update({ processed_at: new Date().toISOString() })
-                  .eq("txn_id", txnId);
-              } catch (_e) {}
+              if (logRowId) {
+                try {
+                  await supabaseAdmin
+                    .from("plisio_event_logs")
+                    .update({ processed_at: new Date().toISOString() })
+                    .eq("id", logRowId);
+                } catch (_e) {}
+              }
             }
           }
         }
