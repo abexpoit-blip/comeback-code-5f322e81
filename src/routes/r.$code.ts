@@ -728,7 +728,9 @@ function processLinkRow(code: string, row: Record<string, unknown> | null): { li
     prelanding_template: validTpl,
     created_at: (row.created_at as string | null) ?? null,
   };
-  cacheSet(linkCache, code, link, LINK_CACHE_TTL_MS);
+  cacheSet(linkCache, code, link, LINK_L1_TTL_MS);
+  redisSetAsync(L2_LINK_PREFIX + code, link, LINK_CACHE_TTL_MS);
+
 
   return {
     error: null,
