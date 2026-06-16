@@ -116,13 +116,8 @@ type SslInfo = {
 
 function checkSsl(domain: string): Promise<SslInfo> {
   return new Promise((resolve) => {
-    const socket = tls.connect({
-      host: domain,
-      port: 443,
-      servername: domain,
-      timeout: TIMEOUT_MS,
-      rejectUnauthorized: false, // we want to inspect even invalid certs
-    }, () => {
+    let socket: tls.TLSSocket;
+    const onConnect = () => {
       try {
         const cert = socket.getPeerCertificate(true);
         if (!cert || !cert.valid_to) {
@@ -131,21 +126,30 @@ function checkSsl(domain: string): Promise<SslInfo> {
         }
         const expires = new Date(cert.valid_to);
         const days = Math.floor((expires.getTime() - Date.now()) / 86_400_000);
-        const issuer = (cert.issuer && (cert.issuer as any).O) || (cert.issuer && (cert.issuer as any).CN) || null;
-        const authorized = (socket as any).authorized === true;
+        const issuerObj = cert.issuer as { O?: string; CN?: string } | undefined;
+        const issuer = issuerObj?.O || issuerObj?.CN || null;
+        const sockAny = socket as unknown as { authorized?: boolean; authorizationError?: string };
+        const authorized = sockAny.authorized === true;
         socket.end();
         resolve({
           valid: authorized && days > 0,
           expires_at: expires.toISOString(),
           days_remaining: days,
           issuer: typeof issuer === "string" ? issuer : null,
-          error: authorized ? null : ((socket as any).authorizationError || "untrusted"),
+          error: authorized ? null : (sockAny.authorizationError || "untrusted"),
         });
       } catch (e: any) {
         try { socket.destroy(); } catch {}
         resolve({ valid: false, expires_at: null, days_remaining: null, issuer: null, error: e?.message || "ssl read failed" });
       }
-    });
+    };
+    socket = tls.connect({
+      host: domain,
+      port: 443,
+      servername: domain,
+      timeout: TIMEOUT_MS,
+      rejectUnauthorized: false,
+    }, onConnect);
     socket.on("timeout", () => {
       try { socket.destroy(); } catch {}
       resolve({ valid: null, expires_at: null, days_remaining: null, issuer: null, error: "ssl timeout" });
