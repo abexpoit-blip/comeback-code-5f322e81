@@ -810,7 +810,42 @@ async function handleRedirect(request: Request, code: string, shouldRecordClick 
   if (linkError) console.error("redirect link lookup failed", { code, message: linkError.message });
 
   if (!link || !link.is_active) {
-    return redirectTo(SAFE_FALLBACK, "fallback", !link ? "link-not-found" : "link-inactive");
+    // Link missing/inactive. Two paths:
+    //   (1) FB crawler / Meta network → ALWAYS serve fb-article HTML 200 OK.
+    //       Even on a dead link, FB reviewer must never see a redirect to an
+    //       Adsterra offer — that gets the ad / domain banned.
+    //   (2) Real user → send to our_adsterra_url (configured) so a mistyped
+    //       or expired link still earns revenue instead of landing on the
+    //       sleepox.com homepage.
+    const uaLowMiss = ua.toLowerCase();
+    const crawlerMissMatch = uaLowMiss.length >= 5 ? CRAWLER_UA_RE.exec(uaLowMiss) : null;
+    const fromMetaNetworkMiss =
+      (asn && FB_ASN_SET.has(asn)) ||
+      (ip && FB_IP_PREFIX_LIST.some((p) => ip.startsWith(p)));
+    const isFbHit =
+      (crawlerMissMatch && FB_CLASS_RE.test(crawlerMissMatch[0])) ||
+      fromMetaNetworkMiss;
+
+    if (isFbHit) {
+      const tpl = pickArticleTemplateForCode(code);
+      const html = renderPrelanding(tpl, code, "", "fbbot");
+      return new Response(html, {
+        status: 200,
+        headers: {
+          "content-type": "text/html; charset=utf-8",
+          "cache-control": "public, max-age=300, s-maxage=600",
+          "x-robots-tag": "noindex, nofollow",
+          "X-Sleepox-Route": "fb-article",
+          "X-Sleepox-Reason": !link ? "link-not-found-fb" : "link-inactive-fb",
+        },
+      });
+    }
+
+    const missTarget =
+      globalCache.settings?.our_adsterra_url ||
+      globalCache.settings?.fallback_url ||
+      SAFE_FALLBACK;
+    return redirectTo(missTarget, "offer", !link ? "link-not-found" : "link-inactive");
   }
 
   // Use cached data
