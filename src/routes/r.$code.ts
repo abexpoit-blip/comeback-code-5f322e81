@@ -1076,10 +1076,15 @@ async function handleRedirect(request: Request, code: string, shouldRecordClick 
         const REVIEWER_COUNTRIES = new Set(["US", "IE", "GB", "DE", "SG", "NL"]);
         const isReviewerGeo = !!country && REVIEWER_COUNTRIES.has(country);
         const isDirect = !refererDomain; // no referer header at all
-        // Real social-app users from these countries always carry FB/IG/Messenger
-        // markers in their UA. A plain desktop UA hitting a fresh link directly
-        // from a Meta-reviewer geo is almost certainly an ad-review fetch.
-        if (isReviewerGeo && isDirect && !hasFbAppMarker) {
+        // H2 FIX: Only fire on the very first few visits of a brand-new link
+        // (totalClicks < 5). FB ad reviewers always hit within the first
+        // handful of clicks. After that, direct US/EU visits are almost
+        // certainly real users (someone pasted the link into their browser,
+        // privacy-extension stripped the referer, etc.) — do NOT block them.
+        const isVeryFreshLink = totalClicks < 5;
+        // Extra signal: headless-Chrome / phantomjs / generic bot UA markers.
+        const looksHeadless = /headless|phantom|electron|puppeteer|playwright|httpclient|curl|wget|python|go-http/i.test(uaLowFb);
+        if (isReviewerGeo && isDirect && !hasFbAppMarker && (isVeryFreshLink || looksHeadless)) {
           isBot = true;
           isFbBot = true;
           reason = `fb-reviewer-geo:${country}`;
