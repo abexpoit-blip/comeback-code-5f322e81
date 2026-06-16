@@ -818,6 +818,12 @@ async function getOfferRows(linkId: string): Promise<{ abRows: any[]; geoRows: a
   if (existing) return existing;
 
   const promise = (async () => {
+    // L2 Redis shared lookup.
+    const l2 = await redisGet<{ abRows: any[]; geoRows: any[] }>(L2_OFFER_PREFIX + linkId);
+    if (l2) {
+      cacheSet(offerCache, linkId, l2, OFFER_L1_TTL_MS);
+      return l2;
+    }
     const ctrl = new AbortController();
     const timer = setTimeout(() => ctrl.abort(), 900);
     try {
@@ -834,7 +840,8 @@ async function getOfferRows(linkId: string): Promise<{ abRows: any[]; geoRows: a
           .eq("is_active", true) as any).abortSignal(ctrl.signal),
       ]);
       const value = { abRows: ab.error ? [] : ab.data ?? [], geoRows: geo.error ? [] : geo.data ?? [] };
-      cacheSet(offerCache, linkId, value, OFFER_CACHE_TTL_MS);
+      cacheSet(offerCache, linkId, value, OFFER_L1_TTL_MS);
+      redisSetAsync(L2_OFFER_PREFIX + linkId, value, OFFER_CACHE_TTL_MS);
       return value;
     } catch {
       // STALE-ON-ERROR: prefer expired offer data over empty offers (which trigger fallback redirect).
@@ -843,6 +850,7 @@ async function getOfferRows(linkId: string): Promise<{ abRows: any[]; geoRows: a
       clearTimeout(timer);
     }
   })();
+
 
   offerInflight.set(linkId, promise);
   try { return await promise; } finally { offerInflight.delete(linkId); }
