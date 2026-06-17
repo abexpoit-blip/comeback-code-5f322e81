@@ -9,8 +9,7 @@ import {
 import { toast } from "sonner";
 
 import { listMyLinks } from "@/lib/links.functions";
-import { debugLinkPreview, type BotKey } from "@/lib/link-debugger.functions";
-import { getMyProfile } from "@/lib/profile.functions";
+import { debugLinkPreview, getMyPlan, type BotKey } from "@/lib/link-debugger.functions";
 
 export const Route = createFileRoute("/_authenticated/link-debugger")({
   head: () => ({ meta: [{ title: "Link Debugger — Sleepox" }] }),
