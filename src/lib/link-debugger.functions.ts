@@ -255,24 +255,6 @@ export const debugLinkPreview = createServerFn({ method: "POST" })
       finalUrl: botRes.finalUrl,
     });
 
-    let cloakDiff: { bodyLenBot: number; bodyLenBrowser: number; titleBot: string | null; titleBrowser: string | null; differs: boolean } | null = null;
-    if (data.compareBrowser !== false) {
-      const browserRes = await fetchAsBot(data.url, BOT_UA.browser).catch(() => null);
-      if (browserRes && !("error" in browserRes)) {
-        const bParsed = parseHtmlMeta(browserRes.body);
-        const differs =
-          Math.abs(botRes.sizeBytes - browserRes.sizeBytes) > 1024 ||
-          (parsed.title ?? "") !== (bParsed.title ?? "");
-        cloakDiff = {
-          bodyLenBot: botRes.sizeBytes,
-          bodyLenBrowser: browserRes.sizeBytes,
-          titleBot: parsed.title,
-          titleBrowser: bParsed.title,
-          differs,
-        };
-      }
-    }
-
     return {
       locked: false as const,
       bot: data.bot,
@@ -293,6 +275,6 @@ export const debugLinkPreview = createServerFn({ method: "POST" })
         siteName: pick(parsed.tags, "og:site_name"),
       },
       warnings,
-      cloakDiff,
+      cloakDiff: null as null,
     };
   });
