@@ -16,7 +16,7 @@ export const Route = createFileRoute("/_authenticated/link-debugger")({
   component: LinkDebuggerPage,
 });
 
-const PAID_PLANS = new Set(["monthly", "lifetime", "unlimited", "yearly", "pro"]);
+
 
 const BOTS: { key: BotKey; label: string; emoji: string; color: string }[] = [
   { key: "facebook", label: "Facebook", emoji: "📘", color: "#1877F2" },
