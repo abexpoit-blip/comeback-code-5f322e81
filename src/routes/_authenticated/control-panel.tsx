@@ -15,6 +15,8 @@ import {
 } from "recharts";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { supabase } from "@/integrations/supabase/client";
@@ -30,7 +32,8 @@ import {
   adminUserDetail, adminImpersonate, adminFixUnlimitedMonthly,
   adminListErrors, adminErrorStats, adminResolveError, adminDeleteError, adminClearResolvedErrors,
   adminGetInactiveUsers, adminRunMaintenance, adminDeleteUsers, adminTrafficSnapshot,
-  adminGetPurgeStatus, adminPurgeBatch, adminResetAllClicks
+  adminGetPurgeStatus, adminPurgeBatch, adminResetAllClicks,
+  adminTestQuotaSync, adminQuotaSyncStatus
 } from "@/lib/admin.functions";
 import { adminListPlisioLogs, adminReverifyOrder, adminBulkReverify, adminGetOutgoingIp } from "@/lib/plisio-admin.functions";
 import { startImpersonation } from "@/lib/impersonation";
@@ -2019,6 +2022,11 @@ function MaintenanceTab() {
 
       <ResetAllClicksPanel />
 
+      <QuotaSyncTestPanel />
+      <QuotaSyncStatusPanel />
+
+
+
 
 
 
@@ -2069,6 +2077,200 @@ function MaintenanceTab() {
         </div>
       </Panel>
     </div>
+  );
+}
+
+function QuotaSyncTestPanel() {
+  const testFn = useServerFn(adminTestQuotaSync);
+  const qc = useQueryClient();
+  const [email, setEmail] = useState("");
+  const [pkg, setPkg] = useState("monthly");
+  const [result, setResult] = useState<Awaited<ReturnType<typeof testFn>> | null>(null);
+  const [running, setRunning] = useState(false);
+
+  const run = async () => {
+    if (!email.trim()) { toast.error("Enter a user email"); return; }
+    setRunning(true);
+    setResult(null);
+    try {
+      const r = await testFn({ data: { email: email.trim().toLowerCase(), package_slug: pkg } });
+      setResult(r);
+      if (r.pass) toast.success("Quota sync test PASSED ✅");
+      else toast.error("Quota sync test FAILED ❌ — see log below");
+      qc.invalidateQueries({ queryKey: ["admin-quota-sync-status"] });
+    } catch (e: any) {
+      toast.error(e?.message ?? "Test failed");
+    } finally {
+      setRunning(false);
+    }
+  };
+
+  return (
+    <Panel icon={ShieldCheck} title="Quota Sync Test" subtitle="Apply a package to a test user and verify click_quota + link_limit get set correctly">
+      <div className="p-4 rounded-2xl bg-sky-50 border border-sky-200 space-y-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+          <div className="md:col-span-2">
+            <Label className="text-xs font-bold text-sky-900">Test user email</Label>
+            <Input
+              type="email"
+              placeholder="user@example.com"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="mt-1"
+            />
+          </div>
+          <div>
+            <Label className="text-xs font-bold text-sky-900">Package to apply</Label>
+            <select
+              value={pkg}
+              onChange={(e) => setPkg(e.target.value)}
+              className="mt-1 w-full h-10 rounded-md border border-input bg-background px-3 text-sm"
+            >
+              <option value="monthly">monthly</option>
+              <option value="lifetime">lifetime</option>
+              <option value="unlimited">unlimited</option>
+              <option value="free">free</option>
+            </select>
+          </div>
+        </div>
+        <Button onClick={run} disabled={running} className="bg-sky-600 hover:bg-sky-700 text-white">
+          {running ? "Running test…" : "Run Quota Sync Test"}
+        </Button>
+
+        {result && (
+          <div className="space-y-3 pt-2">
+            <div className={`p-3 rounded-xl border ${result.pass ? "bg-emerald-50 border-emerald-300 text-emerald-900" : "bg-rose-50 border-rose-300 text-rose-900"}`}>
+              <div className="font-bold text-sm">
+                {result.pass ? "🎉 PASS — Quota sync is working" : "🚨 FAIL — Quota sync did NOT apply expected values"}
+              </div>
+              <div className="text-xs mt-1 opacity-80">Started at {result.startedAt}</div>
+            </div>
+
+            {result.before && result.expected && result.after && (
+              <div className="overflow-x-auto rounded-xl border border-sky-200 bg-white">
+                <table className="w-full text-xs">
+                  <thead className="bg-sky-100 text-sky-900">
+                    <tr>
+                      <th className="text-left px-3 py-2">Field</th>
+                      <th className="text-left px-3 py-2">BEFORE</th>
+                      <th className="text-left px-3 py-2">EXPECTED</th>
+                      <th className="text-left px-3 py-2">AFTER</th>
+                      <th className="text-left px-3 py-2">Match</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-sky-100 font-mono">
+                    <Row label="plan_slug" before={result.before.plan_slug} expected={result.expected.plan_slug} after={result.after.plan_slug} />
+                    <Row label="click_quota" before={result.before.click_quota} expected={result.expected.click_quota} after={result.after.click_quota} />
+                    <Row label="link_limit" before={result.before.link_limit} expected={result.expected.link_limit} after={result.after.link_limit} />
+                  </tbody>
+                </table>
+              </div>
+            )}
+
+            <details open className="rounded-xl border border-sky-200 bg-slate-900 text-slate-100 overflow-hidden">
+              <summary className="cursor-pointer px-3 py-2 text-xs font-bold bg-slate-800">Detailed log ({result.log.length} entries)</summary>
+              <pre className="p-3 text-[11px] leading-relaxed overflow-x-auto whitespace-pre-wrap font-mono">{result.log.join("\n")}</pre>
+            </details>
+          </div>
+        )}
+      </div>
+    </Panel>
+  );
+}
+
+function Row({ label, before, expected, after }: { label: string; before: any; expected: any; after: any }) {
+  const match = after === expected;
+  return (
+    <tr>
+      <td className="px-3 py-2 font-bold">{label}</td>
+      <td className="px-3 py-2 text-slate-500">{before === null ? "NULL" : String(before)}</td>
+      <td className="px-3 py-2">{expected === null ? "NULL (unlimited)" : String(expected)}</td>
+      <td className="px-3 py-2 font-bold">{after === null ? "NULL" : String(after)}</td>
+      <td className="px-3 py-2">{match ? "✅" : "❌"}</td>
+    </tr>
+  );
+}
+
+function QuotaSyncStatusPanel() {
+  const statusFn = useServerFn(adminQuotaSyncStatus);
+  const fixFn = useServerFn(adminFixUnlimitedMonthly);
+  const qc = useQueryClient();
+  const q = useQuery({ queryKey: ["admin-quota-sync-status"], queryFn: () => statusFn() });
+
+  const fix = useMutation({
+    mutationFn: () => fixFn(),
+    onSuccess: (r: any) => {
+      toast.success(`Fixed ${r.fixed} monthly users (scanned ${r.scanned}).`);
+      qc.invalidateQueries({ queryKey: ["admin-quota-sync-status"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const data = q.data;
+  const rows = data?.rows ?? [];
+  const summary = data?.summary;
+  const mismatches = rows.filter((r: any) => !r.ok);
+
+  return (
+    <Panel icon={ShieldCheck} title="Quota Sync Status" subtitle="Live verification — every paid user's quota vs. package definition">
+      <div className="flex items-center gap-3 mb-4 flex-wrap">
+        <Button size="sm" variant="outline" onClick={() => q.refetch()}>
+          <RefreshCw className={`w-3 h-3 mr-2 ${q.isFetching ? "animate-spin" : ""}`} />
+          Refresh
+        </Button>
+        {mismatches.length > 0 && (
+          <Button size="sm" onClick={() => fix.mutate()} disabled={fix.isPending} className="bg-amber-600 hover:bg-amber-700 text-white">
+            {fix.isPending ? "Fixing…" : `Fix ${mismatches.length} mismatched`}
+          </Button>
+        )}
+        {summary && (
+          <div className="ml-auto flex items-center gap-2 text-xs">
+            <span className="px-2 py-1 rounded-md bg-emerald-100 text-emerald-800 font-bold">✅ OK: {summary.ok}</span>
+            <span className={`px-2 py-1 rounded-md font-bold ${summary.mismatches > 0 ? "bg-rose-100 text-rose-800" : "bg-slate-100 text-slate-600"}`}>
+              ❌ Mismatch: {summary.mismatches}
+            </span>
+            <span className="px-2 py-1 rounded-md bg-slate-100 text-slate-700">Total paid: {summary.total}</span>
+          </div>
+        )}
+      </div>
+
+      <div className="overflow-x-auto rounded-2xl border border-[#FFE4D2] bg-white/70">
+        <table className="w-full text-sm">
+          <thead className="bg-[#FFF3E8] text-[#7A5C45]">
+            <tr>
+              <th className="text-left px-4 py-3">Email</th>
+              <th className="text-left px-4 py-3">Plan</th>
+              <th className="text-right px-4 py-3">click_quota</th>
+              <th className="text-right px-4 py-3">expected</th>
+              <th className="text-right px-4 py-3">link_limit</th>
+              <th className="text-right px-4 py-3">expected</th>
+              <th className="text-left px-4 py-3">Status</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-[#FFEDD5]">
+            {rows.length === 0 ? (
+              <tr><td colSpan={7} className="p-8 text-center text-[#A8907A]">{q.isLoading ? "Loading…" : "No paid users."}</td></tr>
+            ) : rows.map((r: any) => (
+              <tr key={r.id} className={r.ok ? "hover:bg-emerald-50/40" : "bg-rose-50/60 hover:bg-rose-50"}>
+                <td className="px-4 py-3 font-medium">{r.email}</td>
+                <td className="px-4 py-3"><span className="text-xs font-mono px-2 py-1 rounded bg-slate-100">{r.plan_slug}</span></td>
+                <td className="px-4 py-3 text-right font-mono text-xs">{r.click_quota === null ? "NULL" : Number(r.click_quota).toLocaleString()}</td>
+                <td className="px-4 py-3 text-right font-mono text-xs text-slate-500">{r.expected_click_quota === null ? "NULL" : Number(r.expected_click_quota).toLocaleString()}</td>
+                <td className="px-4 py-3 text-right font-mono text-xs">{r.link_limit === null ? "NULL" : r.link_limit}</td>
+                <td className="px-4 py-3 text-right font-mono text-xs text-slate-500">{r.expected_link_limit === null ? "NULL" : r.expected_link_limit}</td>
+                <td className="px-4 py-3">
+                  {r.ok ? (
+                    <span className="text-xs font-bold text-emerald-700">✅ OK</span>
+                  ) : (
+                    <span className="text-xs font-bold text-rose-700">❌ {r.issue}</span>
+                  )}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </Panel>
   );
 }
 

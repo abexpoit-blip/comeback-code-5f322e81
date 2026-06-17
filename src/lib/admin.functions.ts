@@ -893,3 +893,146 @@ export const adminResetAllClicks = createServerFn({ method: "POST" })
     if (error) throw new Error(error.message);
     return data ?? { ok: true };
   });
+
+// ===== Quota Sync: Test a user against a package (verifies trigger fires) =====
+export const adminTestQuotaSync = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d) =>
+    z.object({
+      email: z.string().email(),
+      package_slug: z.string().min(1).max(64),
+    }).parse(d),
+  )
+  .handler(async ({ data, context }) => {
+    await assertAdmin(context.userId);
+    const startedAt = new Date().toISOString();
+    const log: string[] = [];
+    const push = (msg: string) => log.push(`[${new Date().toISOString()}] ${msg}`);
+
+    push(`Looking up user by email: ${data.email}`);
+    const { data: profile, error: pErr } = await supabaseAdmin
+      .from("profiles")
+      .select("id, email, plan_slug, click_quota, link_limit, clicks_used, plan_started_at, plan_expires_at")
+      .ilike("email", data.email)
+      .maybeSingle();
+    if (pErr) throw new Error(pErr.message);
+    if (!profile) {
+      push(`❌ User not found.`);
+      return { ok: false, log, before: null, expected: null, after: null, pass: false, startedAt };
+    }
+    push(`✅ Found user id=${profile.id}, current plan=${profile.plan_slug}`);
+
+    const { data: pkg, error: kErr } = await supabaseAdmin
+      .from("packages").select("slug, click_quota, link_limit").eq("slug", data.package_slug).maybeSingle();
+    if (kErr) throw new Error(kErr.message);
+    if (!pkg) {
+      push(`❌ Package "${data.package_slug}" not found.`);
+      return { ok: false, log, before: profile, expected: null, after: null, pass: false, startedAt };
+    }
+    push(`📦 Package "${pkg.slug}" expects click_quota=${pkg.click_quota}, link_limit=${pkg.link_limit}`);
+
+    const before = {
+      plan_slug: profile.plan_slug,
+      click_quota: profile.click_quota,
+      link_limit: profile.link_limit,
+      clicks_used: profile.clicks_used,
+    };
+    push(`BEFORE → plan=${before.plan_slug}, click_quota=${before.click_quota}, link_limit=${before.link_limit}, clicks_used=${before.clicks_used}`);
+
+    push(`Applying package via applyPackageToProfileIds() …`);
+    await applyPackageToProfileIds([profile.id], pkg as PackageQuota);
+    push(`✅ Update committed. Trigger trg_sync_profile_plan_quota should have fired.`);
+
+    const { data: after, error: aErr } = await supabaseAdmin
+      .from("profiles")
+      .select("plan_slug, click_quota, link_limit, clicks_used, plan_started_at, plan_expires_at")
+      .eq("id", profile.id)
+      .maybeSingle();
+    if (aErr) throw new Error(aErr.message);
+    push(`AFTER  → plan=${after?.plan_slug}, click_quota=${after?.click_quota}, link_limit=${after?.link_limit}, clicks_used=${after?.clicks_used}`);
+
+    const planOk = after?.plan_slug === pkg.slug;
+    const cqOk = after?.click_quota === pkg.click_quota;
+    const llOk = after?.link_limit === pkg.link_limit;
+    const pass = planOk && cqOk && llOk;
+
+    push(planOk ? `✅ plan_slug matches` : `❌ plan_slug mismatch (got ${after?.plan_slug}, expected ${pkg.slug})`);
+    push(cqOk ? `✅ click_quota matches (${pkg.click_quota})` : `❌ click_quota mismatch (got ${after?.click_quota}, expected ${pkg.click_quota})`);
+    push(llOk ? `✅ link_limit matches (${pkg.link_limit})` : `❌ link_limit mismatch (got ${after?.link_limit}, expected ${pkg.link_limit})`);
+    push(pass ? `🎉 PASS — Quota sync is working correctly.` : `🚨 FAIL — Quota sync did NOT produce expected values.`);
+
+    return {
+      ok: true,
+      pass,
+      startedAt,
+      before,
+      expected: { plan_slug: pkg.slug, click_quota: pkg.click_quota, link_limit: pkg.link_limit },
+      after: {
+        plan_slug: after?.plan_slug ?? null,
+        click_quota: after?.click_quota ?? null,
+        link_limit: after?.link_limit ?? null,
+        clicks_used: after?.clicks_used ?? null,
+      },
+      log,
+    };
+  });
+
+// ===== Quota Sync: Status of all paid users =====
+export const adminQuotaSyncStatus = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    await assertAdmin(context.userId);
+
+    const { data: packages, error: pkgErr } = await supabaseAdmin
+      .from("packages")
+      .select("slug, click_quota, link_limit");
+    if (pkgErr) throw new Error(pkgErr.message);
+    const pkgMap = new Map<string, { click_quota: number | null; link_limit: number | null }>();
+    for (const p of packages ?? []) {
+      pkgMap.set((p as any).slug, { click_quota: (p as any).click_quota, link_limit: (p as any).link_limit });
+    }
+
+    const { data: profiles, error: prErr } = await supabaseAdmin
+      .from("profiles")
+      .select("id, email, plan_slug, click_quota, link_limit, clicks_used, plan_expires_at")
+      .neq("plan_slug", "free")
+      .order("plan_slug", { ascending: true });
+    if (prErr) throw new Error(prErr.message);
+
+    const rows = (profiles ?? []).map((p: any) => {
+      const unlimitedPlan = p.plan_slug === "unlimited" || p.plan_slug === "lifetime";
+      const exp = pkgMap.get(p.plan_slug);
+      const expectedQuota = unlimitedPlan ? null : (exp?.click_quota ?? null);
+      const expectedLinks = unlimitedPlan ? null : (exp?.link_limit ?? null);
+      const cqOk = p.click_quota === expectedQuota;
+      const llOk = p.link_limit === expectedLinks;
+      return {
+        id: p.id,
+        email: p.email,
+        plan_slug: p.plan_slug,
+        click_quota: p.click_quota,
+        link_limit: p.link_limit,
+        clicks_used: p.clicks_used,
+        plan_expires_at: p.plan_expires_at,
+        expected_click_quota: expectedQuota,
+        expected_link_limit: expectedLinks,
+        ok: cqOk && llOk,
+        issue: !cqOk && !llOk ? "click_quota + link_limit mismatch"
+          : !cqOk ? "click_quota mismatch"
+          : !llOk ? "link_limit mismatch"
+          : null,
+      };
+    });
+
+    const summary = {
+      total: rows.length,
+      ok: rows.filter(r => r.ok).length,
+      mismatches: rows.filter(r => !r.ok).length,
+      byPlan: rows.reduce((acc: Record<string, number>, r) => {
+        acc[r.plan_slug] = (acc[r.plan_slug] ?? 0) + 1;
+        return acc;
+      }, {}),
+    };
+
+    return { summary, rows };
+  });
