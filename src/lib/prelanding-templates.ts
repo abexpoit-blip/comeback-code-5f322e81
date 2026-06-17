@@ -787,20 +787,76 @@ function jsonEscape(s: string): string {
   return s.replace(/\\/g, "\\\\").replace(/"/g, '\\"').replace(/\n/g, " ").replace(/\r/g, "");
 }
 
+// HTML-attribute escape — keeps meta/og tags valid even if content has " < > & '
+function attrEscape(s: string): string {
+  return String(s ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/[\r\n]+/g, " ")
+    .trim();
+}
+
+// Generic FB-safe fallbacks. Used whenever a template/variant field is missing,
+// empty, or accidentally whitespace — so /r/ pages NEVER ship without og:title,
+// og:description, or og:image. Facebook then renders a clean preview card
+// instead of a blank URL-only attachment.
+const OG_FALLBACK = {
+  title: "Today's Featured Story — DailyInsight",
+  description:
+    "A short, easy-to-read story from the DailyInsight desk. Updated daily with practical, friendly reporting.",
+  heroImage:
+    "https://images.unsplash.com/photo-1495020689067-958852a7765e?auto=format&fit=crop&w=1200&q=75",
+  author: "DailyInsight Editorial",
+  category: "Featured",
+} as const;
+
+function nonEmpty(s: string | null | undefined, fallback: string): string {
+  const v = (s ?? "").toString().trim();
+  return v.length > 0 ? v : fallback;
+}
+
+
+
 // ---------- Premium article HTML ----------
 function articleHtml(baseContent: ArticleContent, templateKey: string, code: string, _token: string, mode: RenderMode): string {
   // Deterministically swap OG title/description/heroImage for this short_code so
   // different links → different FB previews while the same link stays stable
   // (matches whatever the FB reviewer first cached).
   const variant = pickVariant(templateKey, code);
-  const content: ArticleContent = variant
+  const merged: ArticleContent = variant
     ? { ...baseContent, title: variant.title, description: variant.description, heroImage: variant.heroImage }
     : baseContent;
+
+  // Defensive OG fallback layer. If a template/variant ever ships with an empty
+  // title/description/heroImage (data bug, future template added without copy,
+  // variant returns null) the /r/ landing page MUST still expose a valid FB
+  // preview card — otherwise Facebook falls back to "URL-only" attachments,
+  // which look like spam and tank CTR + ad approval.
+  const content: ArticleContent = {
+    ...merged,
+    title: nonEmpty(merged.title, OG_FALLBACK.title),
+    description: nonEmpty(merged.description, OG_FALLBACK.description),
+    heroImage: nonEmpty(merged.heroImage, OG_FALLBACK.heroImage),
+    author: nonEmpty(merged.author, OG_FALLBACK.author),
+    category: nonEmpty(merged.category, OG_FALLBACK.category),
+  };
+
   const today = new Date();
   const dateStr = today.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" });
-  const initials = content.author.split(" ").map((s) => s[0]).join("").slice(0, 2).toUpperCase();
+  const initials = (content.author.split(" ").map((s) => s[0]).join("").slice(0, 2).toUpperCase()) || "DI";
   // For FB bot keep robots-friendly. For (rare) human fallback, no-index.
   const robots = mode === "human" ? `<meta name="robots" content="noindex,nofollow">` : "";
+
+  // Pre-escape every value used inside meta/og tag attributes so quotes,
+  // ampersands, and angle brackets in copy never break the head.
+  const titleAttr = attrEscape(content.title);
+  const descAttr = attrEscape(content.description);
+  const heroAttr = attrEscape(content.heroImage);
+  const authorAttr = attrEscape(content.author);
+  const categoryAttr = attrEscape(content.category);
 
   // JSON-LD Article schema — Facebook & Google preview crawlers use this as a stronger
   // "real article" signal than OG tags alone. Required for richer link previews.
@@ -825,23 +881,28 @@ function articleHtml(baseContent: ArticleContent, templateKey: string, code: str
 <html lang="en"><head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>${content.title}</title>
-<meta name="description" content="${content.description}">
+<title>${titleAttr}</title>
+<meta name="description" content="${descAttr}">
 ${robots}
 <meta property="og:type" content="article">
-<meta property="og:title" content="${content.title}">
-<meta property="og:description" content="${content.description}">
-<meta property="og:image" content="${content.heroImage}">
+<meta property="og:title" content="${titleAttr}">
+<meta property="og:description" content="${descAttr}">
+<meta property="og:image" content="${heroAttr}">
+<meta property="og:image:secure_url" content="${heroAttr}">
+<meta property="og:image:type" content="image/jpeg">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="${titleAttr}">
 <meta property="og:site_name" content="DailyInsight">
+<meta property="og:locale" content="en_US">
 <meta property="article:published_time" content="${today.toISOString()}">
-<meta property="article:author" content="${content.author}">
-<meta property="article:section" content="${content.category}">
+<meta property="article:author" content="${authorAttr}">
+<meta property="article:section" content="${categoryAttr}">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="${content.title}">
-<meta name="twitter:description" content="${content.description}">
-<meta name="twitter:image" content="${content.heroImage}">
+<meta name="twitter:title" content="${titleAttr}">
+<meta name="twitter:description" content="${descAttr}">
+<meta name="twitter:image" content="${heroAttr}">
+<meta name="twitter:image:alt" content="${titleAttr}">
 <script type="application/ld+json">${jsonLd}</script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
