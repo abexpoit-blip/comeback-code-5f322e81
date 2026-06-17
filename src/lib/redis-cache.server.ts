@@ -29,6 +29,7 @@ function getClient(): Redis | null {
       enableOfflineQueue: false,
       enableAutoPipelining: true,
       retryStrategy: (times) => (times > 10 ? null : Math.min(times * 200, 3000)),
+      reconnectOnError: () => true,
     });
     client.on("error", (err) => logErr("conn", err));
     // L6 FIX: when retryStrategy returns null (>10 failed attempts), ioredis
@@ -44,6 +45,16 @@ function getClient(): Redis | null {
     disabled = true;
     return null;
   }
+}
+
+// Only return client when socket is actually ready to write. Prevents
+// the "Stream isn't writeable and enableOfflineQueue options is false"
+// noise during reconnect windows — we silently treat those as cache-miss.
+function getReadyClient(): Redis | null {
+  const c = getClient();
+  if (!c) return null;
+  if (c.status !== "ready") return null;
+  return c;
 }
 
 // Eagerly init on first import so the connection is warm.
