@@ -27,7 +27,6 @@ function isTransientWriteError(err: unknown): boolean {
   return (
     message.includes("stream isn't writeable") ||
     message.includes("connection is closed") ||
-    message.includes("connection is closed") ||
     message.includes("connection closed")
   );
 }
@@ -64,9 +63,6 @@ function getClient(): Redis | null {
       reconnectOnError: () => true,
     });
     client.on("error", (err) => logErr("conn", err));
-    // L6 FIX: when retryStrategy returns null (>10 failed attempts), ioredis
-    // emits "end" and the socket stays dead. Flip the fast-exit flag so
-    // getClient() stops returning a permanently-broken client.
     client.on("end", () => {
       client = null;
     });
@@ -89,7 +85,10 @@ function getReadyClient(): Redis | null {
   if (!c) return null;
   if (c.status !== "ready") return null;
   const stream = (c as unknown as { connector?: { stream?: NodeJS.WritableStream & { destroyed?: boolean; writableEnded?: boolean } } }).connector?.stream;
-  if (!stream || stream.destroyed || stream.writableEnded || !stream.writable) return null;
+  if (!stream || stream.destroyed || stream.writableEnded || !stream.writable) {
+    dropClient();
+    return null;
+  }
   return c;
 }
 
