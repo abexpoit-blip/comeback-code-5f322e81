@@ -156,7 +156,7 @@ export const Route = createFileRoute("/api/public/plisio-webhook")({
                 "for order",
                 orderNumber,
                 "but DB has",
-                (linkedReq as any).plisio_invoke_id,
+                (linkedReq as any).plisio_invoice_id,
               );
             }
           } catch (e) {
