@@ -11,9 +11,33 @@ let client: Redis | null = null;
 let disabled = false;
 let lastErrLog = 0;
 
+function dropClient(): void {
+  const stale = client;
+  client = null;
+  if (!stale) return;
+  try {
+    stale.disconnect(false);
+  } catch {
+    // Best-effort cleanup only.
+  }
+}
+
 function isTransientWriteError(err: unknown): boolean {
   const message = ((err as Error)?.message || String(err)).toLowerCase();
-  return message.includes("stream isn't writeable") || message.includes("connection is closed");
+  return (
+    message.includes("stream isn't writeable") ||
+    message.includes("connection is closed") ||
+    message.includes("connection is closed") ||
+    message.includes("connection closed")
+  );
+}
+
+function handleRedisErr(label: string, err: unknown): void {
+  if (isTransientWriteError(err)) {
+    dropClient();
+    return;
+  }
+  logErr(label, err);
 }
 
 function logErr(label: string, err: unknown) {
@@ -44,7 +68,9 @@ function getClient(): Redis | null {
     // emits "end" and the socket stays dead. Flip the fast-exit flag so
     // getClient() stops returning a permanently-broken client.
     client.on("end", () => {
-      disabled = true;
+      client = null;
+    });
+    client.on("close", () => {
       client = null;
     });
     return client;
@@ -78,7 +104,7 @@ export async function redisGet<T = unknown>(key: string): Promise<T | null> {
     if (!raw) return null;
     return JSON.parse(raw) as T;
   } catch (err) {
-    logErr("get", err);
+    handleRedisErr("get", err);
     return null;
   }
 }
@@ -90,7 +116,7 @@ export async function redisSet(key: string, value: unknown, ttlMs: number): Prom
     // PX = TTL in milliseconds
     await c.set(key, JSON.stringify(value), "PX", Math.max(1000, ttlMs));
   } catch (err) {
-    logErr("set", err);
+    handleRedisErr("set", err);
   }
 }
 
@@ -100,7 +126,7 @@ export async function redisDel(...keys: string[]): Promise<void> {
   try {
     await c.del(...keys);
   } catch (err) {
-    logErr("del", err);
+    handleRedisErr("del", err);
   }
 }
 
@@ -129,7 +155,7 @@ export async function redisSAddWithTTL(
     const card = results[2]?.[1];
     return typeof card === "number" ? card : 0;
   } catch (err) {
-    logErr("sadd", err);
+    handleRedisErr("sadd", err);
     return 0;
   }
 }
