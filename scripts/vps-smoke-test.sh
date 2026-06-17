@@ -5,6 +5,7 @@ set -u
 
 DOMAIN="supabase.sleepox.com"
 BASE_URL="https://$DOMAIN"
+LOCAL_BASE_URL="${LOCAL_SUPABASE_URL:-http://127.0.0.1:8000}"
 ANON_KEY="${SUPABASE_ANON_KEY:-}"
 FAILURES=0
 
@@ -36,6 +37,17 @@ check_url() {
     return 1
   fi
   rm -f "$tmp_body"
+}
+
+check_rest_schema() {
+  local label="$1"
+  local base_url="$2"
+  if [ -z "$ANON_KEY" ]; then
+    return 0
+  fi
+  check_url "$label" "$base_url/rest/v1/links?select=id&limit=1" \
+    -H "apikey: $ANON_KEY" \
+    -H "Authorization: Bearer $ANON_KEY" || return 1
 }
 
 show_backend_diagnostics() {
@@ -85,6 +97,8 @@ if [ -n "$ANON_KEY" ]; then
   check_url "REST API root" "$BASE_URL/rest/v1/" \
     -H "apikey: $ANON_KEY" \
     -H "Authorization: Bearer $ANON_KEY" || FAILURES=1
+  check_rest_schema "REST schema query through public domain" "$BASE_URL" || FAILURES=1
+  check_rest_schema "REST schema query through local gateway" "$LOCAL_BASE_URL" || FAILURES=1
 else
   check_url "REST API root (no anon key found, 401/404 JSON is still OK if not generic Nginx)" "$BASE_URL/rest/v1/" || FAILURES=1
 fi
