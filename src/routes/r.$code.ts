@@ -429,6 +429,18 @@ export async function recordRedirectClick(input: {
 }) {
   const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
+  const isTransientClickError = (error: unknown) => {
+    const err = error as { code?: string; message?: string; name?: string } | null;
+    const code = String(err?.code || "");
+    const msg = String(err?.message || error || "");
+    return (
+      code === "PGRST002" ||
+      code === "PGRST001" ||
+      err?.name === "AbortError" ||
+      /schema cache|invalid response|upstream|fetch failed|timeout|aborted|ECONN|EAI_AGAIN|connection pool|503|502|504/i.test(msg)
+    );
+  };
+
   // ---- Per-process concurrency gate ----
   // PostgREST/Kong gets saturated when 8 PM2 workers each fire dozens of
   // concurrent click RPCs. Cap in-flight RPCs per process; queue the rest.
@@ -443,6 +455,7 @@ export async function recordRedirectClick(input: {
       dropped: 0,
       accepted: 0,
       failed: 0,
+      failedWindow: 0,
       maxQueueSeen: 0,
       maxInflightSeen: 0,
       lastReportAt: Date.now(),
@@ -455,11 +468,13 @@ export async function recordRedirectClick(input: {
       console.log(
         `[click-gate][stats] inflight=${s.inflight} queue=${s.queue.length} ` +
         `maxQueue=${s.maxQueueSeen} maxInflight=${s.maxInflightSeen} ` +
-        `accepted=${s.accepted} dropped=${s.dropped} failed=${s.failed} windowMs=${sinceMs}`,
+        `accepted=${s.accepted} dropped=${s.dropped} failed=${s.failedWindow} ` +
+        `failedTotal=${s.failed} windowMs=${sinceMs}`,
       );
       // Reset peak watermarks for next window so we see per-window spikes.
       s.maxQueueSeen = s.queue.length;
       s.maxInflightSeen = s.inflight;
+      s.failedWindow = 0;
       s.lastReportAt = Date.now();
     }, 30_000);
     if (typeof reportInterval === "object" && "unref" in reportInterval) {
@@ -472,6 +487,7 @@ export async function recordRedirectClick(input: {
     dropped: number;
     accepted: number;
     failed: number;
+    failedWindow: number;
     maxQueueSeen: number;
     maxInflightSeen: number;
     lastReportAt: number;
@@ -514,14 +530,15 @@ export async function recordRedirectClick(input: {
     }
   };
 
-  const runWithRetry = async <T>(task: () => Promise<T>, attempts = 2) => {
+  const runWithRetry = async <T>(task: () => Promise<T>, attempts = 4) => {
     let lastError: unknown;
     for (let attempt = 1; attempt <= attempts; attempt += 1) {
       try {
         return await task();
       } catch (error) {
         lastError = error;
-        if (attempt < attempts) await wait(attempt === 1 ? 250 : 600);
+        if (attempt >= attempts || !isTransientClickError(error)) break;
+        await wait(Math.min(1800, 180 * 2 ** (attempt - 1)) + Math.floor(Math.random() * 120));
       }
     }
     throw lastError;
@@ -573,6 +590,7 @@ export async function recordRedirectClick(input: {
       gate.accepted += 1;
     } catch (err) {
       gate.failed += 1;
+      gate.failedWindow += 1;
       if (gate.failed === 1 || gate.failed % 25 === 0) {
         console.warn(
           `[click-gate][FAIL] total=${gate.failed} accepted=${gate.accepted} ` +
