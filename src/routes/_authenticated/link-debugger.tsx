@@ -64,7 +64,7 @@ function LinkDebuggerPage() {
 
   const mut = useMutation({
     mutationFn: async (vars: { url: string; bot: BotKey }) =>
-      debugFn({ data: { url: vars.url, bot: vars.bot, compareBrowser: true } }),
+      debugFn({ data: { url: vars.url, bot: vars.bot } }),
     onError: (err: unknown) => toast.error(err instanceof Error ? err.message : "Check failed"),
   });
 
@@ -279,21 +279,6 @@ function Results({ r, botLabel }: { r: Extract<DebugResult, { locked: false }>; 
           )}
         </Panel>
 
-        {r.cloakDiff && (
-          <Panel title="Bot vs Browser routing" icon={<Bug className="w-4 h-4" />}>
-            <div className={`text-sm rounded-xl px-3 py-2 mb-3 ${r.cloakDiff.differs ? "bg-amber-50 text-amber-800" : "bg-emerald-50 text-emerald-800"}`}>
-              {r.cloakDiff.differs
-                ? "⚠️ Bot and real-browser responses DIFFER — server is serving different content per UA (cloaking active)."
-                : "✓ Bot and real-browser responses look the same (no cloaking detected for this URL)."}
-            </div>
-            <div className="grid grid-cols-2 gap-3 text-xs">
-              <KV k="Bot body size"     v={`${r.cloakDiff.bodyLenBot.toLocaleString()} B`} />
-              <KV k="Browser body size" v={`${r.cloakDiff.bodyLenBrowser.toLocaleString()} B`} />
-              <KV k="Bot title"     v={r.cloakDiff.titleBot ?? "—"} />
-              <KV k="Browser title" v={r.cloakDiff.titleBrowser ?? "—"} />
-            </div>
-          </Panel>
-        )}
       </div>
 
       {/* RIGHT: response + meta */}
