@@ -51,7 +51,7 @@ function getClient(): Redis | null {
 // the "Stream isn't writeable and enableOfflineQueue options is false"
 // noise during reconnect windows — we silently treat those as cache-miss.
 function getReadyClient(): Redis | null {
-  const c = getReadyClient();
+  const c = getClient();
   if (!c) return null;
   if (c.status !== "ready") return null;
   return c;
