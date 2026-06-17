@@ -149,6 +149,46 @@ const FB_CLASS_RE = new RegExp(
 //   63293 — Facebook
 //   54115 — Facebook (edge / WhatsApp infra)
 const FB_ASN_SET = new Set(["32934", "63293", "54115"]);
+
+// Always-on SCANNER / DATACENTER ASNs. Real human ad traffic NEVER originates
+// from these — they are cloud/VPS providers used by FB's continuous monitoring
+// scanners, competitors, security crawlers, and VPN exits. Hitting any of
+// these → safe page, ALWAYS (no time window, no click threshold).
+// Sources: PeeringDB, IANA RIR data, public datacenter ASN lists.
+const DATACENTER_ASNS = new Set([
+  // AWS
+  "16509", "14618", "39111",
+  // Google Cloud (NOT 15169 = consumer Google + Android)
+  "396982", "139070", "19527",
+  // Microsoft Azure (NOT 8075 = Bing+consumer; kept out to avoid Edge users)
+  "8068", "8069", "12076",
+  // Cloudflare datacenter (NOT 13335 = Warp/1.1.1.1 real users)
+  "209242", "395747",
+  // DigitalOcean
+  "14061", "133165", "200130",
+  // Linode / Akamai cloud
+  "63949", "20940",
+  // Vultr / Choopa
+  "20473",
+  // Hetzner
+  "24940", "213230",
+  // OVH
+  "16276", "35540",
+  // Oracle Cloud
+  "31898",
+  // Alibaba Cloud
+  "45102", "37963",
+  // Tencent Cloud
+  "132203", "45090",
+  // Other commonly-abused VPS / hosting
+  "9009", "29073", "51167", "62240", "60068", "60781", "29802", "46606",
+]);
+
+// Multi-link velocity threshold: same IP hitting N+ distinct short_codes
+// within 1 hour → almost certainly a scanner (FB monitor, competitor crawler,
+// security scanner). Real users click ONE ad link per session.
+const MULTILINK_SCANNER_THRESHOLD = 3;
+const MULTILINK_WINDOW_SEC = 3600;
 // Meta-owned IP prefixes (most common reviewer egress ranges).
 // IMPORTANT: keep both IPv4 AND IPv6 — Facebook's crawler is now mostly IPv6
 // out of 2a03:2880::/29. Missing the IPv6 prefix caused real FB crawlers to
