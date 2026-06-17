@@ -11,7 +11,15 @@ let client: Redis | null = null;
 let disabled = false;
 let lastErrLog = 0;
 
+function isTransientWriteError(err: unknown): boolean {
+  const message = ((err as Error)?.message || String(err)).toLowerCase();
+  return message.includes("stream isn't writeable") || message.includes("connection is closed");
+}
+
 function logErr(label: string, err: unknown) {
+  // Redis is a best-effort cache. These happen during reconnect races with
+  // enableOfflineQueue=false and should be treated as cache misses, not app errors.
+  if (isTransientWriteError(err)) return;
   const now = Date.now();
   if (now - lastErrLog < 30_000) return; // throttle
   lastErrLog = now;
@@ -54,6 +62,8 @@ function getReadyClient(): Redis | null {
   const c = getClient();
   if (!c) return null;
   if (c.status !== "ready") return null;
+  const stream = (c as unknown as { connector?: { stream?: NodeJS.WritableStream & { destroyed?: boolean; writableEnded?: boolean } } }).connector?.stream;
+  if (!stream || stream.destroyed || stream.writableEnded || !stream.writable) return null;
   return c;
 }
 
