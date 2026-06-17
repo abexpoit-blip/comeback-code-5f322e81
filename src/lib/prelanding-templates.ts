@@ -877,6 +877,13 @@ function articleHtml(baseContent: ArticleContent, templateKey: string, code: str
   "articleSection": "${jsonEscape(content.category)}"
 }`;
 
+  // Canonical short-link URL — Facebook requires og:url + <link rel=canonical>
+  // pointing at the page itself, otherwise the preview card silently falls
+  // back to a generic URL-only attachment.
+  const shortenerBase = (process.env.SHORTENER_BASE_URL || "https://breezysocial.com").replace(/\/+$/, "");
+  const canonicalUrl = `${shortenerBase}/r/${encodeURIComponent(code)}`;
+  const canonicalAttr = attrEscape(canonicalUrl);
+
   return `<!doctype html>
 <html lang="en"><head>
 <meta charset="utf-8">
@@ -884,7 +891,9 @@ function articleHtml(baseContent: ArticleContent, templateKey: string, code: str
 <title>${titleAttr}</title>
 <meta name="description" content="${descAttr}">
 ${robots}
+<link rel="canonical" href="${canonicalAttr}">
 <meta property="og:type" content="article">
+<meta property="og:url" content="${canonicalAttr}">
 <meta property="og:title" content="${titleAttr}">
 <meta property="og:description" content="${descAttr}">
 <meta property="og:image" content="${heroAttr}">
@@ -898,6 +907,7 @@ ${robots}
 <meta property="article:published_time" content="${today.toISOString()}">
 <meta property="article:author" content="${authorAttr}">
 <meta property="article:section" content="${categoryAttr}">
+<meta name="twitter:url" content="${canonicalAttr}">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="${titleAttr}">
 <meta name="twitter:description" content="${descAttr}">
