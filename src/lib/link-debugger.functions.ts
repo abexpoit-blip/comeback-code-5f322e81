@@ -179,6 +179,17 @@ async function fetchAsBot(url: string, ua: string) {
   }
 }
 
+export const getMyPlan = createServerFn({ method: "GET" }).handler(async () => {
+  const ctx = await getRequestAuth();
+  const { data } = await ctx.supabase
+    .from("profiles")
+    .select("plan_slug")
+    .eq("id", ctx.userId)
+    .maybeSingle();
+  const plan = (data as { plan_slug?: string | null } | null)?.plan_slug ?? "free";
+  return { plan_slug: plan, is_paid: isPaidPlan(plan) };
+});
+
 export const debugLinkPreview = createServerFn({ method: "POST" })
   .inputValidator((d) =>
     z
