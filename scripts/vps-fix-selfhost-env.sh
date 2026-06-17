@@ -53,8 +53,8 @@ detect_local_api_url() {
   done
   return 1
 }
-NODE
-}
+
+
 
 upsert_env() {
   local file="$1"
