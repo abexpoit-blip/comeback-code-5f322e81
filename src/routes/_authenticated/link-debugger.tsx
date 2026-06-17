@@ -30,12 +30,11 @@ type DebugResult = Awaited<ReturnType<typeof debugLinkPreview>>;
 
 function LinkDebuggerPage() {
   const listFn = useServerFn(listMyLinks);
-  const profileFn = useServerFn(getMyProfile);
+  const planFn = useServerFn(getMyPlan);
   const debugFn = useServerFn(debugLinkPreview);
 
-  const profileQ = useQuery({ queryKey: ["my-profile"], queryFn: () => profileFn() });
-  const plan = (profileQ.data as { plan_slug?: string | null } | undefined)?.plan_slug ?? "free";
-  const isPaid = PAID_PLANS.has((plan ?? "").toLowerCase());
+  const profileQ = useQuery({ queryKey: ["my-plan"], queryFn: () => planFn() });
+  const isPaid = !!profileQ.data?.is_paid;
 
   const linksQ = useQuery({
     queryKey: ["my-links-debugger"],
