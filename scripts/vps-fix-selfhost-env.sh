@@ -39,6 +39,8 @@ try {
 } catch {
   process.exit(4);
 }
+NODE
+}
 
 detect_local_api_url() {
   local candidate code
