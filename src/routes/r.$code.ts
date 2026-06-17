@@ -12,6 +12,7 @@ import {
   type CloakingRule,
   type ReferrerRule,
 } from "@/lib/bot-detect";
+import { redisSAddWithTTL } from "@/lib/redis-cache.server";
 
 
 const SAFE_FALLBACK = "https://sleepox.com/";
