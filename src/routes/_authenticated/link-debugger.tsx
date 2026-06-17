@@ -64,7 +64,7 @@ function LinkDebuggerPage() {
 
   const mut = useMutation({
     mutationFn: async (vars: { url: string; bot: BotKey }) =>
-      debugFn({ data: { url: vars.url, bot: vars.bot, compareBrowser: true } }),
+      debugFn({ data: { url: vars.url, bot: vars.bot } }),
     onError: (err: unknown) => toast.error(err instanceof Error ? err.message : "Check failed"),
   });
 
