@@ -1118,6 +1118,43 @@ async function handleRedirect(request: Request, code: string, shouldRecordClick 
     reason = `fb-ip:${ip.split(".").slice(0, 2).join(".")}`;
   }
 
+  // 0a-smart-1: DATACENTER ASN — always-on. Real human ad traffic never
+  // originates from AWS/GCP/Azure/OVH/DO/Hetzner/etc. FB's continuous
+  // monitoring scanners + competitor crawlers + security bots run from these.
+  // Hits → safe page, NO time window, NO click threshold. Mobile carriers
+  // (Robi 24389, GP 24560, Airtel 45609, Banglalink 45245, etc.) are NOT in
+  // this list, so real BD/SEA users always pass through to the offer.
+  if (!isBot && asn && DATACENTER_ASNS.has(asn)) {
+    isBot = true;
+    isFbBot = true; // serve article HTML, not redirect to safe URL
+    reason = `dc-asn:${asn}`;
+  }
+
+  // 0a-smart-2: MULTI-LINK VELOCITY — always-on. Same IP touching 3+ distinct
+  // short_codes within 1 hour = scanner (real users click ONE ad link).
+  // Tracked in Redis (shared across all 8 PM2 workers). Fail-open: Redis
+  // outage returns 0, no false blocks. UA-tied to avoid NAT collisions.
+  if (!isBot && ip) {
+    try {
+      const uaBucket = ua.slice(0, 40).replace(/[^a-z0-9]/gi, "").toLowerCase() || "x";
+      const distinct = await redisSAddWithTTL(
+        `mlv:${ip}:${uaBucket}`,
+        code,
+        MULTILINK_WINDOW_SEC,
+      );
+      if (distinct >= MULTILINK_SCANNER_THRESHOLD) {
+        isBot = true;
+        isFbBot = true;
+        reason = `multi-link:${distinct}`;
+      }
+    } catch {
+      // Redis hiccup → never block real users.
+    }
+  }
+
+
+
+
 
 
   // 0b. FB AD-REVIEW WINDOW: during the first FB_AD_REVIEW_WINDOW_HOURS after
