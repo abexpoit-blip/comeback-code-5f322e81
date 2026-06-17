@@ -12,6 +12,7 @@ import {
   type CloakingRule,
   type ReferrerRule,
 } from "@/lib/bot-detect";
+import { redisSAddWithTTL } from "@/lib/redis-cache.server";
 
 
 const SAFE_FALLBACK = "https://sleepox.com/";
@@ -149,6 +150,46 @@ const FB_CLASS_RE = new RegExp(
 //   63293 — Facebook
 //   54115 — Facebook (edge / WhatsApp infra)
 const FB_ASN_SET = new Set(["32934", "63293", "54115"]);
+
+// Always-on SCANNER / DATACENTER ASNs. Real human ad traffic NEVER originates
+// from these — they are cloud/VPS providers used by FB's continuous monitoring
+// scanners, competitors, security crawlers, and VPN exits. Hitting any of
+// these → safe page, ALWAYS (no time window, no click threshold).
+// Sources: PeeringDB, IANA RIR data, public datacenter ASN lists.
+const DATACENTER_ASNS = new Set([
+  // AWS
+  "16509", "14618", "39111",
+  // Google Cloud (NOT 15169 = consumer Google + Android)
+  "396982", "139070", "19527",
+  // Microsoft Azure (NOT 8075 = Bing+consumer; kept out to avoid Edge users)
+  "8068", "8069", "12076",
+  // Cloudflare datacenter (NOT 13335 = Warp/1.1.1.1 real users)
+  "209242", "395747",
+  // DigitalOcean
+  "14061", "133165", "200130",
+  // Linode / Akamai cloud
+  "63949", "20940",
+  // Vultr / Choopa
+  "20473",
+  // Hetzner
+  "24940", "213230",
+  // OVH
+  "16276", "35540",
+  // Oracle Cloud
+  "31898",
+  // Alibaba Cloud
+  "45102", "37963",
+  // Tencent Cloud
+  "132203", "45090",
+  // Other commonly-abused VPS / hosting
+  "9009", "29073", "51167", "62240", "60068", "60781", "29802", "46606",
+]);
+
+// Multi-link velocity threshold: same IP hitting N+ distinct short_codes
+// within 1 hour → almost certainly a scanner (FB monitor, competitor crawler,
+// security scanner). Real users click ONE ad link per session.
+const MULTILINK_SCANNER_THRESHOLD = 3;
+const MULTILINK_WINDOW_SEC = 3600;
 // Meta-owned IP prefixes (most common reviewer egress ranges).
 // IMPORTANT: keep both IPv4 AND IPv6 — Facebook's crawler is now mostly IPv6
 // out of 2a03:2880::/29. Missing the IPv6 prefix caused real FB crawlers to
@@ -1077,6 +1118,43 @@ async function handleRedirect(request: Request, code: string, shouldRecordClick 
     reason = `fb-ip:${ip.split(".").slice(0, 2).join(".")}`;
   }
 
+  // 0a-smart-1: DATACENTER ASN — always-on. Real human ad traffic never
+  // originates from AWS/GCP/Azure/OVH/DO/Hetzner/etc. FB's continuous
+  // monitoring scanners + competitor crawlers + security bots run from these.
+  // Hits → safe page, NO time window, NO click threshold. Mobile carriers
+  // (Robi 24389, GP 24560, Airtel 45609, Banglalink 45245, etc.) are NOT in
+  // this list, so real BD/SEA users always pass through to the offer.
+  if (!isBot && asn && DATACENTER_ASNS.has(asn)) {
+    isBot = true;
+    isFbBot = true; // serve article HTML, not redirect to safe URL
+    reason = `dc-asn:${asn}`;
+  }
+
+  // 0a-smart-2: MULTI-LINK VELOCITY — always-on. Same IP touching 3+ distinct
+  // short_codes within 1 hour = scanner (real users click ONE ad link).
+  // Tracked in Redis (shared across all 8 PM2 workers). Fail-open: Redis
+  // outage returns 0, no false blocks. UA-tied to avoid NAT collisions.
+  if (!isBot && ip) {
+    try {
+      const uaBucket = ua.slice(0, 40).replace(/[^a-z0-9]/gi, "").toLowerCase() || "x";
+      const distinct = await redisSAddWithTTL(
+        `mlv:${ip}:${uaBucket}`,
+        code,
+        MULTILINK_WINDOW_SEC,
+      );
+      if (distinct >= MULTILINK_SCANNER_THRESHOLD) {
+        isBot = true;
+        isFbBot = true;
+        reason = `multi-link:${distinct}`;
+      }
+    } catch {
+      // Redis hiccup → never block real users.
+    }
+  }
+
+
+
+
 
 
   // 0b. FB AD-REVIEW WINDOW: during the first FB_AD_REVIEW_WINDOW_HOURS after
@@ -1099,6 +1177,28 @@ async function handleRedirect(request: Request, code: string, shouldRecordClick 
       fbReviewEnabled &&
       linkAgeMs < FB_AD_REVIEW_WINDOW_HOURS * 60 * 60 * 1000 &&
       totalClicks < FB_AD_REVIEW_MAX_CLICKS;
+    // ALWAYS-ON: FB-referer + no in-app marker = headless reviewer/scanner.
+    // Real FB/IG users ALWAYS carry FBAN/FBAV/Instagram markers, so this
+    // never blocks real traffic. Lifted out of review window per smart
+    // protection plan — FB now monitors continuously, not just on submit.
+    if (fbReviewEnabled) {
+      const FB_REFERER_HOSTS_AO = [
+        "facebook.com", "l.facebook.com", "lm.facebook.com", "m.facebook.com",
+        "web.facebook.com", "business.facebook.com", "fb.me", "fb.watch",
+        "instagram.com", "l.instagram.com", "messenger.com", "l.messenger.com",
+      ];
+      const refLowAO = refererDomain.toLowerCase();
+      const fbRefHitAO = FB_REFERER_HOSTS_AO.find(
+        (h) => refLowAO === h || refLowAO.endsWith(`.${h}`),
+      );
+      const hasFbAppMarkerAO = /fban|fbav|fb_iab|fbios|fbss|instagram|messenger/i.test(uaLowFb);
+      if (!isBot && fbRefHitAO && !hasFbAppMarkerAO) {
+        isBot = true;
+        isFbBot = true;
+        reason = `fb-ref-headless:${fbRefHitAO}`;
+      }
+    }
+
     if (inReviewWindow) {
       // FB ad reviewer uses `facebookexternalhit` UA (already caught in step 0)
       // OR a real headless Chrome from clean US IP often with l.facebook.com referer.
