@@ -21,6 +21,7 @@ import { Route as AuthenticatedSupportRouteImport } from './routes/_authenticate
 import { Route as AuthenticatedSmartFilterRouteImport } from './routes/_authenticated/smart-filter'
 import { Route as AuthenticatedNoticesRouteImport } from './routes/_authenticated/notices'
 import { Route as AuthenticatedLiveRouteImport } from './routes/_authenticated/live'
+import { Route as AuthenticatedLinkDebuggerRouteImport } from './routes/_authenticated/link-debugger'
 import { Route as AuthenticatedDomainsRouteImport } from './routes/_authenticated/domains'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
 import { Route as AuthenticatedControlPanelRouteImport } from './routes/_authenticated/control-panel'
@@ -88,6 +89,12 @@ const AuthenticatedLiveRoute = AuthenticatedLiveRouteImport.update({
   path: '/live',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
+const AuthenticatedLinkDebuggerRoute =
+  AuthenticatedLinkDebuggerRouteImport.update({
+    id: '/link-debugger',
+    path: '/link-debugger',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
 const AuthenticatedDomainsRoute = AuthenticatedDomainsRouteImport.update({
   id: '/domains',
   path: '/domains',
@@ -131,6 +138,7 @@ export interface FileRoutesByFullPath {
   '/control-panel': typeof AuthenticatedControlPanelRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/domains': typeof AuthenticatedDomainsRoute
+  '/link-debugger': typeof AuthenticatedLinkDebuggerRoute
   '/live': typeof AuthenticatedLiveRoute
   '/notices': typeof AuthenticatedNoticesRoute
   '/smart-filter': typeof AuthenticatedSmartFilterRoute
@@ -150,6 +158,7 @@ export interface FileRoutesByTo {
   '/control-panel': typeof AuthenticatedControlPanelRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/domains': typeof AuthenticatedDomainsRoute
+  '/link-debugger': typeof AuthenticatedLinkDebuggerRoute
   '/live': typeof AuthenticatedLiveRoute
   '/notices': typeof AuthenticatedNoticesRoute
   '/smart-filter': typeof AuthenticatedSmartFilterRoute
@@ -171,6 +180,7 @@ export interface FileRoutesById {
   '/_authenticated/control-panel': typeof AuthenticatedControlPanelRoute
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
   '/_authenticated/domains': typeof AuthenticatedDomainsRoute
+  '/_authenticated/link-debugger': typeof AuthenticatedLinkDebuggerRoute
   '/_authenticated/live': typeof AuthenticatedLiveRoute
   '/_authenticated/notices': typeof AuthenticatedNoticesRoute
   '/_authenticated/smart-filter': typeof AuthenticatedSmartFilterRoute
@@ -192,6 +202,7 @@ export interface FileRouteTypes {
     | '/control-panel'
     | '/dashboard'
     | '/domains'
+    | '/link-debugger'
     | '/live'
     | '/notices'
     | '/smart-filter'
@@ -211,6 +222,7 @@ export interface FileRouteTypes {
     | '/control-panel'
     | '/dashboard'
     | '/domains'
+    | '/link-debugger'
     | '/live'
     | '/notices'
     | '/smart-filter'
@@ -231,6 +243,7 @@ export interface FileRouteTypes {
     | '/_authenticated/control-panel'
     | '/_authenticated/dashboard'
     | '/_authenticated/domains'
+    | '/_authenticated/link-debugger'
     | '/_authenticated/live'
     | '/_authenticated/notices'
     | '/_authenticated/smart-filter'
@@ -339,6 +352,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedLiveRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/link-debugger': {
+      id: '/_authenticated/link-debugger'
+      path: '/link-debugger'
+      fullPath: '/link-debugger'
+      preLoaderRoute: typeof AuthenticatedLinkDebuggerRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
     '/_authenticated/domains': {
       id: '/_authenticated/domains'
       path: '/domains'
@@ -389,6 +409,7 @@ interface AuthenticatedRouteChildren {
   AuthenticatedControlPanelRoute: typeof AuthenticatedControlPanelRoute
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
   AuthenticatedDomainsRoute: typeof AuthenticatedDomainsRoute
+  AuthenticatedLinkDebuggerRoute: typeof AuthenticatedLinkDebuggerRoute
   AuthenticatedLiveRoute: typeof AuthenticatedLiveRoute
   AuthenticatedNoticesRoute: typeof AuthenticatedNoticesRoute
   AuthenticatedSmartFilterRoute: typeof AuthenticatedSmartFilterRoute
@@ -401,6 +422,7 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedControlPanelRoute: AuthenticatedControlPanelRoute,
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
   AuthenticatedDomainsRoute: AuthenticatedDomainsRoute,
+  AuthenticatedLinkDebuggerRoute: AuthenticatedLinkDebuggerRoute,
   AuthenticatedLiveRoute: AuthenticatedLiveRoute,
   AuthenticatedNoticesRoute: AuthenticatedNoticesRoute,
   AuthenticatedSmartFilterRoute: AuthenticatedSmartFilterRoute,

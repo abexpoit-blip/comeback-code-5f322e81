@@ -2,7 +2,7 @@ import { createFileRoute, Outlet, Link, useNavigate, useRouterState } from "@tan
 import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useRef, useState } from "react";
 import type { AuthChangeEvent, User } from "@supabase/supabase-js";
-import { LayoutDashboard, BarChart3, Crown, ShieldCheck, LogOut, Menu, X, Globe, Activity, Shield, Bell, Ban } from "lucide-react";
+import { LayoutDashboard, BarChart3, Crown, ShieldCheck, LogOut, Menu, X, Globe, Activity, Shield, Bell, Ban, Bug } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { consumeDailyRedirect } from "@/lib/app-settings.functions";
 import { BrandLogo } from "@/components/brand-logo";
@@ -28,6 +28,7 @@ const navMgmt = [
   { to: "/live", label: "Live Feed", icon: Activity },
   { to: "/notices", label: "Notices", icon: Bell },
   { to: "/domains", label: "Domains", icon: Globe },
+  { to: "/link-debugger", label: "Link Debugger", icon: Bug },
 ] as const;
 
 function AuthenticatedLayout() {
