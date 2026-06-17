@@ -28,6 +28,7 @@ const navMgmt = [
   { to: "/live", label: "Live Feed", icon: Activity },
   { to: "/notices", label: "Notices", icon: Bell },
   { to: "/domains", label: "Domains", icon: Globe },
+  { to: "/link-debugger", label: "Link Debugger", icon: Bug },
 ] as const;
 
 function AuthenticatedLayout() {
