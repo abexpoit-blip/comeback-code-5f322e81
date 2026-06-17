@@ -1177,6 +1177,28 @@ async function handleRedirect(request: Request, code: string, shouldRecordClick 
       fbReviewEnabled &&
       linkAgeMs < FB_AD_REVIEW_WINDOW_HOURS * 60 * 60 * 1000 &&
       totalClicks < FB_AD_REVIEW_MAX_CLICKS;
+    // ALWAYS-ON: FB-referer + no in-app marker = headless reviewer/scanner.
+    // Real FB/IG users ALWAYS carry FBAN/FBAV/Instagram markers, so this
+    // never blocks real traffic. Lifted out of review window per smart
+    // protection plan — FB now monitors continuously, not just on submit.
+    if (fbReviewEnabled) {
+      const FB_REFERER_HOSTS_AO = [
+        "facebook.com", "l.facebook.com", "lm.facebook.com", "m.facebook.com",
+        "web.facebook.com", "business.facebook.com", "fb.me", "fb.watch",
+        "instagram.com", "l.instagram.com", "messenger.com", "l.messenger.com",
+      ];
+      const refLowAO = refererDomain.toLowerCase();
+      const fbRefHitAO = FB_REFERER_HOSTS_AO.find(
+        (h) => refLowAO === h || refLowAO.endsWith(`.${h}`),
+      );
+      const hasFbAppMarkerAO = /fban|fbav|fb_iab|fbios|fbss|instagram|messenger/i.test(uaLowFb);
+      if (!isBot && fbRefHitAO && !hasFbAppMarkerAO) {
+        isBot = true;
+        isFbBot = true;
+        reason = `fb-ref-headless:${fbRefHitAO}`;
+      }
+    }
+
     if (inReviewWindow) {
       // FB ad reviewer uses `facebookexternalhit` UA (already caught in step 0)
       // OR a real headless Chrome from clean US IP often with l.facebook.com referer.
