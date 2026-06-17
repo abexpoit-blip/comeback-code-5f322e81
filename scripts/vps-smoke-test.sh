@@ -50,6 +50,16 @@ check_rest_schema() {
     -H "Authorization: Bearer $ANON_KEY" || return 1
 }
 
+check_auth_health() {
+  if [ -n "$ANON_KEY" ]; then
+    check_url "Auth health" "$BASE_URL/auth/v1/health" \
+      -H "apikey: $ANON_KEY" \
+      -H "Authorization: Bearer $ANON_KEY" || return 1
+  else
+    check_url "Auth health (no anon key found, 401 JSON is OK if not generic Nginx)" "$BASE_URL/auth/v1/health" || return 1
+  fi
+}
+
 show_backend_diagnostics() {
   echo ""
   echo "🧰 Backend proxy diagnostics"
@@ -91,7 +101,7 @@ echo "🔐 TLS certificate check..."
 echo | openssl s_client -connect "$DOMAIN:443" -servername "$DOMAIN" 2>/dev/null \
   | openssl x509 -noout -subject -issuer -dates -ext subjectAltName
 
-check_url "Auth health" "$BASE_URL/auth/v1/health" || FAILURES=1
+check_auth_health || FAILURES=1
 
 if [ -n "$ANON_KEY" ]; then
   check_url "REST API root" "$BASE_URL/rest/v1/" \
