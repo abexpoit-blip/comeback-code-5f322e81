@@ -2020,6 +2020,11 @@ function MaintenanceTab() {
 
       <ResetAllClicksPanel />
 
+      <QuotaSyncTestPanel />
+      <QuotaSyncStatusPanel />
+
+
+
 
 
 
