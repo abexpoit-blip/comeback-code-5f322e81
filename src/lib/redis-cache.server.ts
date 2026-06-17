@@ -87,3 +87,28 @@ export async function redisDel(...keys: string[]): Promise<void> {
 export function redisSetAsync(key: string, value: unknown, ttlMs: number): void {
   void redisSet(key, value, ttlMs);
 }
+
+// Add a member to a set with TTL, return new set cardinality.
+// Used for multi-link velocity tracking: SADD ip→{codes...} EXPIRE 1h.
+// Returns 0 on Redis failure (fail-open: never block real users due to outage).
+export async function redisSAddWithTTL(
+  key: string,
+  member: string,
+  ttlSec: number,
+): Promise<number> {
+  const c = getClient();
+  if (!c) return 0;
+  try {
+    const pipeline = c.multi();
+    pipeline.sadd(key, member);
+    pipeline.expire(key, ttlSec);
+    pipeline.scard(key);
+    const results = await pipeline.exec();
+    if (!results) return 0;
+    const card = results[2]?.[1];
+    return typeof card === "number" ? card : 0;
+  } catch (err) {
+    logErr("sadd", err);
+    return 0;
+  }
+}
