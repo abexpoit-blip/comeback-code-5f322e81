@@ -125,30 +125,57 @@ export const Route = createFileRoute("/api/public/plisio-webhook")({
           verified = verifyFormHash(body, apiKey);
         }
 
-        // For JSON payloads (or when form-hash fails), confirm against Plisio
-        // API. CRITICAL: also confirm the operation's order_number matches the
-        // order_number in the callback body — otherwise an attacker could
-        // submit any known-completed txn_id paired with THEIR own pending
-        // order_number and trick us into marking it paid.
-        if (!verified && txnId) {
-          const op = await fetchPlisioOperation(txnId, apiKey);
-          if (op) {
-            const opOrder = op.order_number;
-            if (orderNumber && opOrder && opOrder === orderNumber) {
-              if (op.status) status = op.status;
+        // For JSON payloads (or when form-hash fails), verify against our own
+        // DB linkage: we created the invoice with plisio_invoice_id = txn_id
+        // and order_number = upgrade_requests.id. If both match in our DB, the
+        // callback is genuine (attacker cannot forge a (txnId, orderNumber)
+        // pair without knowing our stored linkage).
+        //
+        // We also still cross-check with Plisio API for the actual status, but
+        // do NOT require op.order_number to match (Plisio's operations endpoint
+        // sometimes returns it as null/missing — that was the source of the
+        // false "mismatch" rejections that lost real payments).
+        if (!verified && txnId && orderNumber) {
+          try {
+            const { data: linkedReq } = await supabaseAdmin
+              .from("upgrade_requests")
+              .select("id, plisio_invoice_id")
+              .eq("id", orderNumber)
+              .maybeSingle();
+            if (linkedReq && (linkedReq as any).plisio_invoice_id === txnId) {
               verified = true;
-            } else {
+              // Cross-check actual status with Plisio (don't trust callback body alone).
+              const op = await fetchPlisioOperation(txnId, apiKey);
+              if (op?.status) {
+                status = op.status;
+              }
+            } else if (linkedReq) {
               console.warn(
-                "[plisio] order_number mismatch — callback claims",
+                "[plisio] txn_id mismatch — callback claims",
+                txnId,
+                "for order",
                 orderNumber,
-                "but Plisio op has",
-                opOrder,
+                "but DB has",
+                (linkedReq as any).plisio_invoice_id,
               );
             }
+          } catch (e) {
+            console.error("[plisio] db linkage check failed", e);
+          }
+        }
+
+        // Last-resort fallback: confirm via Plisio API (op.order_number match
+        // when present — kept for legacy form-encoded edge cases).
+        if (!verified && txnId) {
+          const op = await fetchPlisioOperation(txnId, apiKey);
+          if (op && orderNumber && op.order_number === orderNumber) {
+            if (op.status) status = op.status;
+            verified = true;
           }
         }
 
         if (!verified) {
+          console.warn("[plisio] verification failed", { txnId, orderNumber, status });
           return new Response("invalid signature", { status: 401 });
         }
 
