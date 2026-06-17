@@ -6,7 +6,8 @@ set -euo pipefail
 APP_DIR="${APP_DIR:-/opt/sleepox-app-new}"
 SUPABASE_DIR="${SUPABASE_DIR:-/opt/supabase-docker}"
 APP_ENV="$APP_DIR/.env"
-API_URL="${API_URL:-https://supabase.sleepox.com}"
+PUBLIC_API_URL="${PUBLIC_API_URL:-${API_URL:-https://supabase.sleepox.com}}"
+SERVER_API_URL="${SERVER_API_URL:-}"
 PROJECT_ID="${PROJECT_ID:-sleepox}"
 
 find_compose_dir() {
@@ -37,6 +38,18 @@ try {
   process.exit(payload.role === expectedRole ? 0 : 3);
 } catch {
   process.exit(4);
+}
+
+detect_local_api_url() {
+  local candidate code
+  for candidate in http://127.0.0.1:8000 http://127.0.0.1:54321; do
+    code="$(curl -ksS -o /dev/null -w '%{http_code}' --max-time 3 "$candidate/auth/v1/health" || true)"
+    if [ "$code" != "000" ] && [ "$code" != "502" ] && [ "$code" != "503" ] && [ "$code" != "504" ]; then
+      printf '%s\n' "$candidate"
+      return 0
+    fi
+  done
+  return 1
 }
 NODE
 }
@@ -94,10 +107,17 @@ if [ ! -f "$APP_ENV" ]; then
   exit 1
 fi
 
+if [ -z "$SERVER_API_URL" ]; then
+  SERVER_API_URL="$(detect_local_api_url || true)"
+fi
+if [ -z "$SERVER_API_URL" ]; then
+  SERVER_API_URL="$PUBLIC_API_URL"
+fi
+
 cp "$APP_ENV" "$APP_ENV.sleepox-backup-$(date +%Y%m%d%H%M%S)"
 
-upsert_env "$APP_ENV" "SUPABASE_URL" "$API_URL"
-upsert_env "$APP_ENV" "VITE_SUPABASE_URL" "$API_URL"
+upsert_env "$APP_ENV" "SUPABASE_URL" "$SERVER_API_URL"
+upsert_env "$APP_ENV" "VITE_SUPABASE_URL" "$PUBLIC_API_URL"
 upsert_env "$APP_ENV" "SUPABASE_PROJECT_ID" "$PROJECT_ID"
 upsert_env "$APP_ENV" "VITE_SUPABASE_PROJECT_ID" "$PROJECT_ID"
 upsert_env "$APP_ENV" "SUPABASE_ANON_KEY" "$anon_key"
@@ -113,4 +133,6 @@ cd "$APP_DIR"
 bun run verify-env
 
 echo "✅ App .env now matches the self-hosted backend keys. No secrets were printed."
+echo "✅ Server API URL: $SERVER_API_URL"
+echo "✅ Browser API URL: $PUBLIC_API_URL"
 echo "Next: run ./deploy.sh restart and then ./deploy.sh logs"
