@@ -29,6 +29,7 @@ function getClient(): Redis | null {
       enableOfflineQueue: false,
       enableAutoPipelining: true,
       retryStrategy: (times) => (times > 10 ? null : Math.min(times * 200, 3000)),
+      reconnectOnError: () => true,
     });
     client.on("error", (err) => logErr("conn", err));
     // L6 FIX: when retryStrategy returns null (>10 failed attempts), ioredis
@@ -46,11 +47,21 @@ function getClient(): Redis | null {
   }
 }
 
+// Only return client when socket is actually ready to write. Prevents
+// the "Stream isn't writeable and enableOfflineQueue options is false"
+// noise during reconnect windows — we silently treat those as cache-miss.
+function getReadyClient(): Redis | null {
+  const c = getClient();
+  if (!c) return null;
+  if (c.status !== "ready") return null;
+  return c;
+}
+
 // Eagerly init on first import so the connection is warm.
 getClient();
 
 export async function redisGet<T = unknown>(key: string): Promise<T | null> {
-  const c = getClient();
+  const c = getReadyClient();
   if (!c) return null;
   try {
     const raw = await c.get(key);
@@ -63,7 +74,7 @@ export async function redisGet<T = unknown>(key: string): Promise<T | null> {
 }
 
 export async function redisSet(key: string, value: unknown, ttlMs: number): Promise<void> {
-  const c = getClient();
+  const c = getReadyClient();
   if (!c) return;
   try {
     // PX = TTL in milliseconds
@@ -74,7 +85,7 @@ export async function redisSet(key: string, value: unknown, ttlMs: number): Prom
 }
 
 export async function redisDel(...keys: string[]): Promise<void> {
-  const c = getClient();
+  const c = getReadyClient();
   if (!c || keys.length === 0) return;
   try {
     await c.del(...keys);
@@ -96,7 +107,7 @@ export async function redisSAddWithTTL(
   member: string,
   ttlSec: number,
 ): Promise<number> {
-  const c = getClient();
+  const c = getReadyClient();
   if (!c) return 0;
   try {
     const pipeline = c.multi();
