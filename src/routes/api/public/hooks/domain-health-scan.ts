@@ -20,7 +20,7 @@ export const Route = createFileRoute("/api/public/hooks/domain-health-scan")({
         }
 
         try {
-          const { scanAllInternal } = await import("@/lib/domain-monitor.functions");
+          const { scanAllInternal } = await import("@/lib/domain-monitor.server");
           // Also prune history > 30 days
           const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
           await supabaseAdmin.rpc("prune_domain_health_history" as any);
