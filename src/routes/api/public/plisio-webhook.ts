@@ -4,7 +4,7 @@ import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { fetchIpv4 } from "@/lib/fetch-ipv4";
 
 /**
- * Plisio callback verification (form-encoded HMAC).
+ * Plisio callback verification (form-encoded hash).
  */
 function verifyFormHash(body: Record<string, string>, apiKey: string): boolean {
   const verifyHash = body.verify_hash;
@@ -12,8 +12,14 @@ function verifyFormHash(body: Record<string, string>, apiKey: string): boolean {
   const clone = { ...body };
   delete clone.verify_hash;
   const ordered = Object.keys(clone).sort().map((k) => clone[k]).join(":");
-  const expected = createHash("md5").update(`${ordered}:${apiKey}`).digest("hex");
-  return expected === verifyHash;
+  const payload = `${ordered}:${apiKey}`;
+
+  // Plisio currently sends a 40-char SHA-1 verify_hash for invoice IPNs.
+  // Keep MD5 too so older/test callbacks still verify if they use the legacy
+  // 32-char format.
+  const expectedSha1 = createHash("sha1").update(payload).digest("hex");
+  const expectedMd5 = createHash("md5").update(payload).digest("hex");
+  return verifyHash === expectedSha1 || verifyHash === expectedMd5;
 }
 
 async function fetchPlisioOperation(txnId: string, apiKey: string) {
