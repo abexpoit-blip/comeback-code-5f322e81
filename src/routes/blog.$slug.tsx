@@ -72,7 +72,7 @@ function ArticlePage() {
         </h1>
         <div className="flex items-center gap-3 mb-10 text-sm text-[#7A7468] border-b border-[#E8E2D5] pb-6">
           <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#7D9B76] to-[#5A7A55] flex items-center justify-center text-white text-sm font-semibold">
-            {a.author.split(" ").map((n) => n[0]).join("")}
+            {a.author.split(" ").map((n: string) => n[0]).join("")}
           </div>
           <div>
             <div className="text-[#2A2A28] font-medium">{a.author}</div>
@@ -85,7 +85,7 @@ function ArticlePage() {
         <div className="prose prose-lg max-w-none text-[#3A3A38] leading-relaxed">
           <p className="text-xl text-[#5A554C] italic mb-8">{a.excerpt}</p>
           {a.body ? (
-            a.body.split("\n\n").map((para, i) => <p key={i} className="mb-5">{para}</p>)
+            a.body.split("\n\n").map((para: string, i: number) => <p key={i} className="mb-5">{para}</p>)
           ) : (
             <p className="text-[#9A9488]">Full article content is being prepared and will be published shortly.</p>
           )}
@@ -97,7 +97,7 @@ function ArticlePage() {
               Products mentioned in this article
             </h2>
             <div className="grid sm:grid-cols-3 gap-6">
-              {related.map((p) => p && <ProductCard key={p.slug} product={p} />)}
+              {related.map((p) => (p ? <ProductCard key={p.slug} product={p} /> : null))}
             </div>
           </section>
         )}

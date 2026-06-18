@@ -127,7 +127,7 @@ function ProductPage() {
                 Key features
               </h3>
               <ul className="space-y-2">
-                {p.features.map((f) => (
+                {p.features.map((f: string) => (
                   <li key={f} className="flex items-start gap-2 text-sm text-[#5A554C]">
                     <span className="text-[#5A7A55] mt-1">✓</span> <span>{f}</span>
                   </li>
@@ -156,7 +156,7 @@ function ProductPage() {
             You may also like
           </h2>
           <div className="grid sm:grid-cols-3 gap-6">
-            {recommended.map((r) => <ProductCard key={r.slug} product={r} />)}
+            {recommended.map((r) => (r ? <ProductCard key={r.slug} product={r} /> : null))}
           </div>
         </section>
       </div>
