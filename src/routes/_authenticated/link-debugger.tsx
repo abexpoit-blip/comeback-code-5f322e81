@@ -147,7 +147,7 @@ function LinkDebuggerPage() {
                   {(linksQ.data ?? []).length === 0 && <option value="">No links yet</option>}
                   {(linksQ.data ?? []).map((l) => (
                     <option key={l.id} value={l.short_code}>
-                      {(l.title || l.short_code)} — /r/{l.short_code}
+                      {(l.title || l.short_code)} — /{l.short_code}
                     </option>
                   ))}
                 </select>
