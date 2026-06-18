@@ -1237,6 +1237,10 @@ export type Database = {
         }
         Returns: undefined
       }
+      record_redirect_clicks_batch: {
+        Args: { _events: Json }
+        Returns: undefined
+      }
       record_whitelist_hit: { Args: { _id: string }; Returns: undefined }
       reset_all_clicks: { Args: never; Returns: Json }
       restore_paid_quota_from_reset_snapshot: {
