@@ -58,9 +58,9 @@ function LinkDebuggerPage() {
 
   const targetUrl = useMemo(() => {
     if (mode === "custom") return customUrl.trim();
-    if (!selectedCode || !origin) return "";
-    return `${origin}/${selectedCode}`;
-  }, [mode, customUrl, selectedCode, origin]);
+    if (!selectedCode) return "";
+    return `${baseUrl}/${selectedCode}`;
+  }, [mode, customUrl, selectedCode, baseUrl]);
 
   const mut = useMutation({
     mutationFn: async (vars: { url: string; bot: BotKey }) =>
