@@ -1,7 +1,7 @@
 import { createFileRoute, Link, notFound } from "@tanstack/react-router";
 import { BreezyLayout, TrustBar } from "@/components/breezy/BreezyLayout";
 import { ProductCard } from "@/components/breezy/ProductCard";
-import { getProduct, PRODUCTS, SITE } from "@/lib/breezy-data";
+import { getProduct, PRODUCTS, SITE, type Product } from "@/lib/breezy-data";
 
 export const Route = createFileRoute("/shop/$slug")({
   loader: ({ params }) => {
@@ -62,10 +62,11 @@ export const Route = createFileRoute("/shop/$slug")({
 });
 
 function ProductPage() {
-  const { product: p } = Route.useLoaderData();
-  const related: typeof PRODUCTS = PRODUCTS.filter((x) => x.slug !== p.slug && x.category === p.category).slice(0, 3);
-  const fillerRelated: typeof PRODUCTS = related.length < 3 ? PRODUCTS.filter((x) => x.slug !== p.slug).slice(0, 3 - related.length) : [];
-  const recommended: typeof PRODUCTS = [...related, ...fillerRelated].slice(0, 3);
+  const { product } = Route.useLoaderData();
+  const p = product as Product;
+  const related: Product[] = PRODUCTS.filter((x) => x.slug !== p.slug && x.category === p.category).slice(0, 3);
+  const fillerRelated: Product[] = related.length < 3 ? PRODUCTS.filter((x) => x.slug !== p.slug).slice(0, 3 - related.length) : [];
+  const recommended: Product[] = [...related, ...fillerRelated].slice(0, 3);
 
   return (
     <BreezyLayout>
