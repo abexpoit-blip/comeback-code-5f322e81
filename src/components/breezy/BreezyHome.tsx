@@ -2,6 +2,7 @@ import { Link } from "@tanstack/react-router";
 import { BreezyLayout, TrustBar } from "@/components/breezy/BreezyLayout";
 import { ProductCard } from "@/components/breezy/ProductCard";
 import { PRODUCTS, ARTICLES, SITE } from "@/lib/breezy-data";
+import { BLOG_IMAGES } from "@/lib/breezy-content";
 
 /**
  * BreezySocial gadget storefront homepage — served when host is breezysocial.com.
