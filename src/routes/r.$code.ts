@@ -498,10 +498,12 @@ type ClickBatchState = {
   failed: number;
 };
 
-const CLICK_BATCH_SIZE = 80;
-const CLICK_BATCH_QUEUE_MAX = 2_000;
+// Tuned for production: smaller batches finish faster (lower per-RPC time),
+// larger timeout absorbs DB pool stalls without dropping clicks.
+const CLICK_BATCH_SIZE = 40;
+const CLICK_BATCH_QUEUE_MAX = 4_000;
 const CLICK_BATCH_FLUSH_MS = 1_000;
-const CLICK_BATCH_TIMEOUT_MS = 4_000;
+const CLICK_BATCH_TIMEOUT_MS = 12_000;
 
 function getClickBatchState(): ClickBatchState {
   const g = globalThis as typeof globalThis & { __sleepoxClickBatch?: ClickBatchState };
@@ -666,7 +668,9 @@ export async function lookupRedirectLink(
     let lastErr: any = null;
     for (let attempt = 1; attempt <= 3; attempt += 1) {
       const ctrl = new AbortController();
-      const timer = setTimeout(() => ctrl.abort(), 3200);
+      // Bumped from 3200 → 5000ms: under load the DB pool occasionally needs
+      // ~3-4s. 5s + 3 retries removes the bulk of "AbortError" lookup failures.
+      const timer = setTimeout(() => ctrl.abort(), 5000);
       try {
         const query = supabaseAdmin
           .from("links")
