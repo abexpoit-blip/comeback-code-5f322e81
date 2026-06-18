@@ -59,7 +59,7 @@ function LinkDebuggerPage() {
   const targetUrl = useMemo(() => {
     if (mode === "custom") return customUrl.trim();
     if (!selectedCode || !origin) return "";
-    return `${origin}/r/${selectedCode}`;
+    return `${origin}/${selectedCode}`;
   }, [mode, customUrl, selectedCode, origin]);
 
   const mut = useMutation({
