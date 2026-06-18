@@ -365,6 +365,22 @@ function DashboardPage() {
                             </td>
                             <td className="px-5 py-4 text-right">
                               <div className="inline-flex items-center gap-1">
+                                <button
+                                  title={`Country Shield${(l as any).blocked_countries?.length ? ` (${(l as any).blocked_countries.length} blocked)` : ""}`}
+                                  onClick={() => setShieldFor({ id: l.id, title: l.title || l.short_code, initial: (l as any).blocked_countries ?? [] })}
+                                  className={`relative p-1.5 rounded-lg hover:bg-[#FFEDD5]/60 ${
+                                    (l as any).blocked_countries?.length > 0
+                                      ? "text-[#FF7E5F]"
+                                      : "text-[#7D6452] hover:text-[#FF7E5F]"
+                                  }`}
+                                >
+                                  <Shield className="w-4 h-4" />
+                                  {(l as any).blocked_countries?.length > 0 && (
+                                    <span className="absolute -top-0.5 -right-0.5 w-3.5 h-3.5 rounded-full bg-[#FF7E5F] text-white text-[8px] font-bold flex items-center justify-center">
+                                      {(l as any).blocked_countries.length}
+                                    </span>
+                                  )}
+                                </button>
                                 <button onClick={() => togMut.mutate({ id: l.id, is_active: !l.is_active })}
                                   className="text-[#7D6452] hover:text-[#FF7E5F] p-1.5 rounded-lg hover:bg-[#FFEDD5]/60">
                                   {l.is_active ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}
@@ -376,6 +392,7 @@ function DashboardPage() {
                                 <ChevronRight className="w-4 h-4 text-[#A38D7D]" />
                               </div>
                             </td>
+
                           </tr>
                         );
                       })}
