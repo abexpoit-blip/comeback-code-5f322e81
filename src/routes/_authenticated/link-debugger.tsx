@@ -10,6 +10,7 @@ import { toast } from "sonner";
 
 import { listMyLinks } from "@/lib/links.functions";
 import { debugLinkPreview, getMyPlan, type BotKey } from "@/lib/link-debugger.functions";
+import { useShortDomain, SHORT_DOMAINS } from "@/lib/short-domains";
 
 export const Route = createFileRoute("/_authenticated/link-debugger")({
   head: () => ({ meta: [{ title: "Link Debugger — Sleepox" }] }),
