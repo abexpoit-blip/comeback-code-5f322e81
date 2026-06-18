@@ -1059,11 +1059,12 @@ export function renderPrelanding(
   code: string,
   token: string,
   mode: RenderMode = "fbbot",
+  requestOrigin?: string,
 ): string {
   // Article variant — pick by name
-  if (template in ARTICLES) return articleHtml(ARTICLES[template], template, code, token, mode);
+  if (template in ARTICLES) return articleHtml(ARTICLES[template], template, code, token, mode, requestOrigin);
   // Generic "article" or legacy templates → default to health (best safe content)
-  return articleHtml(ARTICLES.article_health, "article_health", code, token, mode);
+  return articleHtml(ARTICLES.article_health, "article_health", code, token, mode, requestOrigin);
 }
 
 export function pickArticleTemplate(template: PrelandingTemplate): PrelandingTemplate {
