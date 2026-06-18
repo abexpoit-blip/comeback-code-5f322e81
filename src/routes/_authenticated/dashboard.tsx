@@ -113,6 +113,8 @@ function DashboardPage() {
   const effectiveDomain = selectedDomain || primaryDomain;
   const origin = typeof window !== "undefined" ? `${window.location.protocol}//${effectiveDomain}` : `https://${effectiveDomain}`;
   const links = dashQ.data?.links ?? [];
+  const [shieldFor, setShieldFor] = useState<null | { id: string; title: string; initial: string[] }>(null);
+
   const profile = dashQ.data?.profile;
   const stats = dashQ.data?.stats;
 
