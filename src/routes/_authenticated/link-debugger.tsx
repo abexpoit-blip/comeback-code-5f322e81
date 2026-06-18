@@ -43,8 +43,7 @@ function LinkDebuggerPage() {
     enabled: isPaid,
   });
 
-  const [origin, setOrigin] = useState("");
-  useEffect(() => { if (typeof window !== "undefined") setOrigin(window.location.origin); }, []);
+  const { host: shortHost, baseUrl, setHost } = useShortDomain();
 
   const [mode, setMode] = useState<"own" | "custom">("own");
   const [selectedCode, setSelectedCode] = useState<string>("");
