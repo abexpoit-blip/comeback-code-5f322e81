@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as SxVault9k2m7xRouteImport } from './routes/sx-vault-9k2m7x'
+import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
 import { Route as SignupRouteImport } from './routes/signup'
 import { Route as PricingRouteImport } from './routes/pricing'
 import { Route as LoginRouteImport } from './routes/login'
@@ -33,6 +34,11 @@ import { Route as ApiPublicHooksDomainHealthScanRouteImport } from './routes/api
 const SxVault9k2m7xRoute = SxVault9k2m7xRouteImport.update({
   id: '/sx-vault-9k2m7x',
   path: '/sx-vault-9k2m7x',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SitemapDotxmlRoute = SitemapDotxmlRouteImport.update({
+  id: '/sitemap.xml',
+  path: '/sitemap.xml',
   getParentRoute: () => rootRouteImport,
 } as any)
 const SignupRoute = SignupRouteImport.update({
@@ -140,6 +146,7 @@ export interface FileRoutesByFullPath {
   '/login': typeof LoginRoute
   '/pricing': typeof PricingRoute
   '/signup': typeof SignupRoute
+  '/sitemap.xml': typeof SitemapDotxmlRoute
   '/sx-vault-9k2m7x': typeof SxVault9k2m7xRoute
   '/analytics': typeof AuthenticatedAnalyticsRoute
   '/control-panel': typeof AuthenticatedControlPanelRoute
@@ -161,6 +168,7 @@ export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/pricing': typeof PricingRoute
   '/signup': typeof SignupRoute
+  '/sitemap.xml': typeof SitemapDotxmlRoute
   '/sx-vault-9k2m7x': typeof SxVault9k2m7xRoute
   '/analytics': typeof AuthenticatedAnalyticsRoute
   '/control-panel': typeof AuthenticatedControlPanelRoute
@@ -184,6 +192,7 @@ export interface FileRoutesById {
   '/login': typeof LoginRoute
   '/pricing': typeof PricingRoute
   '/signup': typeof SignupRoute
+  '/sitemap.xml': typeof SitemapDotxmlRoute
   '/sx-vault-9k2m7x': typeof SxVault9k2m7xRoute
   '/_authenticated/analytics': typeof AuthenticatedAnalyticsRoute
   '/_authenticated/control-panel': typeof AuthenticatedControlPanelRoute
@@ -207,6 +216,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/pricing'
     | '/signup'
+    | '/sitemap.xml'
     | '/sx-vault-9k2m7x'
     | '/analytics'
     | '/control-panel'
@@ -228,6 +238,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/pricing'
     | '/signup'
+    | '/sitemap.xml'
     | '/sx-vault-9k2m7x'
     | '/analytics'
     | '/control-panel'
@@ -250,6 +261,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/pricing'
     | '/signup'
+    | '/sitemap.xml'
     | '/sx-vault-9k2m7x'
     | '/_authenticated/analytics'
     | '/_authenticated/control-panel'
@@ -273,6 +285,7 @@ export interface RootRouteChildren {
   LoginRoute: typeof LoginRoute
   PricingRoute: typeof PricingRoute
   SignupRoute: typeof SignupRoute
+  SitemapDotxmlRoute: typeof SitemapDotxmlRoute
   SxVault9k2m7xRoute: typeof SxVault9k2m7xRoute
   RCodeRoute: typeof RCodeRoute
   ApiPublicPlisioWebhookRoute: typeof ApiPublicPlisioWebhookRoute
@@ -287,6 +300,13 @@ declare module '@tanstack/react-router' {
       path: '/sx-vault-9k2m7x'
       fullPath: '/sx-vault-9k2m7x'
       preLoaderRoute: typeof SxVault9k2m7xRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/sitemap.xml': {
+      id: '/sitemap.xml'
+      path: '/sitemap.xml'
+      fullPath: '/sitemap.xml'
+      preLoaderRoute: typeof SitemapDotxmlRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/signup': {
@@ -461,6 +481,7 @@ const rootRouteChildren: RootRouteChildren = {
   LoginRoute: LoginRoute,
   PricingRoute: PricingRoute,
   SignupRoute: SignupRoute,
+  SitemapDotxmlRoute: SitemapDotxmlRoute,
   SxVault9k2m7xRoute: SxVault9k2m7xRoute,
   RCodeRoute: RCodeRoute,
   ApiPublicPlisioWebhookRoute: ApiPublicPlisioWebhookRoute,
