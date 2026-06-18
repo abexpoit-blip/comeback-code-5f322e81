@@ -1041,7 +1041,7 @@ async function handleRedirect(request: Request, code: string, shouldRecordClick 
 
     if (isFbHit) {
       const tpl = pickArticleTemplateForCode(code);
-      const html = renderPrelanding(tpl, code, "", "fbbot");
+      const html = renderPrelanding(tpl, code, "", "fbbot", url.origin);
       return new Response(html, {
         status: 200,
         headers: {
