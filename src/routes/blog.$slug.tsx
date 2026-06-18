@@ -54,7 +54,7 @@ export const Route = createFileRoute("/blog/$slug")({
 
 function ArticlePage() {
   const { article: a } = Route.useLoaderData();
-  const related = a.relatedProducts.map(getProduct).filter(Boolean);
+  const related = a.relatedProducts.map(getProduct).filter((x): x is NonNullable<typeof x> => Boolean(x));
 
   return (
     <BreezyLayout>

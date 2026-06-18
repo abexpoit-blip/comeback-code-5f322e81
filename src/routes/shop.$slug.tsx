@@ -63,9 +63,9 @@ export const Route = createFileRoute("/shop/$slug")({
 
 function ProductPage() {
   const { product: p } = Route.useLoaderData();
-  const related = PRODUCTS.filter((x) => x.slug !== p.slug && x.category === p.category).slice(0, 3);
-  const fillerRelated = related.length < 3 ? PRODUCTS.filter((x) => x.slug !== p.slug).slice(0, 3 - related.length) : [];
-  const recommended = [...related, ...fillerRelated].slice(0, 3);
+  const related: typeof PRODUCTS = PRODUCTS.filter((x) => x.slug !== p.slug && x.category === p.category).slice(0, 3);
+  const fillerRelated: typeof PRODUCTS = related.length < 3 ? PRODUCTS.filter((x) => x.slug !== p.slug).slice(0, 3 - related.length) : [];
+  const recommended: typeof PRODUCTS = [...related, ...fillerRelated].slice(0, 3);
 
   return (
     <BreezyLayout>
