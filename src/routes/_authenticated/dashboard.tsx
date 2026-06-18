@@ -5,7 +5,7 @@ import { useMemo, useState, type FormEvent, type ReactNode } from "react";
 import { toast } from "sonner";
 import {
   Copy, Trash2, Play, Pause, Plus, Search, ArrowRight, LifeBuoy,
-  TrendingUp, Filter, RefreshCw, ChevronRight, Smartphone, Globe
+  TrendingUp, Filter, RefreshCw, ChevronRight, Smartphone, Globe, Shield
 } from "lucide-react";
 import { getDashboardData, createLink, deleteLink, toggleLink } from "@/lib/links.functions";
 
@@ -15,6 +15,8 @@ import { BroadcastBell } from "@/components/broadcast-bell";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Button as UIButton } from "@/components/ui/button";
 import { Sparkles } from "lucide-react";
+import { CountryShieldDialog } from "@/components/CountryShieldDialog";
+
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
   head: () => ({ meta: [{ title: "Dashboard — Sleepox" }] }),
@@ -111,6 +113,8 @@ function DashboardPage() {
   const effectiveDomain = selectedDomain || primaryDomain;
   const origin = typeof window !== "undefined" ? `${window.location.protocol}//${effectiveDomain}` : `https://${effectiveDomain}`;
   const links = dashQ.data?.links ?? [];
+  const [shieldFor, setShieldFor] = useState<null | { id: string; title: string; initial: string[] }>(null);
+
   const profile = dashQ.data?.profile;
   const stats = dashQ.data?.stats;
 
@@ -361,6 +365,22 @@ function DashboardPage() {
                             </td>
                             <td className="px-5 py-4 text-right">
                               <div className="inline-flex items-center gap-1">
+                                <button
+                                  title={`Country Shield${(l as any).blocked_countries?.length ? ` (${(l as any).blocked_countries.length} blocked)` : ""}`}
+                                  onClick={() => setShieldFor({ id: l.id, title: l.title || l.short_code, initial: (l as any).blocked_countries ?? [] })}
+                                  className={`relative p-1.5 rounded-lg hover:bg-[#FFEDD5]/60 ${
+                                    (l as any).blocked_countries?.length > 0
+                                      ? "text-[#FF7E5F]"
+                                      : "text-[#7D6452] hover:text-[#FF7E5F]"
+                                  }`}
+                                >
+                                  <Shield className="w-4 h-4" />
+                                  {(l as any).blocked_countries?.length > 0 && (
+                                    <span className="absolute -top-0.5 -right-0.5 w-3.5 h-3.5 rounded-full bg-[#FF7E5F] text-white text-[8px] font-bold flex items-center justify-center">
+                                      {(l as any).blocked_countries.length}
+                                    </span>
+                                  )}
+                                </button>
                                 <button onClick={() => togMut.mutate({ id: l.id, is_active: !l.is_active })}
                                   className="text-[#7D6452] hover:text-[#FF7E5F] p-1.5 rounded-lg hover:bg-[#FFEDD5]/60">
                                   {l.is_active ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}
@@ -372,6 +392,7 @@ function DashboardPage() {
                                 <ChevronRight className="w-4 h-4 text-[#A38D7D]" />
                               </div>
                             </td>
+
                           </tr>
                         );
                       })}
@@ -447,7 +468,19 @@ function DashboardPage() {
         </div>
       </div>
 
+      {shieldFor && (
+        <CountryShieldDialog
+          open={!!shieldFor}
+          onOpenChange={(o) => { if (!o) setShieldFor(null); }}
+          linkId={shieldFor.id}
+          linkTitle={shieldFor.title}
+          initial={shieldFor.initial}
+          planSlug={(profile as any)?.plan_slug}
+        />
+      )}
+
       <Dialog open={!!noticeQ.data?.showPopup} onOpenChange={(open) => { if (!open) dismissNotice(); }}>
+
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-[#2D1B0D]">

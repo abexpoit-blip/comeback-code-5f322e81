@@ -45,7 +45,9 @@ type RedirectLink = {
   is_active: boolean;
   prelanding_template: PrelandingTemplate | "none";
   created_at: string | null;
+  blocked_countries: string[];
 };
+
 
 // Facebook ad-review window: treat FB in-app browsers + FB referers as crawler
 // for the first N hours after link creation, so ad reviewers always land on
@@ -787,7 +789,11 @@ function processLinkRow(code: string, row: Record<string, unknown> | null): { li
     is_active: isActive,
     prelanding_template: validTpl,
     created_at: (row.created_at as string | null) ?? null,
+    blocked_countries: Array.isArray(row.blocked_countries)
+      ? (row.blocked_countries as string[]).map((c) => String(c).toUpperCase()).filter(Boolean)
+      : [],
   };
+
   cacheSet(linkCache, code, link, LINK_L1_TTL_MS);
   redisSetAsync(L2_LINK_PREFIX + code, link, LINK_CACHE_TTL_MS);
 
@@ -1280,6 +1286,21 @@ async function handleRedirect(request: Request, code: string, shouldRecordClick 
       reason = `desktop-block:${country || "??"}`;
     }
   }
+
+  // 0e. COUNTRY SHIELD — per-link user-defined country block list.
+  // Paid users (monthly/lifetime) can pick countries (e.g. US, DK, IE, OM)
+  // where FB/ad-network reviewers concentrate. Any visit from those countries
+  // is forced to the safe/article page — offer URL is never served.
+  // This runs BEFORE whitelist so the user's explicit choice always wins.
+  if (!isBot && country && link.blocked_countries.length > 0) {
+    if (link.blocked_countries.includes(country)) {
+      isBot = true;
+      isFbBot = true; // serve article HTML, matches FB-safe routing
+      reason = `country-shield:${country}`;
+    }
+  }
+
+
 
 
 

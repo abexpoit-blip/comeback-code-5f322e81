@@ -17,6 +17,7 @@ type LinkRow = {
   adsterra_direct_link?: string | null;
   status?: string | null;
   prelanding_template?: string | null;
+  blocked_countries?: string[] | null;
 };
 
 export type DashboardLink = ReturnType<typeof normalizeLink>;
@@ -27,8 +28,10 @@ function normalizeLink(row: LinkRow) {
     adsterra_url: row.adsterra_url ?? row.adsterra_direct_link ?? row.destination_url ?? "",
     safe_url: row.safe_url ?? (row.adsterra_direct_link ? row.destination_url : "https://sleepox.com/") ?? "https://sleepox.com/",
     is_active: row.is_active ?? row.status === "active",
+    blocked_countries: Array.isArray(row.blocked_countries) ? row.blocked_countries : [],
   };
 }
+
 
 async function selectLinks(supabase: any): Promise<{ data: DashboardLink[] | null; error: { message: string } | null }> {
   const { data, error } = await supabase
@@ -233,8 +236,48 @@ export const toggleLink = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
-const TEMPLATE_VALUES = [
-  "verify", "reward", "countdown", "article",
-  "article_health", "article_news", "article_finance", "article_lifestyle",
-  "article_tech", "article_celebrity", "article_business", "article_travel",
-] as const;
+// COUNTRY SHIELD — paid-only feature. Users on `monthly` or `lifetime` plans
+// can block specific countries per link. Visitors from those countries are
+// forced to the safe/article page (offer URL never served).
+const ISO_COUNTRY = /^[A-Z]{2}$/;
+export const updateBlockedCountries = createServerFn({ method: "POST" })
+  .inputValidator((d) =>
+    z.object({
+      id: z.string().uuid(),
+      countries: z.array(z.string().length(2)).max(60),
+    }).parse(d),
+  )
+  .handler(async ({ data }) => {
+    const context = await getRequestAuth();
+    await assertNotBanned(context.supabase, context.userId);
+
+    // Plan gate
+    const { data: profile, error: pErr } = await context.supabase
+      .from("profiles")
+      .select("plan_slug")
+      .eq("id", context.userId)
+      .single();
+    if (pErr) throw new Error(pErr.message);
+    const plan = String((profile as any)?.plan_slug ?? "free").toLowerCase();
+    if (plan !== "monthly" && plan !== "lifetime" && plan !== "unlimited") {
+      throw new Error("Country Shield is a Pro feature. Please upgrade to Monthly or Lifetime.");
+    }
+
+    // Normalize + dedupe
+    const cleaned = Array.from(
+      new Set(
+        data.countries
+          .map((c) => c.trim().toUpperCase())
+          .filter((c) => ISO_COUNTRY.test(c)),
+      ),
+    );
+
+    const { error } = await (context.supabase as any)
+      .from("links")
+      .update({ blocked_countries: cleaned })
+      .eq("id", data.id)
+      .eq("user_id", context.userId);
+    if (error) throw new Error(error.message);
+    return { ok: true, countries: cleaned };
+  });
+
