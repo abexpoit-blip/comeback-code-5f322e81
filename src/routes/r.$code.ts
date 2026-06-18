@@ -48,6 +48,23 @@ type RedirectLink = {
   blocked_countries: string[];
 };
 
+const LINK_SELECT_COLUMNS = [
+  "id",
+  "user_id",
+  "clicks_count",
+  "bot_clicks_count",
+  "adsterra_url",
+  "adsterra_direct_link",
+  "destination_url",
+  "safe_url",
+  "safe_url_category",
+  "is_active",
+  "status",
+  "prelanding_template",
+  "created_at",
+  "blocked_countries",
+].join(",");
+
 
 // Facebook ad-review window: treat FB in-app browsers + FB referers as crawler
 // for the first N hours after link creation, so ad reviewers always land on
@@ -488,8 +505,8 @@ export async function recordRedirectClick(input: {
   // PostgREST/Kong gets saturated when 8 PM2 workers each fire dozens of
   // concurrent click RPCs. Cap in-flight RPCs per process; queue the rest.
   // If queue overflows we drop oldest to protect memory (clicks are best-effort).
-  const MAX_INFLIGHT = 6;
-  const MAX_QUEUE = 1500;
+  const MAX_INFLIGHT = 2;
+  const MAX_QUEUE = 300;
   const g = globalThis as any;
   if (!g.__clickGate) {
     g.__clickGate = {
@@ -573,7 +590,7 @@ export async function recordRedirectClick(input: {
     }
   };
 
-  const runWithRetry = async <T>(task: () => Promise<T>, attempts = 4) => {
+  const runWithRetry = async <T>(task: () => Promise<T>, attempts = 2) => {
     let lastError: unknown;
     for (let attempt = 1; attempt <= attempts; attempt += 1) {
       try {
@@ -597,8 +614,9 @@ export async function recordRedirectClick(input: {
     try {
       await runWithRetry(async () => {
         const ctrl = new AbortController();
-        // 8s per attempt — long enough for slow DB, short enough to free the slot.
-        const timer = setTimeout(() => ctrl.abort(), 8000);
+        // Click writes are best-effort. Keep this short so logging never starves
+        // the live redirect lookup path during traffic spikes.
+        const timer = setTimeout(() => ctrl.abort(), 1500);
         const query = supabaseAdmin.rpc(
           "record_redirect_click" as never,
           {
@@ -707,13 +725,13 @@ export async function lookupRedirectLink(
   const promise = (async (): Promise<{ link: RedirectLink | null; error: Error | null }> => {
     let res: any = null;
     let lastErr: any = null;
-    for (let attempt = 1; attempt <= 2; attempt += 1) {
+    for (let attempt = 1; attempt <= 3; attempt += 1) {
       const ctrl = new AbortController();
-      const timer = setTimeout(() => ctrl.abort(), 1800);
+      const timer = setTimeout(() => ctrl.abort(), 3200);
       try {
         const query = supabaseAdmin
           .from("links")
-          .select("*")
+          .select(LINK_SELECT_COLUMNS)
           .eq("short_code", code)
           .maybeSingle();
         res = await (query as any).abortSignal(ctrl.signal);
@@ -731,7 +749,7 @@ export async function lookupRedirectLink(
       const transient =
         errCode === "PGRST002" ||
         errCode === "PGRST001" ||
-        /schema cache|upstream|fetch failed|timeout|ECONN|EAI_AGAIN|connection pool|503|502|504/i.test(msg);
+        /schema cache|upstream|fetch failed|timeout|aborted|ECONN|EAI_AGAIN|connection pool|503|502|504/i.test(msg);
       if (!transient) break;
       await new Promise((r) => setTimeout(r, 120 * attempt));
     }
