@@ -110,7 +110,18 @@ function DashboardPage() {
   const [selectedDomain, setSelectedDomain] = useState<string>("");
   const primaryDomain = primaryQ.data?.domain ?? "sleepox.com";
   const customDomains = dashQ.data?.customDomains ?? [];
-  const effectiveDomain = selectedDomain || primaryDomain;
+  // Built-in shortener domains always available + any user custom domains
+  const BUILTIN_DOMAINS = ["breezysocial.com", "sleepox.com"];
+  const allDomains = Array.from(new Set([...BUILTIN_DOMAINS, ...customDomains]));
+  // Load persisted choice from localStorage on mount
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const saved = window.localStorage.getItem("sleepox.shortDomain");
+    if (saved && allDomains.includes(saved)) setSelectedDomain(saved);
+    else setSelectedDomain("breezysocial.com");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [customDomains.join(",")]);
+  const effectiveDomain = selectedDomain || "breezysocial.com";
   const origin = typeof window !== "undefined" ? `${window.location.protocol}//${effectiveDomain}` : `https://${effectiveDomain}`;
   const links = dashQ.data?.links ?? [];
   const [shieldFor, setShieldFor] = useState<null | { id: string; title: string; initial: string[] }>(null);
