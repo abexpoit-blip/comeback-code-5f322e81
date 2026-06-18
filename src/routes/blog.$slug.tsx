@@ -2,6 +2,7 @@ import { createFileRoute, Link, notFound } from "@tanstack/react-router";
 import { BreezyLayout } from "@/components/breezy/BreezyLayout";
 import { ProductCard } from "@/components/breezy/ProductCard";
 import { getArticle, getProduct, SITE, type Article, type Product } from "@/lib/breezy-data";
+import { ARTICLE_BODIES, BLOG_IMAGES } from "@/lib/breezy-content";
 
 export const Route = createFileRoute("/blog/$slug")({
   loader: ({ params }) => {
@@ -12,6 +13,7 @@ export const Route = createFileRoute("/blog/$slug")({
   head: ({ loaderData, params }) => {
     const a = loaderData?.article;
     if (!a) return { meta: [{ title: "Article not found — BreezySocial" }] };
+    const imgUrl = BLOG_IMAGES[a.slug] ? `https://breezysocial.com${BLOG_IMAGES[a.slug]}` : undefined;
     return {
       meta: [
         { title: `${a.title} — BreezySocial` },
@@ -20,6 +22,7 @@ export const Route = createFileRoute("/blog/$slug")({
         { property: "og:description", content: a.excerpt },
         { property: "og:type", content: "article" },
         { property: "og:url", content: `/blog/${params.slug}` },
+        ...(imgUrl ? [{ property: "og:image", content: imgUrl }, { name: "twitter:image", content: imgUrl }, { name: "twitter:card", content: "summary_large_image" }] : []),
         { property: "article:author", content: a.author },
         { property: "article:published_time", content: a.date },
       ],
@@ -32,6 +35,7 @@ export const Route = createFileRoute("/blog/$slug")({
             "@type": "Article",
             headline: a.title,
             description: a.excerpt,
+            image: imgUrl,
             author: { "@type": "Person", name: a.author, jobTitle: a.authorRole },
             publisher: { "@type": "Organization", name: SITE.name, url: "https://breezysocial.com" },
             datePublished: a.date,
@@ -52,10 +56,50 @@ export const Route = createFileRoute("/blog/$slug")({
   ),
 });
 
+/** Render a tiny markdown subset: ## h2, - bullet lists, blank-line paragraphs. */
+function renderMarkdown(body: string) {
+  const blocks = body.split(/\n\n+/);
+  return blocks.map((block, i) => {
+    const trimmed = block.trim();
+    if (!trimmed) return null;
+    if (trimmed.startsWith("## ")) {
+      return (
+        <h2
+          key={i}
+          className="text-2xl md:text-3xl text-[#2A2A28] mt-10 mb-4 leading-snug"
+          style={{ fontFamily: "'Instrument Serif', serif", fontWeight: 400 }}
+        >
+          {trimmed.replace(/^##\s+/, "")}
+        </h2>
+      );
+    }
+    if (trimmed.startsWith("# ")) {
+      return null; // skip H1, title is already rendered
+    }
+    const lines = trimmed.split("\n");
+    if (lines.every((l) => l.trim().startsWith("- ") || l.trim().startsWith("* "))) {
+      return (
+        <ul key={i} className="list-disc pl-6 mb-5 space-y-2 text-[#3A3A38]">
+          {lines.map((l, j) => (
+            <li key={j}>{l.replace(/^[-*]\s+/, "")}</li>
+          ))}
+        </ul>
+      );
+    }
+    return (
+      <p key={i} className="mb-5 text-[#3A3A38] leading-relaxed">
+        {trimmed}
+      </p>
+    );
+  });
+}
+
 function ArticlePage() {
   const { article } = Route.useLoaderData();
   const a = article as Article;
   const related: Product[] = a.relatedProducts.map(getProduct).filter((x): x is Product => Boolean(x));
+  const body = ARTICLE_BODIES[a.slug] || a.body;
+  const img = BLOG_IMAGES[a.slug];
 
   return (
     <BreezyLayout>
@@ -80,13 +124,17 @@ function ArticlePage() {
             <div className="text-xs">{a.authorRole} · {new Date(a.date).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}</div>
           </div>
         </div>
-        <div className="aspect-[16/9] rounded-2xl bg-gradient-to-br from-[#F2EDE3] to-[#E8E2D5] flex items-center justify-center text-[8rem] mb-10">
-          {a.emoji}
+        <div className="aspect-[16/9] rounded-2xl bg-gradient-to-br from-[#F2EDE3] to-[#E8E2D5] overflow-hidden mb-10 flex items-center justify-center">
+          {img ? (
+            <img src={img} alt={a.title} width={1536} height={1024} className="w-full h-full object-cover" />
+          ) : (
+            <span className="text-[8rem]">{a.emoji}</span>
+          )}
         </div>
-        <div className="prose prose-lg max-w-none text-[#3A3A38] leading-relaxed">
+        <div className="text-lg max-w-none">
           <p className="text-xl text-[#5A554C] italic mb-8">{a.excerpt}</p>
-          {a.body ? (
-            a.body.split("\n\n").map((para: string, i: number) => <p key={i} className="mb-5">{para}</p>)
+          {body ? (
+            renderMarkdown(body)
           ) : (
             <p className="text-[#9A9488]">Full article content is being prepared and will be published shortly.</p>
           )}

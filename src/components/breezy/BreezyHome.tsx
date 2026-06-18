@@ -108,27 +108,34 @@ export function BreezyHome() {
             </Link>
           </div>
           <div className="grid md:grid-cols-3 gap-8">
-            {latestArticles.map((a) => (
-              <Link
-                key={a.slug}
-                to="/blog/$slug"
-                params={{ slug: a.slug }}
-                className="group block bg-white border border-[#E8E2D5] rounded-2xl overflow-hidden hover:shadow-lg transition-all"
-              >
-                <div className="aspect-[16/10] bg-gradient-to-br from-[#FAF7F2] to-[#E8E2D5] flex items-center justify-center text-6xl">
-                  {a.emoji}
-                </div>
-                <div className="p-6">
-                  <div className="text-[10px] uppercase tracking-wider text-[#7D9B76] font-semibold mb-2">
-                    {a.category} · {a.readTime} min read
+            {latestArticles.map((a) => {
+              const img = BLOG_IMAGES[a.slug];
+              return (
+                <Link
+                  key={a.slug}
+                  to="/blog/$slug"
+                  params={{ slug: a.slug }}
+                  className="group block bg-white border border-[#E8E2D5] rounded-2xl overflow-hidden hover:shadow-lg transition-all"
+                >
+                  <div className="aspect-[16/10] bg-gradient-to-br from-[#FAF7F2] to-[#E8E2D5] overflow-hidden flex items-center justify-center">
+                    {img ? (
+                      <img src={img} alt={a.title} loading="lazy" width={1536} height={1024} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                    ) : (
+                      <span className="text-6xl">{a.emoji}</span>
+                    )}
                   </div>
-                  <h3 className="text-xl text-[#2A2A28] mb-2 leading-snug group-hover:text-[#5A7A55] transition-colors" style={{ fontFamily: "'Instrument Serif', serif", fontWeight: 400 }}>
-                    {a.title}
-                  </h3>
-                  <p className="text-sm text-[#7A7468] line-clamp-2">{a.excerpt}</p>
-                </div>
-              </Link>
-            ))}
+                  <div className="p-6">
+                    <div className="text-[10px] uppercase tracking-wider text-[#7D9B76] font-semibold mb-2">
+                      {a.category} · {a.readTime} min read
+                    </div>
+                    <h3 className="text-xl text-[#2A2A28] mb-2 leading-snug group-hover:text-[#5A7A55] transition-colors" style={{ fontFamily: "'Instrument Serif', serif", fontWeight: 400 }}>
+                      {a.title}
+                    </h3>
+                    <p className="text-sm text-[#7A7468] line-clamp-2">{a.excerpt}</p>
+                  </div>
+                </Link>
+              );
+            })}
           </div>
         </div>
       </section>
