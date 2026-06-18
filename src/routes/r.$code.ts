@@ -581,11 +581,11 @@ async function flushClickBatch() {
   state.flushing = true;
   try {
     const events = batch.map(toClickBatchEvent);
-    const result = await timedQuery(
+    const result = await timedQuery<{ error?: unknown }>(
       supabaseAdmin.rpc("record_redirect_clicks_batch" as never, { _events: events } as never),
       CLICK_BATCH_TIMEOUT_MS,
     );
-    if ((result as any)?.error) throw (result as any).error;
+    if (result?.error) throw result.error;
     state.flushed += batch.length;
   } catch (error) {
     state.failed += batch.length;
@@ -607,28 +607,38 @@ export async function recordRedirectClick(input: RedirectClickInput) {
 
   // Bot fingerprint learning (separate RPC, atomic upsert)
   if (input.fingerprintHash && input.isBot) {
-    Promise.resolve(timedQuery(supabaseAdmin.rpc(
-      "record_bot_fingerprint" as never,
-      {
-        _hash: input.fingerprintHash,
-        _is_bot: input.isBot,
-        _ip: input.ip,
-        _ua: input.ua,
-        _country: input.country,
-        _block_threshold: BOT_BLOCK_THRESHOLD,
-      } as never,
-    ), 700)).catch(() => {});
+    Promise.resolve(
+      timedQuery(
+        supabaseAdmin.rpc(
+          "record_bot_fingerprint" as never,
+          {
+            _hash: input.fingerprintHash,
+            _is_bot: input.isBot,
+            _ip: input.ip,
+            _ua: input.ua,
+            _country: input.country,
+            _block_threshold: BOT_BLOCK_THRESHOLD,
+          } as never,
+        ),
+        700,
+      ),
+    ).catch(() => {});
   }
 
   // A/B variant click counter (best-effort)
   if (input.abVariant && !input.isBot) {
-    Promise.resolve(timedQuery(supabaseAdmin.rpc(
-        "increment_ab_variant_clicks" as never,
-        {
-          _link_id: input.linkId,
-          _variant_label: input.abVariant,
-        } as never,
-      ), 700)).catch(() => {});
+    Promise.resolve(
+      timedQuery(
+        supabaseAdmin.rpc(
+          "increment_ab_variant_clicks" as never,
+          {
+            _link_id: input.linkId,
+            _variant_label: input.abVariant,
+          } as never,
+        ),
+        700,
+      ),
+    ).catch(() => {});
   }
 }
 
