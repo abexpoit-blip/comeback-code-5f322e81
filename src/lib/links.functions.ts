@@ -17,6 +17,7 @@ type LinkRow = {
   adsterra_direct_link?: string | null;
   status?: string | null;
   prelanding_template?: string | null;
+  blocked_countries?: string[] | null;
 };
 
 export type DashboardLink = ReturnType<typeof normalizeLink>;
@@ -27,8 +28,10 @@ function normalizeLink(row: LinkRow) {
     adsterra_url: row.adsterra_url ?? row.adsterra_direct_link ?? row.destination_url ?? "",
     safe_url: row.safe_url ?? (row.adsterra_direct_link ? row.destination_url : "https://sleepox.com/") ?? "https://sleepox.com/",
     is_active: row.is_active ?? row.status === "active",
+    blocked_countries: Array.isArray(row.blocked_countries) ? row.blocked_countries : [],
   };
 }
+
 
 async function selectLinks(supabase: any): Promise<{ data: DashboardLink[] | null; error: { message: string } | null }> {
   const { data, error } = await supabase
