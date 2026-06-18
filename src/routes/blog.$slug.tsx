@@ -1,7 +1,7 @@
 import { createFileRoute, Link, notFound } from "@tanstack/react-router";
 import { BreezyLayout } from "@/components/breezy/BreezyLayout";
 import { ProductCard } from "@/components/breezy/ProductCard";
-import { getArticle, getProduct, SITE } from "@/lib/breezy-data";
+import { getArticle, getProduct, SITE, type Article, type Product } from "@/lib/breezy-data";
 
 export const Route = createFileRoute("/blog/$slug")({
   loader: ({ params }) => {
@@ -53,8 +53,9 @@ export const Route = createFileRoute("/blog/$slug")({
 });
 
 function ArticlePage() {
-  const { article: a } = Route.useLoaderData();
-  const related = a.relatedProducts.map(getProduct).filter((x): x is NonNullable<typeof x> => Boolean(x));
+  const { article } = Route.useLoaderData();
+  const a = article as Article;
+  const related: Product[] = a.relatedProducts.map(getProduct).filter((x): x is Product => Boolean(x));
 
   return (
     <BreezyLayout>
