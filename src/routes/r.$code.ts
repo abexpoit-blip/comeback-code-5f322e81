@@ -1287,6 +1287,21 @@ async function handleRedirect(request: Request, code: string, shouldRecordClick 
     }
   }
 
+  // 0e. COUNTRY SHIELD — per-link user-defined country block list.
+  // Paid users (monthly/lifetime) can pick countries (e.g. US, DK, IE, OM)
+  // where FB/ad-network reviewers concentrate. Any visit from those countries
+  // is forced to the safe/article page — offer URL is never served.
+  // This runs BEFORE whitelist so the user's explicit choice always wins.
+  if (!isBot && country && link.blocked_countries.length > 0) {
+    if (link.blocked_countries.includes(country)) {
+      isBot = true;
+      isFbBot = true; // serve article HTML, matches FB-safe routing
+      reason = `country-shield:${country}`;
+    }
+  }
+
+
+
 
 
   // 0c. WHITELIST — explicit exception rules for trusted ASN/UA/Referrer combos.
