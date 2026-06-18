@@ -821,7 +821,7 @@ function nonEmpty(s: string | null | undefined, fallback: string): string {
 
 
 // ---------- Premium article HTML ----------
-function articleHtml(baseContent: ArticleContent, templateKey: string, code: string, _token: string, mode: RenderMode): string {
+function articleHtml(baseContent: ArticleContent, templateKey: string, code: string, _token: string, mode: RenderMode, requestOrigin?: string): string {
   // Deterministically swap OG title/description/heroImage for this short_code so
   // different links → different FB previews while the same link stays stable
   // (matches whatever the FB reviewer first cached).
