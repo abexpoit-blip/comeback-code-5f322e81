@@ -467,7 +467,7 @@ function redirectTo(
   return new Response(null, { status: 302, headers });
 }
 
-export async function recordRedirectClick(input: {
+type RedirectClickInput = {
   linkId: string;
   userId: string;
   ip: string | null;
@@ -486,190 +486,124 @@ export async function recordRedirectClick(input: {
   challengePassed: boolean;
   fingerprintHash?: string | null;
   abVariant?: string | null;
-}) {
-  const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+};
 
-  const isTransientClickError = (error: unknown) => {
-    const err = error as { code?: string; message?: string; name?: string } | null;
-    const code = String(err?.code || "");
-    const msg = String(err?.message || error || "");
-    return (
-      code === "PGRST002" ||
-      code === "PGRST001" ||
-      err?.name === "AbortError" ||
-      /schema cache|invalid response|upstream|fetch failed|timeout|aborted|ECONN|EAI_AGAIN|connection pool|503|502|504/i.test(msg)
-    );
-  };
+type ClickBatchState = {
+  queue: RedirectClickInput[];
+  flushing: boolean;
+  timer: ReturnType<typeof setTimeout> | null;
+  enqueued: number;
+  flushed: number;
+  dropped: number;
+  failed: number;
+};
 
-  // ---- Per-process concurrency gate ----
-  // PostgREST/Kong gets saturated when 8 PM2 workers each fire dozens of
-  // concurrent click RPCs. Cap in-flight RPCs per process; queue the rest.
-  // If queue overflows we drop oldest to protect memory (clicks are best-effort).
-  const MAX_INFLIGHT = 2;
-  const MAX_QUEUE = 300;
-  const g = globalThis as any;
-  if (!g.__clickGate) {
-    g.__clickGate = {
-      inflight: 0,
-      queue: [] as Array<(acquired: boolean) => void>,
+const CLICK_BATCH_SIZE = 80;
+const CLICK_BATCH_QUEUE_MAX = 2_000;
+const CLICK_BATCH_FLUSH_MS = 1_000;
+const CLICK_BATCH_TIMEOUT_MS = 4_000;
+
+function getClickBatchState(): ClickBatchState {
+  const g = globalThis as typeof globalThis & { __sleepoxClickBatch?: ClickBatchState };
+  if (!g.__sleepoxClickBatch) {
+    g.__sleepoxClickBatch = {
+      queue: [],
+      flushing: false,
+      timer: null,
+      enqueued: 0,
+      flushed: 0,
       dropped: 0,
-      accepted: 0,
       failed: 0,
-      failedWindow: 0,
-      maxQueueSeen: 0,
-      maxInflightSeen: 0,
-      lastReportAt: Date.now(),
     };
-    // Periodic stats reporter — every 30s log a snapshot so spikes are visible.
-    const reportInterval = setInterval(() => {
-      const s = g.__clickGate;
-      if (!s) return;
-      const sinceMs = Date.now() - s.lastReportAt;
-      console.log(
-        `[click-gate][stats] inflight=${s.inflight} queue=${s.queue.length} ` +
-        `maxQueue=${s.maxQueueSeen} maxInflight=${s.maxInflightSeen} ` +
-        `accepted=${s.accepted} dropped=${s.dropped} failed=${s.failedWindow} ` +
-        `failedTotal=${s.failed} windowMs=${sinceMs}`,
-      );
-      // Reset peak watermarks for next window so we see per-window spikes.
-      s.maxQueueSeen = s.queue.length;
-      s.maxInflightSeen = s.inflight;
-      s.failedWindow = 0;
-      s.lastReportAt = Date.now();
-    }, 30_000);
-    if (typeof reportInterval === "object" && "unref" in reportInterval) {
-      (reportInterval as { unref: () => void }).unref();
+  }
+  return g.__sleepoxClickBatch;
+}
+
+function toClickBatchEvent(input: RedirectClickInput) {
+  return {
+    link_id: input.linkId,
+    user_id: input.userId,
+    ip: input.ip,
+    country: input.country,
+    ua: input.ua,
+    is_bot: input.isBot,
+    bot_reason: input.botReason,
+    routed_to: input.routedTo,
+    utm_source: input.utm?.utm_source ?? null,
+    utm_medium: input.utm?.utm_medium ?? null,
+    utm_campaign: input.utm?.utm_campaign ?? null,
+    utm_term: input.utm?.utm_term ?? null,
+    utm_content: input.utm?.utm_content ?? null,
+    referer_host: input.refererHost ?? null,
+    bot_score: input.botScore ?? 0,
+    signals: (input.signals ?? {}) as Json,
+    challenge_passed: input.challengePassed,
+  };
+}
+
+function scheduleClickBatchFlush(delayMs = CLICK_BATCH_FLUSH_MS) {
+  const state = getClickBatchState();
+  if (state.timer) return;
+  state.timer = setTimeout(() => {
+    state.timer = null;
+    void flushClickBatch();
+  }, delayMs);
+  if (typeof state.timer === "object" && "unref" in state.timer) {
+    (state.timer as { unref: () => void }).unref();
+  }
+}
+
+function enqueueClickForBatch(input: RedirectClickInput) {
+  const state = getClickBatchState();
+  if (state.queue.length >= CLICK_BATCH_QUEUE_MAX) {
+    state.queue.shift();
+    state.dropped += 1;
+    if (state.dropped === 1 || state.dropped % 100 === 0) {
+      console.warn(`[click-batch][DROP] total=${state.dropped} queue=${state.queue.length}`);
     }
   }
-  const gate = g.__clickGate as {
-    inflight: number;
-    queue: Array<(acquired: boolean) => void>;
-    dropped: number;
-    accepted: number;
-    failed: number;
-    failedWindow: number;
-    maxQueueSeen: number;
-    maxInflightSeen: number;
-    lastReportAt: number;
-  };
+  state.queue.push(input);
+  state.enqueued += 1;
+  if (state.queue.length >= CLICK_BATCH_SIZE) void flushClickBatch();
+  else scheduleClickBatchFlush();
+}
 
-  // C2 FIX: acquire returns whether a slot was actually obtained.
-  // When the queue is full we drop the OLDEST waiter (resolve(false)) so it
-  // skips the RPC entirely — previously it resolved with no slot, ran the
-  // RPC anyway, and then release() decremented inflight → counter drift,
-  // MAX_INFLIGHT bypassed, and Kong/PostgREST got hammered.
-  const acquire = () => new Promise<boolean>((resolve) => {
-    if (gate.inflight < MAX_INFLIGHT) {
-      gate.inflight += 1;
-      if (gate.inflight > gate.maxInflightSeen) gate.maxInflightSeen = gate.inflight;
-      resolve(true);
-      return;
+async function flushClickBatch() {
+  const state = getClickBatchState();
+  if (state.flushing) return;
+  if (state.timer) {
+    clearTimeout(state.timer);
+    state.timer = null;
+  }
+  const batch = state.queue.splice(0, CLICK_BATCH_SIZE);
+  if (batch.length === 0) return;
+
+  state.flushing = true;
+  try {
+    const events = batch.map(toClickBatchEvent);
+    const result = await timedQuery(
+      supabaseAdmin.rpc("record_redirect_clicks_batch" as never, { _events: events } as never),
+      CLICK_BATCH_TIMEOUT_MS,
+    );
+    if ((result as any)?.error) throw (result as any).error;
+    state.flushed += batch.length;
+  } catch (error) {
+    state.failed += batch.length;
+    const raw = (error as Error)?.message || String(error);
+    const reason = /abort|timeout/i.test(raw) ? "timeout" : raw.slice(0, 120);
+    if (state.failed === batch.length || state.failed % 500 < batch.length) {
+      console.warn(`[click-batch][FAIL] dropped=${state.failed} reason=${reason}`);
     }
-    if (gate.queue.length >= MAX_QUEUE) {
-      const oldest = gate.queue.shift();
-      gate.dropped += 1;
-      if (gate.dropped === 1 || gate.dropped % 50 === 0) {
-        console.warn(
-          `[click-gate][DROP] total=${gate.dropped} queue=${gate.queue.length}/${MAX_QUEUE} ` +
-          `inflight=${gate.inflight}/${MAX_INFLIGHT}`,
-        );
-      }
-      if (oldest) oldest(false); // explicitly dropped — no slot granted
-    }
-    gate.queue.push(resolve);
-    if (gate.queue.length > gate.maxQueueSeen) gate.maxQueueSeen = gate.queue.length;
-  });
+  } finally {
+    state.flushing = false;
+    if (state.queue.length > 0) scheduleClickBatchFlush(25);
+  }
+}
 
-  const release = () => {
-    gate.inflight -= 1;
-    const next = gate.queue.shift();
-    if (next) {
-      gate.inflight += 1;
-      if (gate.inflight > gate.maxInflightSeen) gate.maxInflightSeen = gate.inflight;
-      next(true);
-    }
-  };
-
-  const runWithRetry = async <T>(task: () => Promise<T>, attempts = 2) => {
-    let lastError: unknown;
-    for (let attempt = 1; attempt <= attempts; attempt += 1) {
-      try {
-        return await task();
-      } catch (error) {
-        lastError = error;
-        if (attempt >= attempts || !isTransientClickError(error)) break;
-        await wait(Math.min(1800, 180 * 2 ** (attempt - 1)) + Math.floor(Math.random() * 120));
-      }
-    }
-    throw lastError;
-  };
-
-  const persistClickAtomically = async () => {
-    const acquired = await acquire();
-    if (!acquired) {
-      // Click was dropped due to queue overflow (counter already incremented).
-      // Skip the RPC entirely — no slot was granted, so DO NOT call release().
-      return;
-    }
-    try {
-      await runWithRetry(async () => {
-        const ctrl = new AbortController();
-        // Click writes are best-effort. Keep this short so logging never starves
-        // the live redirect lookup path during traffic spikes.
-        const timer = setTimeout(() => ctrl.abort(), 1500);
-        const query = supabaseAdmin.rpc(
-          "record_redirect_click" as never,
-          {
-            _link_id: input.linkId,
-            _user_id: input.userId,
-            _ip: input.ip,
-            _country: input.country,
-            _ua: input.ua,
-            _is_bot: input.isBot,
-            _bot_reason: input.botReason,
-            _routed_to: input.routedTo,
-            _utm_source: input.utm?.utm_source ?? null,
-            _utm_medium: input.utm?.utm_medium ?? null,
-            _utm_campaign: input.utm?.utm_campaign ?? null,
-            _utm_term: input.utm?.utm_term ?? null,
-            _utm_content: input.utm?.utm_content ?? null,
-            _referer_host: input.refererHost ?? null,
-            _bot_score: input.botScore ?? null,
-            _signals: (input.signals ?? {}) as Json,
-            _challenge_passed: input.challengePassed,
-          } as never,
-        );
-        let rpcError: unknown = null;
-        try {
-          const result = await (query as any).abortSignal(ctrl.signal);
-          rpcError = result.error;
-        } finally {
-          clearTimeout(timer);
-        }
-        if (rpcError) throw rpcError;
-      });
-      gate.accepted += 1;
-    } catch (err) {
-      gate.failed += 1;
-      gate.failedWindow += 1;
-      if (gate.failed === 1 || gate.failed % 25 === 0) {
-        console.warn(
-          `[click-gate][FAIL] total=${gate.failed} accepted=${gate.accepted} ` +
-          `err=${(err as Error)?.message ?? String(err)}`,
-        );
-      }
-      throw err;
-    } finally {
-      release();
-    }
-  };
-
-
-
-  // Use the long-lived DB function already present in the schema cache.
-  // It inserts the click and increments counters with SQL-side +1 updates,
-  // so we avoid both lost-update races and VPS schema-cache drift on new RPCs.
-  await persistClickAtomically();
+export async function recordRedirectClick(input: RedirectClickInput) {
+  // Never block redirects on analytics writes. One PM2 worker now sends clicks
+  // in small batches, avoiding the AbortError storm from one RPC per visitor.
+  enqueueClickForBatch(input);
 
   // Bot fingerprint learning (separate RPC, atomic upsert)
   if (input.fingerprintHash && input.isBot) {
@@ -686,20 +620,15 @@ export async function recordRedirectClick(input: {
     ), 700)).catch(() => {});
   }
 
-  // A/B variant click counter (atomic increment via RPC)
+  // A/B variant click counter (best-effort)
   if (input.abVariant && !input.isBot) {
-    try {
-      const { error: abError } = await timedQuery(supabaseAdmin.rpc(
+    Promise.resolve(timedQuery(supabaseAdmin.rpc(
         "increment_ab_variant_clicks" as never,
         {
           _link_id: input.linkId,
           _variant_label: input.abVariant,
         } as never,
-      ), 700);
-      if (abError) throw abError;
-    } catch (e) {
-      console.error("ab variant click increment failed", e);
-    }
+      ), 700)).catch(() => {});
   }
 }
 
