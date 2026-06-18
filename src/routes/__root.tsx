@@ -57,6 +57,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { title: "Sleepox — Smart Link Cloaking for Facebook Ads" },
       { name: "description", content: "Bot-filtered redirect links for Facebook Ads to monetization offers." },
       { name: "google-site-verification", content: "rn4Co7u4RniBHEjW9QBQjctEBAY5I_dicODU2ir9s2w" },
+      { name: "google-site-verification", content: "dBmj6auZVrnDJBXhq6BuCQvyj0EMnH94zmy6Shz2V90" },
     ],
     links: [
       { rel: "stylesheet", href: appCss },
