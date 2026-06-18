@@ -435,10 +435,20 @@ function DashboardPage() {
                                     </span>
                                   )}
                                 </button>
+                                <a
+                                  href={shortUrl}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  title={`Verify: open ${effectiveDomain}/${l.short_code} and confirm it redirects to your offer`}
+                                  className="text-[#7D6452] hover:text-emerald-600 p-1.5 rounded-lg hover:bg-emerald-50 shrink-0"
+                                >
+                                  <ShieldCheck className="w-4 h-4" />
+                                </a>
                                 <button onClick={() => togMut.mutate({ id: l.id, is_active: !l.is_active })}
                                   className="text-[#7D6452] hover:text-[#FF7E5F] p-1.5 rounded-lg hover:bg-[#FFEDD5]/60 shrink-0">
                                   {l.is_active ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}
                                 </button>
+
                                 <button onClick={() => { if (confirm("Delete this link?")) delMut.mutate(l.id); }}
                                   className="text-[#7D6452] hover:text-rose-500 p-1.5 rounded-lg hover:bg-rose-50 shrink-0">
                                   <Trash2 className="w-4 h-4" />
