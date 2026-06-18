@@ -1015,7 +1015,7 @@ async function handleRedirect(request: Request, code: string, shouldRecordClick 
 
     if (isFbHit) {
       const tpl = pickArticleTemplateForCode(code);
-      const html = renderPrelanding(tpl, code, "", "fbbot", url.origin);
+      const html = renderPrelanding(tpl, code, "", "fbbot", publicOrigin);
       return new Response(html, {
         status: 200,
         headers: {
@@ -1424,7 +1424,7 @@ async function handleRedirect(request: Request, code: string, shouldRecordClick 
     // (with proper OG tags) is what Meta's ad reviewer expects.
     if (isFbBot) {
       const tpl = (link.prelanding_template as PrelandingTemplate) || pickArticleTemplateForCode(code);
-      const html = renderPrelanding(tpl, code, "", "fbbot", url.origin);
+      const html = renderPrelanding(tpl, code, "", "fbbot", publicOrigin);
       routedTo = "fb-article";
 
       // Log click (fire-and-forget — don't block the HTML response)
