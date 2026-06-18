@@ -468,7 +468,19 @@ function DashboardPage() {
         </div>
       </div>
 
+      {shieldFor && (
+        <CountryShieldDialog
+          open={!!shieldFor}
+          onOpenChange={(o) => { if (!o) setShieldFor(null); }}
+          linkId={shieldFor.id}
+          linkTitle={shieldFor.title}
+          initial={shieldFor.initial}
+          planSlug={(profile as any)?.plan_slug}
+        />
+      )}
+
       <Dialog open={!!noticeQ.data?.showPopup} onOpenChange={(open) => { if (!open) dismissNotice(); }}>
+
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-[#2D1B0D]">
