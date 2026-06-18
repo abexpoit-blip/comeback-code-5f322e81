@@ -789,7 +789,11 @@ function processLinkRow(code: string, row: Record<string, unknown> | null): { li
     is_active: isActive,
     prelanding_template: validTpl,
     created_at: (row.created_at as string | null) ?? null,
+    blocked_countries: Array.isArray(row.blocked_countries)
+      ? (row.blocked_countries as string[]).map((c) => String(c).toUpperCase()).filter(Boolean)
+      : [],
   };
+
   cacheSet(linkCache, code, link, LINK_L1_TTL_MS);
   redisSetAsync(L2_LINK_PREFIX + code, link, LINK_CACHE_TTL_MS);
 
