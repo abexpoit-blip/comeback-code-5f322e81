@@ -37,14 +37,17 @@ export const Route = createFileRoute("/api/public/preview-prelanding/$code")({
         const hostOverride = url.searchParams.get("host");
         const tplParam = url.searchParams.get("template");
 
-        // Resolve origin for og:url/canonical. Default = request origin.
-        // hostOverride lets you simulate "what would FB see if I shared this
-        // from breezysocial.com?" without actually hitting that host.
-        let origin = url.origin;
+        // Resolve origin for og:url/canonical. Default = public request origin
+        // rebuilt from forwarded headers (request.url is the upstream localhost
+        // URL behind nginx). hostOverride lets you simulate a different host.
+        const fwdHost = request.headers.get("x-forwarded-host") || request.headers.get("host") || "";
+        const fwdProto = (request.headers.get("x-forwarded-proto") || "https").split(",")[0].trim();
+        let origin = fwdHost ? `${fwdProto}://${fwdHost.split(",")[0].trim()}` : url.origin;
         if (hostOverride) {
           const proto = hostOverride.startsWith("localhost") ? "http" : "https";
           origin = `${proto}://${hostOverride.replace(/^https?:\/\//, "").replace(/\/+$/, "")}`;
         }
+
 
         // Look up the link's stored template (admin client — public endpoint,
         // returns only template name; no PII / no destination URL).
