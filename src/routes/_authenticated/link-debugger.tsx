@@ -296,6 +296,28 @@ function Results({ r, botLabel }: { r: Extract<DebugResult, { locked: false }>; 
       {/* RIGHT: response + meta */}
       <div className="space-y-5">
         <Panel title="Response details" icon={<Info className="w-4 h-4" />}>
+          {(() => {
+            const OUR_HOSTS = SHORT_DOMAINS.map((d) => d.host);
+            let finalHost = "";
+            try { finalHost = new URL(r.finalUrl).host.toLowerCase(); } catch {}
+            const isOurDomain = OUR_HOSTS.some((h) => finalHost === h || finalHost.endsWith(`.${h}`));
+            const isAdsterra = /(\.|^)(adsterra|highrevenuegate|highcpmrevenuegate|profitableratecpm|onclkds|displaycontentprovider|topcreativeformat|realsrv)\./i.test(finalHost);
+            const tone = isAdsterra
+              ? "bg-red-50 text-red-800 border-red-200"
+              : isOurDomain
+                ? "bg-emerald-50 text-emerald-800 border-emerald-200"
+                : "bg-amber-50 text-amber-800 border-amber-200";
+            const label = isAdsterra
+              ? "⚠ Leaked to Adsterra — short link is exposing the offer URL directly"
+              : isOurDomain
+                ? "✓ Stays on your main domain — safe to share"
+                : `Lands on external host: ${finalHost || "unknown"}`;
+            return (
+              <div className={`mb-3 rounded-xl border px-3 py-2 text-xs font-bold ${tone}`}>
+                {label}
+              </div>
+            );
+          })()}
           <div className="grid grid-cols-2 gap-3 text-xs">
             <KV k="Status" v={String(r.status)} tone={r.status < 300 ? "ok" : r.status < 400 ? "warn" : "err"} />
             <KV k="Time"   v={`${r.elapsedMs} ms`} />
@@ -304,6 +326,7 @@ function Results({ r, botLabel }: { r: Extract<DebugResult, { locked: false }>; 
             <KV k="Final URL" v={r.finalUrl} full />
           </div>
         </Panel>
+
 
         <Panel title={`All meta tags (${r.meta.length})`} icon={<ImageIcon className="w-4 h-4" />}>
           <div className="overflow-x-auto max-h-[420px] overflow-y-auto rounded-xl border border-[#FFEDD5]">
