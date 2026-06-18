@@ -137,18 +137,30 @@ function LinkDebuggerPage() {
 
           <div className="grid grid-cols-1 lg:grid-cols-[1fr_auto] gap-3">
             {mode === "own" ? (
-              <div className="relative">
-                <Globe className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-[#A38D7D]" />
+              <div className="flex gap-2">
+                <div className="relative flex-1">
+                  <Globe className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-[#A38D7D]" />
+                  <select
+                    value={selectedCode}
+                    onChange={(e) => setSelectedCode(e.target.value)}
+                    className="w-full bg-[#FFF9F5] border border-[#FFEDD5] rounded-xl py-3 pl-11 pr-4 text-sm text-[#2D1B0D] focus:outline-none focus:border-[#FF7E5F]/50"
+                  >
+                    {(linksQ.data ?? []).length === 0 && <option value="">No links yet</option>}
+                    {(linksQ.data ?? []).map((l) => (
+                      <option key={l.id} value={l.short_code}>
+                        {(l.title || l.short_code)} — /{l.short_code}
+                      </option>
+                    ))}
+                  </select>
+                </div>
                 <select
-                  value={selectedCode}
-                  onChange={(e) => setSelectedCode(e.target.value)}
-                  className="w-full bg-[#FFF9F5] border border-[#FFEDD5] rounded-xl py-3 pl-11 pr-4 text-sm text-[#2D1B0D] focus:outline-none focus:border-[#FF7E5F]/50"
+                  value={shortHost}
+                  onChange={(e) => setHost(e.target.value as typeof shortHost)}
+                  className="bg-[#FFF9F5] border border-[#FFEDD5] rounded-xl py-3 px-3 text-sm font-mono text-[#2D1B0D] focus:outline-none focus:border-[#FF7E5F]/50"
+                  title="Choose domain to test against"
                 >
-                  {(linksQ.data ?? []).length === 0 && <option value="">No links yet</option>}
-                  {(linksQ.data ?? []).map((l) => (
-                    <option key={l.id} value={l.short_code}>
-                      {(l.title || l.short_code)} — /{l.short_code}
-                    </option>
+                  {SHORT_DOMAINS.map((d) => (
+                    <option key={d.host} value={d.host}>{d.label}</option>
                   ))}
                 </select>
               </div>
