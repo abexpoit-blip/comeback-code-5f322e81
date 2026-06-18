@@ -650,6 +650,7 @@ export type Database = {
         Row: {
           adsterra_direct_link: string | null
           adsterra_url: string | null
+          blocked_countries: string[]
           bot_clicks_count: number
           clicks_count: number
           created_at: string
@@ -671,6 +672,7 @@ export type Database = {
         Insert: {
           adsterra_direct_link?: string | null
           adsterra_url?: string | null
+          blocked_countries?: string[]
           bot_clicks_count?: number
           clicks_count?: number
           created_at?: string
@@ -692,6 +694,7 @@ export type Database = {
         Update: {
           adsterra_direct_link?: string | null
           adsterra_url?: string | null
+          blocked_countries?: string[]
           bot_clicks_count?: number
           clicks_count?: number
           created_at?: string
