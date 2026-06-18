@@ -272,12 +272,21 @@ export const updateBlockedCountries = createServerFn({ method: "POST" })
       ),
     );
 
-    const { error } = await (context.supabase as any)
+    const { data: updatedLink, error } = await (context.supabase as any)
       .from("links")
       .update({ blocked_countries: cleaned })
       .eq("id", data.id)
-      .eq("user_id", context.userId);
+      .eq("user_id", context.userId)
+      .select("short_code")
+      .maybeSingle();
     if (error) throw new Error(error.message);
+
+    const shortCode = String(updatedLink?.short_code ?? "").trim();
+    if (shortCode) {
+      const { redisDel } = await import("@/lib/redis-cache.server");
+      await redisDel(`rd:link:${shortCode}`);
+    }
+
     return { ok: true, countries: cleaned };
   });
 
