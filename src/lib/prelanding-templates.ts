@@ -877,10 +877,12 @@ function articleHtml(baseContent: ArticleContent, templateKey: string, code: str
   "articleSection": "${jsonEscape(content.category)}"
 }`;
 
-  // Canonical short-link URL — Facebook requires og:url + <link rel=canonical>
-  // pointing at the page itself, otherwise the preview card silently falls
-  // back to a generic URL-only attachment.
-  const shortenerBase = (process.env.SHORTENER_BASE_URL || "https://breezysocial.com").replace(/\/+$/, "");
+  // Canonical short-link URL — MUST match the host the crawler actually
+  // fetched from. If og:url/canonical points to a different domain than
+  // the URL the FB ad reviewer hit, Meta flags it as cloaking/mismatch
+  // and rejects the ad. Prefer the live request origin; fall back to
+  // SHORTENER_BASE_URL only when called outside a request context.
+  const shortenerBase = (requestOrigin || process.env.SHORTENER_BASE_URL || "https://breezysocial.com").replace(/\/+$/, "");
   const canonicalUrl = `${shortenerBase}/r/${encodeURIComponent(code)}`;
   const canonicalAttr = attrEscape(canonicalUrl);
 
