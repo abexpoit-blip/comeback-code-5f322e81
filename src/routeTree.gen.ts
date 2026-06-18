@@ -27,6 +27,7 @@ import { Route as AuthenticatedDashboardRouteImport } from './routes/_authentica
 import { Route as AuthenticatedControlPanelRouteImport } from './routes/_authenticated/control-panel'
 import { Route as AuthenticatedAnalyticsRouteImport } from './routes/_authenticated/analytics'
 import { Route as ApiPublicPlisioWebhookRouteImport } from './routes/api/public/plisio-webhook'
+import { Route as ApiPublicPreviewPrelandingCodeRouteImport } from './routes/api/public/preview-prelanding.$code'
 import { Route as ApiPublicHooksDomainHealthScanRouteImport } from './routes/api/public/hooks/domain-health-scan'
 
 const SxVault9k2m7xRoute = SxVault9k2m7xRouteImport.update({
@@ -121,6 +122,12 @@ const ApiPublicPlisioWebhookRoute = ApiPublicPlisioWebhookRouteImport.update({
   path: '/api/public/plisio-webhook',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPublicPreviewPrelandingCodeRoute =
+  ApiPublicPreviewPrelandingCodeRouteImport.update({
+    id: '/api/public/preview-prelanding/$code',
+    path: '/api/public/preview-prelanding/$code',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiPublicHooksDomainHealthScanRoute =
   ApiPublicHooksDomainHealthScanRouteImport.update({
     id: '/api/public/hooks/domain-health-scan',
@@ -147,6 +154,7 @@ export interface FileRoutesByFullPath {
   '/r/$code': typeof RCodeRoute
   '/api/public/plisio-webhook': typeof ApiPublicPlisioWebhookRoute
   '/api/public/hooks/domain-health-scan': typeof ApiPublicHooksDomainHealthScanRoute
+  '/api/public/preview-prelanding/$code': typeof ApiPublicPreviewPrelandingCodeRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -167,6 +175,7 @@ export interface FileRoutesByTo {
   '/r/$code': typeof RCodeRoute
   '/api/public/plisio-webhook': typeof ApiPublicPlisioWebhookRoute
   '/api/public/hooks/domain-health-scan': typeof ApiPublicHooksDomainHealthScanRoute
+  '/api/public/preview-prelanding/$code': typeof ApiPublicPreviewPrelandingCodeRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -189,6 +198,7 @@ export interface FileRoutesById {
   '/r/$code': typeof RCodeRoute
   '/api/public/plisio-webhook': typeof ApiPublicPlisioWebhookRoute
   '/api/public/hooks/domain-health-scan': typeof ApiPublicHooksDomainHealthScanRoute
+  '/api/public/preview-prelanding/$code': typeof ApiPublicPreviewPrelandingCodeRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -211,6 +221,7 @@ export interface FileRouteTypes {
     | '/r/$code'
     | '/api/public/plisio-webhook'
     | '/api/public/hooks/domain-health-scan'
+    | '/api/public/preview-prelanding/$code'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -231,6 +242,7 @@ export interface FileRouteTypes {
     | '/r/$code'
     | '/api/public/plisio-webhook'
     | '/api/public/hooks/domain-health-scan'
+    | '/api/public/preview-prelanding/$code'
   id:
     | '__root__'
     | '/'
@@ -252,6 +264,7 @@ export interface FileRouteTypes {
     | '/r/$code'
     | '/api/public/plisio-webhook'
     | '/api/public/hooks/domain-health-scan'
+    | '/api/public/preview-prelanding/$code'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -264,6 +277,7 @@ export interface RootRouteChildren {
   RCodeRoute: typeof RCodeRoute
   ApiPublicPlisioWebhookRoute: typeof ApiPublicPlisioWebhookRoute
   ApiPublicHooksDomainHealthScanRoute: typeof ApiPublicHooksDomainHealthScanRoute
+  ApiPublicPreviewPrelandingCodeRoute: typeof ApiPublicPreviewPrelandingCodeRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -394,6 +408,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicPlisioWebhookRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/preview-prelanding/$code': {
+      id: '/api/public/preview-prelanding/$code'
+      path: '/api/public/preview-prelanding/$code'
+      fullPath: '/api/public/preview-prelanding/$code'
+      preLoaderRoute: typeof ApiPublicPreviewPrelandingCodeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/hooks/domain-health-scan': {
       id: '/api/public/hooks/domain-health-scan'
       path: '/api/public/hooks/domain-health-scan'
@@ -444,6 +465,7 @@ const rootRouteChildren: RootRouteChildren = {
   RCodeRoute: RCodeRoute,
   ApiPublicPlisioWebhookRoute: ApiPublicPlisioWebhookRoute,
   ApiPublicHooksDomainHealthScanRoute: ApiPublicHooksDomainHealthScanRoute,
+  ApiPublicPreviewPrelandingCodeRoute: ApiPublicPreviewPrelandingCodeRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
