@@ -198,21 +198,24 @@ function DashboardPage() {
               className="w-full bg-[#FFF9F5]/70 border border-[#FFEDD5] rounded-xl py-2.5 pl-11 pr-4 text-sm placeholder:text-[#A38D7D] focus:outline-none focus:border-[#FF7E5F]/50 focus:bg-white transition-all"
             />
           </div>
-          {customDomains.length > 0 && (
-            <div className="flex items-center gap-2">
-              <Globe className="w-4 h-4 text-[#A38D7D]" />
-              <select
-                value={selectedDomain}
-                onChange={(e) => setSelectedDomain(e.target.value)}
-                className="bg-[#FFF9F5]/70 border border-[#FFEDD5] rounded-xl py-2 px-3 text-xs text-[#2D1B0D] focus:outline-none focus:border-[#FF7E5F]/50 transition-all"
-              >
-                <option value="">Default Domain</option>
-                {customDomains.map((d: string) => (
-                  <option key={d} value={d}>{d}</option>
-                ))}
-              </select>
-            </div>
-          )}
+          <div className="flex items-center gap-2">
+            <Globe className="w-4 h-4 text-[#A38D7D]" />
+            <select
+              value={selectedDomain}
+              onChange={(e) => {
+                setSelectedDomain(e.target.value);
+                if (typeof window !== "undefined") {
+                  window.localStorage.setItem("sleepox.shortDomain", e.target.value);
+                }
+              }}
+              className="bg-[#FFF9F5]/70 border border-[#FFEDD5] rounded-xl py-2 px-3 text-xs text-[#2D1B0D] focus:outline-none focus:border-[#FF7E5F]/50 transition-all"
+              title="Choose which domain to use for new short links"
+            >
+              {allDomains.map((d: string) => (
+                <option key={d} value={d}>{d}</option>
+              ))}
+            </select>
+          </div>
           <Link
             to="/support"
             className="hidden sm:inline-flex h-10 px-3 items-center gap-1.5 rounded-xl bg-[#FFF9F5] border border-[#FFEDD5] text-[#7D6452] hover:text-[#FF7E5F] hover:border-[#FF7E5F]/40 transition-all text-[12px] font-bold"
