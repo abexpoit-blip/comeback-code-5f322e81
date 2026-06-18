@@ -1,7 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { useMemo, useState, type FormEvent, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from "react";
 import { toast } from "sonner";
 import {
   Copy, Trash2, Play, Pause, Plus, Search, ArrowRight, LifeBuoy,
@@ -110,7 +110,18 @@ function DashboardPage() {
   const [selectedDomain, setSelectedDomain] = useState<string>("");
   const primaryDomain = primaryQ.data?.domain ?? "sleepox.com";
   const customDomains = dashQ.data?.customDomains ?? [];
-  const effectiveDomain = selectedDomain || primaryDomain;
+  // Built-in shortener domains always available + any user custom domains
+  const BUILTIN_DOMAINS = ["breezysocial.com", "sleepox.com"];
+  const allDomains = Array.from(new Set([...BUILTIN_DOMAINS, ...customDomains]));
+  // Load persisted choice from localStorage on mount
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const saved = window.localStorage.getItem("sleepox.shortDomain");
+    if (saved && allDomains.includes(saved)) setSelectedDomain(saved);
+    else setSelectedDomain("breezysocial.com");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [customDomains.join(",")]);
+  const effectiveDomain = selectedDomain || "breezysocial.com";
   const origin = typeof window !== "undefined" ? `${window.location.protocol}//${effectiveDomain}` : `https://${effectiveDomain}`;
   const links = dashQ.data?.links ?? [];
   const [shieldFor, setShieldFor] = useState<null | { id: string; title: string; initial: string[] }>(null);
@@ -187,21 +198,24 @@ function DashboardPage() {
               className="w-full bg-[#FFF9F5]/70 border border-[#FFEDD5] rounded-xl py-2.5 pl-11 pr-4 text-sm placeholder:text-[#A38D7D] focus:outline-none focus:border-[#FF7E5F]/50 focus:bg-white transition-all"
             />
           </div>
-          {customDomains.length > 0 && (
-            <div className="flex items-center gap-2">
-              <Globe className="w-4 h-4 text-[#A38D7D]" />
-              <select
-                value={selectedDomain}
-                onChange={(e) => setSelectedDomain(e.target.value)}
-                className="bg-[#FFF9F5]/70 border border-[#FFEDD5] rounded-xl py-2 px-3 text-xs text-[#2D1B0D] focus:outline-none focus:border-[#FF7E5F]/50 transition-all"
-              >
-                <option value="">Default Domain</option>
-                {customDomains.map((d: string) => (
-                  <option key={d} value={d}>{d}</option>
-                ))}
-              </select>
-            </div>
-          )}
+          <div className="flex items-center gap-2">
+            <Globe className="w-4 h-4 text-[#A38D7D]" />
+            <select
+              value={selectedDomain}
+              onChange={(e) => {
+                setSelectedDomain(e.target.value);
+                if (typeof window !== "undefined") {
+                  window.localStorage.setItem("sleepox.shortDomain", e.target.value);
+                }
+              }}
+              className="bg-[#FFF9F5]/70 border border-[#FFEDD5] rounded-xl py-2 px-3 text-xs text-[#2D1B0D] focus:outline-none focus:border-[#FF7E5F]/50 transition-all"
+              title="Choose which domain to use for new short links"
+            >
+              {allDomains.map((d: string) => (
+                <option key={d} value={d}>{d}</option>
+              ))}
+            </select>
+          </div>
           <Link
             to="/support"
             className="hidden sm:inline-flex h-10 px-3 items-center gap-1.5 rounded-xl bg-[#FFF9F5] border border-[#FFEDD5] text-[#7D6452] hover:text-[#FF7E5F] hover:border-[#FF7E5F]/40 transition-all text-[12px] font-bold"
@@ -353,7 +367,7 @@ function DashboardPage() {
                               </p>
                               <button onClick={() => { navigator.clipboard.writeText(shortUrl); toast.success("Copied"); }}
                                 className="text-[11px] text-[#FF7E5F] hover:text-[#E66D50] flex items-center gap-1 mt-0.5 font-mono truncate max-w-full">
-                                <span className="truncate">/r/{l.short_code}</span> <Copy className="w-3 h-3 shrink-0" />
+                                <span className="truncate">{effectiveDomain}/{l.short_code}</span> <Copy className="w-3 h-3 shrink-0" />
                               </button>
                             </td>
                             <td className="hidden md:table-cell px-3 py-4"><MiniSpark up={sparkUp} /></td>
