@@ -56,8 +56,6 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { name: "viewport", content: "width=device-width, initial-scale=1" },
       { title: "Sleepox — Smart Link Cloaking for Facebook Ads" },
       { name: "description", content: "Bot-filtered redirect links for Facebook Ads to monetization offers." },
-      { name: "google-site-verification", content: "rn4Co7u4RniBHEjW9QBQjctEBAY5I_dicODU2ir9s2w" },
-      { name: "google-site-verification", content: "dBmj6auZVrnDJBXhq6BuCQvyj0EMnH94zmy6Shz2V90" },
     ],
     links: [
       { rel: "stylesheet", href: appCss },
@@ -78,6 +76,8 @@ function RootDocument({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
       <head>
+        <meta name="google-site-verification" content="rn4Co7u4RniBHEjW9QBQjctEBAY5I_dicODU2ir9s2w" />
+        <meta name="google-site-verification" content="dBmj6auZVrnDJBXhq6BuCQvyj0EMnH94zmy6Shz2V90" />
         <HeadContent />
       </head>
       <body>
