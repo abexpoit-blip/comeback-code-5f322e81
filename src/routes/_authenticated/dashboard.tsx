@@ -5,7 +5,7 @@ import { useMemo, useState, type FormEvent, type ReactNode } from "react";
 import { toast } from "sonner";
 import {
   Copy, Trash2, Play, Pause, Plus, Search, ArrowRight, LifeBuoy,
-  TrendingUp, Filter, RefreshCw, ChevronRight, Smartphone, Globe
+  TrendingUp, Filter, RefreshCw, ChevronRight, Smartphone, Globe, Shield
 } from "lucide-react";
 import { getDashboardData, createLink, deleteLink, toggleLink } from "@/lib/links.functions";
 
@@ -15,6 +15,8 @@ import { BroadcastBell } from "@/components/broadcast-bell";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Button as UIButton } from "@/components/ui/button";
 import { Sparkles } from "lucide-react";
+import { CountryShieldDialog } from "@/components/CountryShieldDialog";
+
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
   head: () => ({ meta: [{ title: "Dashboard — Sleepox" }] }),
