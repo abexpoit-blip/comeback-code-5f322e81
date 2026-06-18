@@ -341,6 +341,20 @@ export const ARTICLES: Article[] = [
     body: "",
     relatedProducts: ["travel-pillow-noise-cancelling", "smart-sleep-headphones", "portable-mini-projector"],
   },
+  {
+    slug: "best-sleep-apps-insomnia-2026",
+    title: "Best Sleep Apps for Insomnia in 2026 — Tested by Real Insomniacs",
+    excerpt:
+      "We tried every sleep app worth trying so you don't have to. These 7 are the ones that actually help you fall asleep — not just look pretty on the App Store.",
+    author: "Aisha Patel",
+    authorRole: "Wellness Editor",
+    date: "2026-06-18",
+    readTime: 7,
+    category: "Sleep",
+    emoji: "📱",
+    body: "",
+    relatedProducts: ["smart-sleep-headphones", "aromatherapy-diffuser", "blue-light-glasses"],
+  },
 ];
 
 export function getArticle(slug: string): Article | undefined {
