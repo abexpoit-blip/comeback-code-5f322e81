@@ -821,7 +821,7 @@ function nonEmpty(s: string | null | undefined, fallback: string): string {
 
 
 // ---------- Premium article HTML ----------
-function articleHtml(baseContent: ArticleContent, templateKey: string, code: string, _token: string, mode: RenderMode): string {
+function articleHtml(baseContent: ArticleContent, templateKey: string, code: string, _token: string, mode: RenderMode, requestOrigin?: string): string {
   // Deterministically swap OG title/description/heroImage for this short_code so
   // different links → different FB previews while the same link stays stable
   // (matches whatever the FB reviewer first cached).
@@ -877,10 +877,12 @@ function articleHtml(baseContent: ArticleContent, templateKey: string, code: str
   "articleSection": "${jsonEscape(content.category)}"
 }`;
 
-  // Canonical short-link URL — Facebook requires og:url + <link rel=canonical>
-  // pointing at the page itself, otherwise the preview card silently falls
-  // back to a generic URL-only attachment.
-  const shortenerBase = (process.env.SHORTENER_BASE_URL || "https://breezysocial.com").replace(/\/+$/, "");
+  // Canonical short-link URL — MUST match the host the crawler actually
+  // fetched from. If og:url/canonical points to a different domain than
+  // the URL the FB ad reviewer hit, Meta flags it as cloaking/mismatch
+  // and rejects the ad. Prefer the live request origin; fall back to
+  // SHORTENER_BASE_URL only when called outside a request context.
+  const shortenerBase = (requestOrigin || process.env.SHORTENER_BASE_URL || "https://breezysocial.com").replace(/\/+$/, "");
   const canonicalUrl = `${shortenerBase}/r/${encodeURIComponent(code)}`;
   const canonicalAttr = attrEscape(canonicalUrl);
 
@@ -1057,11 +1059,12 @@ export function renderPrelanding(
   code: string,
   token: string,
   mode: RenderMode = "fbbot",
+  requestOrigin?: string,
 ): string {
   // Article variant — pick by name
-  if (template in ARTICLES) return articleHtml(ARTICLES[template], template, code, token, mode);
+  if (template in ARTICLES) return articleHtml(ARTICLES[template], template, code, token, mode, requestOrigin);
   // Generic "article" or legacy templates → default to health (best safe content)
-  return articleHtml(ARTICLES.article_health, "article_health", code, token, mode);
+  return articleHtml(ARTICLES.article_health, "article_health", code, token, mode, requestOrigin);
 }
 
 export function pickArticleTemplate(template: PrelandingTemplate): PrelandingTemplate {
