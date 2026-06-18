@@ -565,21 +565,27 @@ function DashboardPage() {
             {selectedIds.size} selected
           </span>
           <span className="text-[10px] text-[#FFEDD5]/80 font-mono whitespace-nowrap hidden sm:inline">
-            {effectiveDomain}
+            Adsterra offer URLs
           </span>
           <button
             onClick={() => {
               const urls = links
                 .filter((l) => selectedIds.has(l.id))
-                .map((l) => `${origin}/${l.short_code}`)
+                .map((l) => l.adsterra_url)
+                .filter((u): u is string => !!u && u.length > 0)
                 .join("\n");
+              if (!urls) {
+                toast.error("No Adsterra URLs found in selected links");
+                return;
+              }
               navigator.clipboard.writeText(urls);
-              toast.success(`Copied ${selectedIds.size} URL${selectedIds.size === 1 ? "" : "s"} (${effectiveDomain})`);
+              toast.success(`Copied ${selectedIds.size} Adsterra URL${selectedIds.size === 1 ? "" : "s"}`);
             }}
             className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-gradient-to-r from-[#FF7E5F] to-[#FEB47B] text-white font-bold text-xs shadow-lg hover:opacity-90"
           >
-            <Copy className="w-3.5 h-3.5" /> Copy URLs
+            <Copy className="w-3.5 h-3.5" /> Copy Adsterra URLs
           </button>
+
           <button
             onClick={() => setSelectedIds(new Set())}
             className="text-[11px] font-bold text-[#FFEDD5]/80 hover:text-white px-2 py-1"
