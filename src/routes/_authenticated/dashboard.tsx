@@ -348,6 +348,7 @@ function DashboardPage() {
                 <div className="overflow-x-auto">
                   <table className="w-full text-left min-w-[480px] table-fixed">
                     <colgroup>
+                      <col className="w-[44px]" />
                       <col />
                       <col className="hidden md:table-column w-[90px]" />
                       <col className="w-[80px]" />
@@ -356,6 +357,18 @@ function DashboardPage() {
                     </colgroup>
                     <thead className="text-[10px] uppercase tracking-[0.18em] text-[#A38D7D] border-y border-[#FFEDD5]">
                       <tr>
+                        <th className="px-3 py-3">
+                          <input
+                            type="checkbox"
+                            aria-label="Select all visible links"
+                            checked={filtered.length > 0 && filtered.every((l) => selectedIds.has(l.id))}
+                            onChange={(e) => {
+                              if (e.target.checked) setSelectedIds(new Set(filtered.map((l) => l.id)));
+                              else setSelectedIds(new Set());
+                            }}
+                            className="w-4 h-4 accent-[#FF7E5F] cursor-pointer"
+                          />
+                        </th>
                         <th className="px-3 sm:px-5 py-3 font-bold">Campaign</th>
                         <th className="hidden md:table-cell px-3 py-3 font-bold">Trend</th>
                         <th className="px-3 py-3 font-bold">Clicks</th>
@@ -368,8 +381,18 @@ function DashboardPage() {
                         const shortUrl = `${origin}/${l.short_code}`;
                         const spark = stats?.perLinkDaily?.[l.id] ?? [];
                         const sparkUp = spark.length >= 2 ? spark[spark.length - 1] >= spark[0] : true;
+                        const isSelected = selectedIds.has(l.id);
                         return (
-                          <tr key={l.id} className="hover:bg-[#FFF9F5] transition-colors">
+                          <tr key={l.id} className={`hover:bg-[#FFF9F5] transition-colors ${isSelected ? "bg-[#FFF4ED]" : ""}`}>
+                            <td className="px-3 py-4">
+                              <input
+                                type="checkbox"
+                                aria-label={`Select ${l.title || l.short_code}`}
+                                checked={isSelected}
+                                onChange={() => toggleSelect(l.id)}
+                                className="w-4 h-4 accent-[#FF7E5F] cursor-pointer"
+                              />
+                            </td>
                             <td className="px-3 sm:px-5 py-4 min-w-0">
                               <p className="text-sm font-bold text-[#2D1B0D] truncate" style={display}>
                                 {l.title || l.short_code}
