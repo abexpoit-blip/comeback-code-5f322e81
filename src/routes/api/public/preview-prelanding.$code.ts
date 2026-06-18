@@ -76,7 +76,7 @@ export const Route = createFileRoute("/api/public/preview-prelanding/$code")({
             code,
             template,
             origin,
-            canonicalMatches: tags["og:url"] === `${origin}/r/${code}`,
+            canonicalMatches: tags["og:url"] === `${origin}/${code}`,
             tags,
             sizeBytes: html.length,
             html,
