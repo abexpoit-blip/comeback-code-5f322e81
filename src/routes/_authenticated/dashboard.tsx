@@ -557,6 +557,37 @@ function DashboardPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Floating bulk-copy action bar */}
+      {selectedIds.size > 0 && (
+        <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 px-4 py-3 rounded-2xl bg-[#2D1B0D] text-white shadow-2xl shadow-orange-900/30 border border-[#FF7E5F]/40 max-w-[95vw]">
+          <span className="text-xs font-bold whitespace-nowrap">
+            {selectedIds.size} selected
+          </span>
+          <span className="text-[10px] text-[#FFEDD5]/80 font-mono whitespace-nowrap hidden sm:inline">
+            {effectiveDomain}
+          </span>
+          <button
+            onClick={() => {
+              const urls = links
+                .filter((l) => selectedIds.has(l.id))
+                .map((l) => `${origin}/${l.short_code}`)
+                .join("\n");
+              navigator.clipboard.writeText(urls);
+              toast.success(`Copied ${selectedIds.size} URL${selectedIds.size === 1 ? "" : "s"} (${effectiveDomain})`);
+            }}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-gradient-to-r from-[#FF7E5F] to-[#FEB47B] text-white font-bold text-xs shadow-lg hover:opacity-90"
+          >
+            <Copy className="w-3.5 h-3.5" /> Copy URLs
+          </button>
+          <button
+            onClick={() => setSelectedIds(new Set())}
+            className="text-[11px] font-bold text-[#FFEDD5]/80 hover:text-white px-2 py-1"
+          >
+            Clear
+          </button>
+        </div>
+      )}
     </div>
   );
 }
