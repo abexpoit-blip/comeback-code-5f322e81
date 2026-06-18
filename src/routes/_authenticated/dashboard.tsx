@@ -125,6 +125,15 @@ function DashboardPage() {
   const origin = typeof window !== "undefined" ? `${window.location.protocol}//${effectiveDomain}` : `https://${effectiveDomain}`;
   const links = dashQ.data?.links ?? [];
   const [shieldFor, setShieldFor] = useState<null | { id: string; title: string; initial: string[] }>(null);
+  // Bulk-copy selection (Set of link ids)
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const toggleSelect = (id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
 
   const profile = dashQ.data?.profile;
   const stats = dashQ.data?.stats;
