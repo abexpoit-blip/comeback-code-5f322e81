@@ -323,14 +323,21 @@ function DashboardPage() {
 
               {filtered.length > 0 && (
                 <div className="overflow-x-auto">
-                  <table className="w-full text-left min-w-[720px]">
+                  <table className="w-full text-left min-w-[480px] table-fixed">
+                    <colgroup>
+                      <col />
+                      <col className="hidden md:table-column w-[90px]" />
+                      <col className="w-[80px]" />
+                      <col className="hidden sm:table-column w-[90px]" />
+                      <col className="w-[160px]" />
+                    </colgroup>
                     <thead className="text-[10px] uppercase tracking-[0.18em] text-[#A38D7D] border-y border-[#FFEDD5]">
                       <tr>
-                        <th className="px-5 py-3 font-bold">Campaign</th>
-                        <th className="px-5 py-3 font-bold">Trend</th>
-                        <th className="px-5 py-3 font-bold">Clicks</th>
-                        <th className="px-5 py-3 font-bold">Status</th>
-                        <th className="px-5 py-3 font-bold text-right">Actions</th>
+                        <th className="px-3 sm:px-5 py-3 font-bold">Campaign</th>
+                        <th className="hidden md:table-cell px-3 py-3 font-bold">Trend</th>
+                        <th className="px-3 py-3 font-bold">Clicks</th>
+                        <th className="hidden sm:table-cell px-3 py-3 font-bold">Status</th>
+                        <th className="px-3 sm:px-5 py-3 font-bold text-right">Actions</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-[#FFEDD5]">
@@ -340,22 +347,22 @@ function DashboardPage() {
                         const sparkUp = spark.length >= 2 ? spark[spark.length - 1] >= spark[0] : true;
                         return (
                           <tr key={l.id} className="hover:bg-[#FFF9F5] transition-colors">
-                            <td className="px-5 py-4">
-                              <p className="text-sm font-bold text-[#2D1B0D] truncate max-w-[220px]" style={display}>
+                            <td className="px-3 sm:px-5 py-4 min-w-0">
+                              <p className="text-sm font-bold text-[#2D1B0D] truncate" style={display}>
                                 {l.title || l.short_code}
                               </p>
                               <button onClick={() => { navigator.clipboard.writeText(shortUrl); toast.success("Copied"); }}
-                                className="text-[11px] text-[#FF7E5F] hover:text-[#E66D50] flex items-center gap-1 mt-0.5 font-mono">
-                                /r/{l.short_code} <Copy className="w-3 h-3" />
+                                className="text-[11px] text-[#FF7E5F] hover:text-[#E66D50] flex items-center gap-1 mt-0.5 font-mono truncate max-w-full">
+                                <span className="truncate">/r/{l.short_code}</span> <Copy className="w-3 h-3 shrink-0" />
                               </button>
                             </td>
-                            <td className="px-5 py-4"><MiniSpark up={sparkUp} /></td>
-                            <td className="px-5 py-4">
+                            <td className="hidden md:table-cell px-3 py-4"><MiniSpark up={sparkUp} /></td>
+                            <td className="px-3 py-4">
                               <div className="text-sm font-bold text-[#2D1B0D] tabular-nums" style={display}>
                                 {(l.clicks_count || 0).toLocaleString()}
                               </div>
                             </td>
-                            <td className="px-5 py-4">
+                            <td className="hidden sm:table-cell px-3 py-4">
                               <button onClick={() => togMut.mutate({ id: l.id, is_active: !l.is_active })}
                                 className={l.is_active
                                   ? "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-700"
@@ -363,12 +370,12 @@ function DashboardPage() {
                                 {l.is_active ? "ACTIVE" : "PAUSED"}
                               </button>
                             </td>
-                            <td className="px-5 py-4 text-right">
-                              <div className="inline-flex items-center gap-1">
+                            <td className="px-3 sm:px-5 py-4 text-right">
+                              <div className="inline-flex items-center gap-0.5 sm:gap-1">
                                 <button
                                   title={`Country Shield${(l as any).blocked_countries?.length ? ` (${(l as any).blocked_countries.length} blocked)` : ""}`}
                                   onClick={() => setShieldFor({ id: l.id, title: l.title || l.short_code, initial: (l as any).blocked_countries ?? [] })}
-                                  className={`relative p-1.5 rounded-lg hover:bg-[#FFEDD5]/60 ${
+                                  className={`relative p-1.5 rounded-lg hover:bg-[#FFEDD5]/60 shrink-0 ${
                                     (l as any).blocked_countries?.length > 0
                                       ? "text-[#FF7E5F]"
                                       : "text-[#7D6452] hover:text-[#FF7E5F]"
@@ -382,14 +389,13 @@ function DashboardPage() {
                                   )}
                                 </button>
                                 <button onClick={() => togMut.mutate({ id: l.id, is_active: !l.is_active })}
-                                  className="text-[#7D6452] hover:text-[#FF7E5F] p-1.5 rounded-lg hover:bg-[#FFEDD5]/60">
+                                  className="text-[#7D6452] hover:text-[#FF7E5F] p-1.5 rounded-lg hover:bg-[#FFEDD5]/60 shrink-0">
                                   {l.is_active ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}
                                 </button>
                                 <button onClick={() => { if (confirm("Delete this link?")) delMut.mutate(l.id); }}
-                                  className="text-[#7D6452] hover:text-rose-500 p-1.5 rounded-lg hover:bg-rose-50">
+                                  className="text-[#7D6452] hover:text-rose-500 p-1.5 rounded-lg hover:bg-rose-50 shrink-0">
                                   <Trash2 className="w-4 h-4" />
                                 </button>
-                                <ChevronRight className="w-4 h-4 text-[#A38D7D]" />
                               </div>
                             </td>
 
