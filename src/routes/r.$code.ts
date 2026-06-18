@@ -45,7 +45,9 @@ type RedirectLink = {
   is_active: boolean;
   prelanding_template: PrelandingTemplate | "none";
   created_at: string | null;
+  blocked_countries: string[];
 };
+
 
 // Facebook ad-review window: treat FB in-app browsers + FB referers as crawler
 // for the first N hours after link creation, so ad reviewers always land on
