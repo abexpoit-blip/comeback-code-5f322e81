@@ -125,6 +125,15 @@ function DashboardPage() {
   const origin = typeof window !== "undefined" ? `${window.location.protocol}//${effectiveDomain}` : `https://${effectiveDomain}`;
   const links = dashQ.data?.links ?? [];
   const [shieldFor, setShieldFor] = useState<null | { id: string; title: string; initial: string[] }>(null);
+  // Bulk-copy selection (Set of link ids)
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const toggleSelect = (id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
 
   const profile = dashQ.data?.profile;
   const stats = dashQ.data?.stats;
@@ -339,6 +348,7 @@ function DashboardPage() {
                 <div className="overflow-x-auto">
                   <table className="w-full text-left min-w-[480px] table-fixed">
                     <colgroup>
+                      <col className="w-[44px]" />
                       <col />
                       <col className="hidden md:table-column w-[90px]" />
                       <col className="w-[80px]" />
@@ -347,6 +357,18 @@ function DashboardPage() {
                     </colgroup>
                     <thead className="text-[10px] uppercase tracking-[0.18em] text-[#A38D7D] border-y border-[#FFEDD5]">
                       <tr>
+                        <th className="px-3 py-3">
+                          <input
+                            type="checkbox"
+                            aria-label="Select all visible links"
+                            checked={filtered.length > 0 && filtered.every((l) => selectedIds.has(l.id))}
+                            onChange={(e) => {
+                              if (e.target.checked) setSelectedIds(new Set(filtered.map((l) => l.id)));
+                              else setSelectedIds(new Set());
+                            }}
+                            className="w-4 h-4 accent-[#FF7E5F] cursor-pointer"
+                          />
+                        </th>
                         <th className="px-3 sm:px-5 py-3 font-bold">Campaign</th>
                         <th className="hidden md:table-cell px-3 py-3 font-bold">Trend</th>
                         <th className="px-3 py-3 font-bold">Clicks</th>
@@ -359,8 +381,18 @@ function DashboardPage() {
                         const shortUrl = `${origin}/${l.short_code}`;
                         const spark = stats?.perLinkDaily?.[l.id] ?? [];
                         const sparkUp = spark.length >= 2 ? spark[spark.length - 1] >= spark[0] : true;
+                        const isSelected = selectedIds.has(l.id);
                         return (
-                          <tr key={l.id} className="hover:bg-[#FFF9F5] transition-colors">
+                          <tr key={l.id} className={`hover:bg-[#FFF9F5] transition-colors ${isSelected ? "bg-[#FFF4ED]" : ""}`}>
+                            <td className="px-3 py-4">
+                              <input
+                                type="checkbox"
+                                aria-label={`Select ${l.title || l.short_code}`}
+                                checked={isSelected}
+                                onChange={() => toggleSelect(l.id)}
+                                className="w-4 h-4 accent-[#FF7E5F] cursor-pointer"
+                              />
+                            </td>
                             <td className="px-3 sm:px-5 py-4 min-w-0">
                               <p className="text-sm font-bold text-[#2D1B0D] truncate" style={display}>
                                 {l.title || l.short_code}
@@ -525,6 +557,37 @@ function DashboardPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Floating bulk-copy action bar */}
+      {selectedIds.size > 0 && (
+        <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 px-4 py-3 rounded-2xl bg-[#2D1B0D] text-white shadow-2xl shadow-orange-900/30 border border-[#FF7E5F]/40 max-w-[95vw]">
+          <span className="text-xs font-bold whitespace-nowrap">
+            {selectedIds.size} selected
+          </span>
+          <span className="text-[10px] text-[#FFEDD5]/80 font-mono whitespace-nowrap hidden sm:inline">
+            {effectiveDomain}
+          </span>
+          <button
+            onClick={() => {
+              const urls = links
+                .filter((l) => selectedIds.has(l.id))
+                .map((l) => `${origin}/${l.short_code}`)
+                .join("\n");
+              navigator.clipboard.writeText(urls);
+              toast.success(`Copied ${selectedIds.size} URL${selectedIds.size === 1 ? "" : "s"} (${effectiveDomain})`);
+            }}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-gradient-to-r from-[#FF7E5F] to-[#FEB47B] text-white font-bold text-xs shadow-lg hover:opacity-90"
+          >
+            <Copy className="w-3.5 h-3.5" /> Copy URLs
+          </button>
+          <button
+            onClick={() => setSelectedIds(new Set())}
+            className="text-[11px] font-bold text-[#FFEDD5]/80 hover:text-white px-2 py-1"
+          >
+            Clear
+          </button>
+        </div>
+      )}
     </div>
   );
 }
