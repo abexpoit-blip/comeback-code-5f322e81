@@ -5,8 +5,10 @@ import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from "re
 import { toast } from "sonner";
 import {
   Copy, Trash2, Play, Pause, Plus, Search, ArrowRight, LifeBuoy,
-  TrendingUp, Filter, RefreshCw, ChevronRight, Smartphone, Globe, Shield
+  TrendingUp, Filter, RefreshCw, ChevronRight, Smartphone, Globe, Shield, ShieldCheck
 } from "lucide-react";
+
+
 import { getDashboardData, createLink, deleteLink, toggleLink } from "@/lib/links.functions";
 
 import { getPrimaryShortenerDomain } from "@/lib/shortener-domains.functions";
@@ -434,10 +436,20 @@ function DashboardPage() {
                                     </span>
                                   )}
                                 </button>
+                                <a
+                                  href={shortUrl}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  title={`Verify: open ${effectiveDomain}/${l.short_code} and confirm it redirects to your offer`}
+                                  className="text-[#7D6452] hover:text-emerald-600 p-1.5 rounded-lg hover:bg-emerald-50 shrink-0"
+                                >
+                                  <ShieldCheck className="w-4 h-4" />
+                                </a>
                                 <button onClick={() => togMut.mutate({ id: l.id, is_active: !l.is_active })}
                                   className="text-[#7D6452] hover:text-[#FF7E5F] p-1.5 rounded-lg hover:bg-[#FFEDD5]/60 shrink-0">
                                   {l.is_active ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}
                                 </button>
+
                                 <button onClick={() => { if (confirm("Delete this link?")) delMut.mutate(l.id); }}
                                   className="text-[#7D6452] hover:text-rose-500 p-1.5 rounded-lg hover:bg-rose-50 shrink-0">
                                   <Trash2 className="w-4 h-4" />
@@ -560,30 +572,56 @@ function DashboardPage() {
 
       {/* Floating bulk-copy action bar */}
       {selectedIds.size > 0 && (
-        <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 px-4 py-3 rounded-2xl bg-[#2D1B0D] text-white shadow-2xl shadow-orange-900/30 border border-[#FF7E5F]/40 max-w-[95vw]">
+        <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2 sm:gap-3 px-3 sm:px-4 py-3 rounded-2xl bg-[#2D1B0D] text-white shadow-2xl shadow-orange-900/30 border border-[#FF7E5F]/40 max-w-[95vw] flex-wrap justify-center">
           <span className="text-xs font-bold whitespace-nowrap">
             {selectedIds.size} selected
           </span>
-          <span className="text-[10px] text-[#FFEDD5]/80 font-mono whitespace-nowrap hidden sm:inline">
-            Adsterra offer URLs
-          </span>
+
+          {/* Domain picker inside bulk bar — copied URLs ALWAYS match this */}
+          <div className="flex items-center gap-1.5 px-2 py-1 rounded-lg bg-white/10 border border-white/15">
+            <Globe className="w-3 h-3 text-[#FEB47B]" />
+            <select
+              value={effectiveDomain}
+              onChange={(e) => {
+                const v = e.target.value;
+                setSelectedDomain(v);
+                if (typeof window !== "undefined") window.localStorage.setItem("sleepox.shortDomain", v);
+              }}
+              className="bg-transparent text-[11px] font-mono font-bold text-white focus:outline-none cursor-pointer"
+            >
+              {allDomains.map((d) => (
+                <option key={d} value={d} className="text-[#2D1B0D]">{d}</option>
+              ))}
+            </select>
+          </div>
+
           <button
             onClick={() => {
               const urls = links
                 .filter((l) => selectedIds.has(l.id))
-                .map((l) => l.adsterra_url)
-                .filter((u): u is string => !!u && u.length > 0)
+                .map((l) => `https://${effectiveDomain}/${l.short_code}`)
                 .join("\n");
-              if (!urls) {
-                toast.error("No Adsterra URLs found in selected links");
-                return;
-              }
               navigator.clipboard.writeText(urls);
-              toast.success(`Copied ${selectedIds.size} Adsterra URL${selectedIds.size === 1 ? "" : "s"}`);
+              toast.success(`Copied ${selectedIds.size} short URL${selectedIds.size === 1 ? "" : "s"} on ${effectiveDomain}`);
             }}
             className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-gradient-to-r from-[#FF7E5F] to-[#FEB47B] text-white font-bold text-xs shadow-lg hover:opacity-90"
           >
-            <Copy className="w-3.5 h-3.5" /> Copy Adsterra URLs
+            <Copy className="w-3.5 h-3.5" /> Copy URLs
+          </button>
+
+          <button
+            onClick={() => {
+              const chosen = links.filter((l) => selectedIds.has(l.id));
+              if (chosen.length > 5 && !confirm(`Open ${chosen.length} tabs to verify each link redirects correctly?`)) return;
+              chosen.forEach((l) => {
+                window.open(`https://${effectiveDomain}/${l.short_code}`, "_blank", "noopener,noreferrer");
+              });
+              toast.success(`Verifying ${chosen.length} link${chosen.length === 1 ? "" : "s"} — check each tab lands on your offer`);
+            }}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/15 hover:bg-white/25 text-white font-bold text-xs border border-white/20"
+            title="Open each selected short URL in a new tab to confirm it redirects to your offer"
+          >
+            <ShieldCheck className="w-3.5 h-3.5" /> Verify
           </button>
 
           <button
@@ -594,6 +632,7 @@ function DashboardPage() {
           </button>
         </div>
       )}
+
     </div>
   );
 }
