@@ -1,15 +1,28 @@
 import { Link } from "@tanstack/react-router";
 import type { Product } from "@/lib/breezy-data";
+import { PRODUCT_IMAGES } from "@/lib/breezy-content";
 
 export function ProductCard({ product }: { product: Product }) {
+  const img = PRODUCT_IMAGES[product.slug];
   return (
     <Link
       to="/shop/$slug"
       params={{ slug: product.slug }}
       className="group block bg-white border border-[#E8E2D5] rounded-2xl overflow-hidden hover:shadow-lg hover:-translate-y-1 transition-all duration-300"
     >
-      <div className="aspect-square bg-gradient-to-br from-[#F2EDE3] to-[#E8E2D5] flex items-center justify-center text-7xl group-hover:scale-105 transition-transform">
-        {product.emoji}
+      <div className="aspect-square bg-gradient-to-br from-[#F2EDE3] to-[#E8E2D5] flex items-center justify-center overflow-hidden">
+        {img ? (
+          <img
+            src={img}
+            alt={product.name}
+            loading="lazy"
+            width={1024}
+            height={1024}
+            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+          />
+        ) : (
+          <span className="text-7xl group-hover:scale-105 transition-transform">{product.emoji}</span>
+        )}
       </div>
       <div className="p-5">
         <div className="text-[10px] uppercase tracking-wider text-[#7D9B76] font-semibold mb-1">

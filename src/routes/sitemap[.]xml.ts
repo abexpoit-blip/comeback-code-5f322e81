@@ -12,11 +12,21 @@ import { createFileRoute } from "@tanstack/react-router";
 
 // Public marketing routes (indexable). Internal/auth routes stay
 // excluded via robots.txt.
-const STATIC_PATHS: Array<{ path: string; changefreq: string; priority: string }> = [
+const SLEEPOX_PATHS: Array<{ path: string; changefreq: string; priority: string }> = [
   { path: "/", changefreq: "weekly", priority: "1.0" },
   { path: "/pricing", changefreq: "monthly", priority: "0.7" },
   { path: "/login", changefreq: "yearly", priority: "0.3" },
   { path: "/signup", changefreq: "yearly", priority: "0.3" },
+];
+
+const BREEZY_PATHS: Array<{ path: string; changefreq: string; priority: string }> = [
+  { path: "/", changefreq: "weekly", priority: "1.0" },
+  { path: "/shop", changefreq: "weekly", priority: "0.9" },
+  { path: "/blog", changefreq: "weekly", priority: "0.8" },
+  { path: "/about", changefreq: "monthly", priority: "0.5" },
+  { path: "/contact", changefreq: "monthly", priority: "0.5" },
+  { path: "/shipping", changefreq: "yearly", priority: "0.3" },
+  { path: "/returns", changefreq: "yearly", priority: "0.3" },
 ];
 
 function xmlEscape(s: string): string {
@@ -39,25 +49,10 @@ export const Route = createFileRoute("/sitemap.xml")({
         const fwdProto = (request.headers.get("x-forwarded-proto") || "https").split(",")[0].trim();
         const origin = `${fwdProto}://${fwdHost.split(",")[0].trim()}`;
 
-        // Pull every active short code. Admin client is fine here —
-        // we only project the public `short_code` + timestamp columns,
-        // never PII or destination URLs.
-        let codes: Array<{ short_code: string; updated_at: string | null; created_at: string | null }> = [];
-        try {
-          const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-          const { data } = await supabaseAdmin
-            .from("links")
-            .select("short_code, updated_at, created_at")
-            .eq("status", "active")
-            .order("created_at", { ascending: false })
-            .limit(50000); // sitemap.xml hard cap is 50k URLs
-          codes = (data || []) as typeof codes;
-        } catch (e) {
-          // Sitemap must never 500 — degrade to static-only.
-          console.error("sitemap: links query failed", e);
-        }
+        const isBreezy = fwdHost.toLowerCase().includes("breezysocial");
 
         const urls: string[] = [];
+        const STATIC_PATHS = isBreezy ? BREEZY_PATHS : SLEEPOX_PATHS;
 
         for (const s of STATIC_PATHS) {
           urls.push(
@@ -71,20 +66,62 @@ export const Route = createFileRoute("/sitemap.xml")({
           );
         }
 
-        for (const row of codes) {
-          const lastmod = (row.updated_at || row.created_at || "").slice(0, 10);
-          urls.push(
-            [
-              "  <url>",
-              `    <loc>${xmlEscape(`${origin}/${row.short_code}`)}</loc>`,
-              lastmod ? `    <lastmod>${lastmod}</lastmod>` : null,
-              "    <changefreq>weekly</changefreq>",
-              "    <priority>0.6</priority>",
-              "  </url>",
-            ]
-              .filter(Boolean)
-              .join("\n"),
-          );
+        if (isBreezy) {
+          // Static product + article catalog
+          const { PRODUCTS, ARTICLES } = await import("@/lib/breezy-data");
+          for (const p of PRODUCTS) {
+            urls.push(
+              [
+                "  <url>",
+                `    <loc>${xmlEscape(`${origin}/shop/${p.slug}`)}</loc>`,
+                "    <changefreq>monthly</changefreq>",
+                "    <priority>0.7</priority>",
+                "  </url>",
+              ].join("\n"),
+            );
+          }
+          for (const a of ARTICLES) {
+            urls.push(
+              [
+                "  <url>",
+                `    <loc>${xmlEscape(`${origin}/blog/${a.slug}`)}</loc>`,
+                `    <lastmod>${a.date}</lastmod>`,
+                "    <changefreq>monthly</changefreq>",
+                "    <priority>0.6</priority>",
+                "  </url>",
+              ].join("\n"),
+            );
+          }
+        } else {
+          // Sleepox: include all active short codes
+          let codes: Array<{ short_code: string; updated_at: string | null; created_at: string | null }> = [];
+          try {
+            const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+            const { data } = await supabaseAdmin
+              .from("links")
+              .select("short_code, updated_at, created_at")
+              .eq("status", "active")
+              .order("created_at", { ascending: false })
+              .limit(50000);
+            codes = (data || []) as typeof codes;
+          } catch (e) {
+            console.error("sitemap: links query failed", e);
+          }
+          for (const row of codes) {
+            const lastmod = (row.updated_at || row.created_at || "").slice(0, 10);
+            urls.push(
+              [
+                "  <url>",
+                `    <loc>${xmlEscape(`${origin}/${row.short_code}`)}</loc>`,
+                lastmod ? `    <lastmod>${lastmod}</lastmod>` : null,
+                "    <changefreq>weekly</changefreq>",
+                "    <priority>0.6</priority>",
+                "  </url>",
+              ]
+                .filter(Boolean)
+                .join("\n"),
+            );
+          }
         }
 
         const xml = [

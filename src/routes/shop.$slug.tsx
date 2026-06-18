@@ -2,6 +2,7 @@ import { createFileRoute, Link, notFound } from "@tanstack/react-router";
 import { BreezyLayout, TrustBar } from "@/components/breezy/BreezyLayout";
 import { ProductCard } from "@/components/breezy/ProductCard";
 import { getProduct, PRODUCTS, SITE, type Product } from "@/lib/breezy-data";
+import { PRODUCT_IMAGES } from "@/lib/breezy-content";
 
 export const Route = createFileRoute("/shop/$slug")({
   loader: ({ params }) => {
@@ -12,6 +13,9 @@ export const Route = createFileRoute("/shop/$slug")({
   head: ({ loaderData, params }) => {
     const p = loaderData?.product;
     if (!p) return { meta: [{ title: "Product not found — BreezySocial" }] };
+    const imgUrl = PRODUCT_IMAGES[p.slug]
+      ? `https://breezysocial.com${PRODUCT_IMAGES[p.slug]}`
+      : undefined;
     return {
       meta: [
         { title: `${p.name} — BreezySocial` },
@@ -20,6 +24,7 @@ export const Route = createFileRoute("/shop/$slug")({
         { property: "og:description", content: p.shortDesc },
         { property: "og:type", content: "product" },
         { property: "og:url", content: `/shop/${params.slug}` },
+        ...(imgUrl ? [{ property: "og:image", content: imgUrl }, { name: "twitter:image", content: imgUrl }, { name: "twitter:card", content: "summary_large_image" }] : []),
         { property: "product:price:amount", content: String(p.price) },
         { property: "product:price:currency", content: "USD" },
       ],
@@ -80,8 +85,18 @@ function ProductPage() {
         </nav>
 
         <div className="grid md:grid-cols-2 gap-12">
-          <div className="aspect-square rounded-3xl bg-gradient-to-br from-[#F2EDE3] to-[#E8E2D5] flex items-center justify-center text-[14rem] border border-[#E8E2D5]">
-            {p.emoji}
+          <div className="aspect-square rounded-3xl bg-gradient-to-br from-[#F2EDE3] to-[#E8E2D5] overflow-hidden border border-[#E8E2D5] flex items-center justify-center">
+            {PRODUCT_IMAGES[p.slug] ? (
+              <img
+                src={PRODUCT_IMAGES[p.slug]}
+                alt={p.name}
+                width={1024}
+                height={1024}
+                className="w-full h-full object-cover"
+              />
+            ) : (
+              <span className="text-[14rem]">{p.emoji}</span>
+            )}
           </div>
 
           <div>
