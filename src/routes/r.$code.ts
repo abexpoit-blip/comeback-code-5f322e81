@@ -1474,7 +1474,23 @@ async function handleRedirect(request: Request, code: string, shouldRecordClick 
     // Non-FB crawlers (Google, Bing, generic scrapers) → sticky pool pick.
     // Phase A: rotate across 5 fixed real Breezy URLs (sitemap-indexed, real
     // content) instead of random safe_url. Same visitor+code → same URL.
-    target = link.safe_url || pickSafePageUrl(code, fpHash);
+    // Pool auto-skips unhealthy URLs (4xx/5xx) until next health check.
+    if (link.safe_url) {
+      target = link.safe_url;
+    } else {
+      const pick = pickSafePage(code, fpHash);
+      target = pick.url;
+      console.log(JSON.stringify({
+        event: "redirect.safe_pool_pick",
+        code,
+        fp: fpHash,
+        target: pick.url,
+        idx: pick.index,
+        fallback_from: pick.fallbackFrom,
+        reason,
+        ua_class: "non-fb-bot",
+      }));
+    }
     routedTo = "safe";
 
   } else {
