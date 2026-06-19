@@ -10,7 +10,7 @@ import {
   markSafePageUnhealthy,
   markSafePageHealthy,
   getSafePoolHealth,
-} from "./safe-page-pool";
+} from "../src/lib/safe-page-pool";
 
 function resetHealth() {
   for (const url of SAFE_PAGE_POOL) markSafePageHealthy(url, 200);
