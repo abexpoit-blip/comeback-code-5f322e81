@@ -1091,6 +1091,14 @@ async function handleRedirect(request: Request, code: string, shouldRecordClick 
     isBot = true;
     isFbBot = true;
     reason = `fb-ip:${ip.split(".").slice(0, 2).join(".")}`;
+  } else if (crawlerMatch) {
+    // Non-FB crawler (Googlebot, Bingbot, Yandex, Twitter, LinkedIn, etc.)
+    // → safe pool 302. isFbBot stays false so we DON'T serve the FB article;
+    // instead the standard non-FB-bot branch picks a sticky URL from the
+    // 5-page safe pool (or link.safe_url if set). This is what makes the
+    // site look like a legit indexable property to search/social crawlers.
+    isBot = true;
+    reason = `crawler-ua:${crawlerMatch[0]}`;
   }
 
   // 0a-smart-1: DATACENTER ASN — always-on. Real human ad traffic never
