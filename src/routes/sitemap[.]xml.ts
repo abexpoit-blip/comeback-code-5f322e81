@@ -25,6 +25,8 @@ const BREEZY_PATHS: Array<{ path: string; changefreq: string; priority: string }
   { path: "/blog", changefreq: "weekly", priority: "0.8" },
   { path: "/about", changefreq: "monthly", priority: "0.5" },
   { path: "/contact", changefreq: "monthly", priority: "0.5" },
+  { path: "/faq", changefreq: "monthly", priority: "0.6" },
+  { path: "/size-guide", changefreq: "monthly", priority: "0.5" },
   { path: "/shipping", changefreq: "yearly", priority: "0.3" },
   { path: "/returns", changefreq: "yearly", priority: "0.3" },
 ];

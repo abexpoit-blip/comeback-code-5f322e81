@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as TermsRouteImport } from './routes/terms'
 import { Route as SxVault9k2m7xRouteImport } from './routes/sx-vault-9k2m7x'
+import { Route as SizeGuideRouteImport } from './routes/size-guide'
 import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
 import { Route as SignupRouteImport } from './routes/signup'
 import { Route as ShopRouteImport } from './routes/shop'
@@ -18,8 +19,12 @@ import { Route as ShippingRouteImport } from './routes/shipping'
 import { Route as ReturnsRouteImport } from './routes/returns'
 import { Route as PrivacyRouteImport } from './routes/privacy'
 import { Route as PricingRouteImport } from './routes/pricing'
+import { Route as OrderConfirmedRouteImport } from './routes/order-confirmed'
 import { Route as LoginRouteImport } from './routes/login'
+import { Route as FaqRouteImport } from './routes/faq'
 import { Route as ContactRouteImport } from './routes/contact'
+import { Route as CheckoutRouteImport } from './routes/checkout'
+import { Route as CartRouteImport } from './routes/cart'
 import { Route as BlogRouteImport } from './routes/blog'
 import { Route as AboutRouteImport } from './routes/about'
 import { Route as AuthenticatedRouteImport } from './routes/_authenticated'
@@ -49,6 +54,11 @@ const TermsRoute = TermsRouteImport.update({
 const SxVault9k2m7xRoute = SxVault9k2m7xRouteImport.update({
   id: '/sx-vault-9k2m7x',
   path: '/sx-vault-9k2m7x',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SizeGuideRoute = SizeGuideRouteImport.update({
+  id: '/size-guide',
+  path: '/size-guide',
   getParentRoute: () => rootRouteImport,
 } as any)
 const SitemapDotxmlRoute = SitemapDotxmlRouteImport.update({
@@ -86,14 +96,34 @@ const PricingRoute = PricingRouteImport.update({
   path: '/pricing',
   getParentRoute: () => rootRouteImport,
 } as any)
+const OrderConfirmedRoute = OrderConfirmedRouteImport.update({
+  id: '/order-confirmed',
+  path: '/order-confirmed',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
   path: '/login',
   getParentRoute: () => rootRouteImport,
 } as any)
+const FaqRoute = FaqRouteImport.update({
+  id: '/faq',
+  path: '/faq',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ContactRoute = ContactRouteImport.update({
   id: '/contact',
   path: '/contact',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CheckoutRoute = CheckoutRouteImport.update({
+  id: '/checkout',
+  path: '/checkout',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CartRoute = CartRouteImport.update({
+  id: '/cart',
+  path: '/cart',
   getParentRoute: () => rootRouteImport,
 } as any)
 const BlogRoute = BlogRouteImport.update({
@@ -205,8 +235,12 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/about': typeof AboutRoute
   '/blog': typeof BlogRouteWithChildren
+  '/cart': typeof CartRoute
+  '/checkout': typeof CheckoutRoute
   '/contact': typeof ContactRoute
+  '/faq': typeof FaqRoute
   '/login': typeof LoginRoute
+  '/order-confirmed': typeof OrderConfirmedRoute
   '/pricing': typeof PricingRoute
   '/privacy': typeof PrivacyRoute
   '/returns': typeof ReturnsRoute
@@ -214,6 +248,7 @@ export interface FileRoutesByFullPath {
   '/shop': typeof ShopRouteWithChildren
   '/signup': typeof SignupRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
+  '/size-guide': typeof SizeGuideRoute
   '/sx-vault-9k2m7x': typeof SxVault9k2m7xRoute
   '/terms': typeof TermsRoute
   '/analytics': typeof AuthenticatedAnalyticsRoute
@@ -237,8 +272,12 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/about': typeof AboutRoute
   '/blog': typeof BlogRouteWithChildren
+  '/cart': typeof CartRoute
+  '/checkout': typeof CheckoutRoute
   '/contact': typeof ContactRoute
+  '/faq': typeof FaqRoute
   '/login': typeof LoginRoute
+  '/order-confirmed': typeof OrderConfirmedRoute
   '/pricing': typeof PricingRoute
   '/privacy': typeof PrivacyRoute
   '/returns': typeof ReturnsRoute
@@ -246,6 +285,7 @@ export interface FileRoutesByTo {
   '/shop': typeof ShopRouteWithChildren
   '/signup': typeof SignupRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
+  '/size-guide': typeof SizeGuideRoute
   '/sx-vault-9k2m7x': typeof SxVault9k2m7xRoute
   '/terms': typeof TermsRoute
   '/analytics': typeof AuthenticatedAnalyticsRoute
@@ -271,8 +311,12 @@ export interface FileRoutesById {
   '/_authenticated': typeof AuthenticatedRouteWithChildren
   '/about': typeof AboutRoute
   '/blog': typeof BlogRouteWithChildren
+  '/cart': typeof CartRoute
+  '/checkout': typeof CheckoutRoute
   '/contact': typeof ContactRoute
+  '/faq': typeof FaqRoute
   '/login': typeof LoginRoute
+  '/order-confirmed': typeof OrderConfirmedRoute
   '/pricing': typeof PricingRoute
   '/privacy': typeof PrivacyRoute
   '/returns': typeof ReturnsRoute
@@ -280,6 +324,7 @@ export interface FileRoutesById {
   '/shop': typeof ShopRouteWithChildren
   '/signup': typeof SignupRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
+  '/size-guide': typeof SizeGuideRoute
   '/sx-vault-9k2m7x': typeof SxVault9k2m7xRoute
   '/terms': typeof TermsRoute
   '/_authenticated/analytics': typeof AuthenticatedAnalyticsRoute
@@ -305,8 +350,12 @@ export interface FileRouteTypes {
     | '/'
     | '/about'
     | '/blog'
+    | '/cart'
+    | '/checkout'
     | '/contact'
+    | '/faq'
     | '/login'
+    | '/order-confirmed'
     | '/pricing'
     | '/privacy'
     | '/returns'
@@ -314,6 +363,7 @@ export interface FileRouteTypes {
     | '/shop'
     | '/signup'
     | '/sitemap.xml'
+    | '/size-guide'
     | '/sx-vault-9k2m7x'
     | '/terms'
     | '/analytics'
@@ -337,8 +387,12 @@ export interface FileRouteTypes {
     | '/'
     | '/about'
     | '/blog'
+    | '/cart'
+    | '/checkout'
     | '/contact'
+    | '/faq'
     | '/login'
+    | '/order-confirmed'
     | '/pricing'
     | '/privacy'
     | '/returns'
@@ -346,6 +400,7 @@ export interface FileRouteTypes {
     | '/shop'
     | '/signup'
     | '/sitemap.xml'
+    | '/size-guide'
     | '/sx-vault-9k2m7x'
     | '/terms'
     | '/analytics'
@@ -370,8 +425,12 @@ export interface FileRouteTypes {
     | '/_authenticated'
     | '/about'
     | '/blog'
+    | '/cart'
+    | '/checkout'
     | '/contact'
+    | '/faq'
     | '/login'
+    | '/order-confirmed'
     | '/pricing'
     | '/privacy'
     | '/returns'
@@ -379,6 +438,7 @@ export interface FileRouteTypes {
     | '/shop'
     | '/signup'
     | '/sitemap.xml'
+    | '/size-guide'
     | '/sx-vault-9k2m7x'
     | '/terms'
     | '/_authenticated/analytics'
@@ -404,8 +464,12 @@ export interface RootRouteChildren {
   AuthenticatedRoute: typeof AuthenticatedRouteWithChildren
   AboutRoute: typeof AboutRoute
   BlogRoute: typeof BlogRouteWithChildren
+  CartRoute: typeof CartRoute
+  CheckoutRoute: typeof CheckoutRoute
   ContactRoute: typeof ContactRoute
+  FaqRoute: typeof FaqRoute
   LoginRoute: typeof LoginRoute
+  OrderConfirmedRoute: typeof OrderConfirmedRoute
   PricingRoute: typeof PricingRoute
   PrivacyRoute: typeof PrivacyRoute
   ReturnsRoute: typeof ReturnsRoute
@@ -413,6 +477,7 @@ export interface RootRouteChildren {
   ShopRoute: typeof ShopRouteWithChildren
   SignupRoute: typeof SignupRoute
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
+  SizeGuideRoute: typeof SizeGuideRoute
   SxVault9k2m7xRoute: typeof SxVault9k2m7xRoute
   TermsRoute: typeof TermsRoute
   RCodeRoute: typeof RCodeRoute
@@ -435,6 +500,13 @@ declare module '@tanstack/react-router' {
       path: '/sx-vault-9k2m7x'
       fullPath: '/sx-vault-9k2m7x'
       preLoaderRoute: typeof SxVault9k2m7xRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/size-guide': {
+      id: '/size-guide'
+      path: '/size-guide'
+      fullPath: '/size-guide'
+      preLoaderRoute: typeof SizeGuideRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/sitemap.xml': {
@@ -486,6 +558,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PricingRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/order-confirmed': {
+      id: '/order-confirmed'
+      path: '/order-confirmed'
+      fullPath: '/order-confirmed'
+      preLoaderRoute: typeof OrderConfirmedRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/login': {
       id: '/login'
       path: '/login'
@@ -493,11 +572,32 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LoginRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/faq': {
+      id: '/faq'
+      path: '/faq'
+      fullPath: '/faq'
+      preLoaderRoute: typeof FaqRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/contact': {
       id: '/contact'
       path: '/contact'
       fullPath: '/contact'
       preLoaderRoute: typeof ContactRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/checkout': {
+      id: '/checkout'
+      path: '/checkout'
+      fullPath: '/checkout'
+      preLoaderRoute: typeof CheckoutRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/cart': {
+      id: '/cart'
+      path: '/cart'
+      fullPath: '/cart'
+      preLoaderRoute: typeof CartRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/blog': {
@@ -698,8 +798,12 @@ const rootRouteChildren: RootRouteChildren = {
   AuthenticatedRoute: AuthenticatedRouteWithChildren,
   AboutRoute: AboutRoute,
   BlogRoute: BlogRouteWithChildren,
+  CartRoute: CartRoute,
+  CheckoutRoute: CheckoutRoute,
   ContactRoute: ContactRoute,
+  FaqRoute: FaqRoute,
   LoginRoute: LoginRoute,
+  OrderConfirmedRoute: OrderConfirmedRoute,
   PricingRoute: PricingRoute,
   PrivacyRoute: PrivacyRoute,
   ReturnsRoute: ReturnsRoute,
@@ -707,6 +811,7 @@ const rootRouteChildren: RootRouteChildren = {
   ShopRoute: ShopRouteWithChildren,
   SignupRoute: SignupRoute,
   SitemapDotxmlRoute: SitemapDotxmlRoute,
+  SizeGuideRoute: SizeGuideRoute,
   SxVault9k2m7xRoute: SxVault9k2m7xRoute,
   TermsRoute: TermsRoute,
   RCodeRoute: RCodeRoute,

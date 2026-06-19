@@ -1,8 +1,11 @@
-import { createFileRoute, Link, notFound } from "@tanstack/react-router";
+import { createFileRoute, Link, notFound, useNavigate } from "@tanstack/react-router";
+import { toast } from "sonner";
 import { BreezyLayout, TrustBar } from "@/components/breezy/BreezyLayout";
 import { ProductCard } from "@/components/breezy/ProductCard";
 import { getProduct, PRODUCTS, SITE, type Product } from "@/lib/breezy-data";
 import { PRODUCT_IMAGES } from "@/lib/breezy-content";
+import { getReviews } from "@/lib/breezy-reviews";
+import { useCart } from "@/lib/cart-context";
 
 export const Route = createFileRoute("/shop/$slug")({
   loader: ({ params }) => {
@@ -72,6 +75,20 @@ function ProductPage() {
   const related: Product[] = PRODUCTS.filter((x) => x.slug !== p.slug && x.category === p.category).slice(0, 3);
   const fillerRelated: Product[] = related.length < 3 ? PRODUCTS.filter((x) => x.slug !== p.slug).slice(0, 3 - related.length) : [];
   const recommended: Product[] = [...related, ...fillerRelated].slice(0, 3);
+  const reviews = getReviews(p.slug);
+  const cart = useCart();
+  const navigate = useNavigate();
+
+  const handleAdd = (gotoCart = false) => {
+    cart.add({ slug: p.slug, name: p.name, price: p.price, image: PRODUCT_IMAGES[p.slug] });
+    if (gotoCart) {
+      navigate({ to: "/cart" });
+    } else {
+      toast.success(`Added to cart — ${p.name}`, {
+        action: { label: "View cart", onClick: () => navigate({ to: "/cart" }) },
+      });
+    }
+  };
 
   return (
     <BreezyLayout>
@@ -121,11 +138,11 @@ function ProductPage() {
             </div>
             <p className="text-[#5A554C] leading-relaxed mb-8">{p.longDesc}</p>
 
-            <div className="flex gap-3 mb-8">
+            <div className="flex gap-3 mb-4">
               <button
                 type="button"
                 className="flex-1 bg-[#2A2A28] text-[#FAF7F2] py-4 rounded-full text-sm font-semibold tracking-wide hover:bg-[#5A7A55] transition-colors"
-                onClick={() => alert("Checkout coming soon — email " + SITE.email + " to pre-order.")}
+                onClick={() => handleAdd(false)}
               >
                 Add to cart — ${p.price}
               </button>
@@ -137,6 +154,13 @@ function ProductPage() {
                 ♡
               </button>
             </div>
+            <button
+              type="button"
+              className="w-full mb-8 border border-[#2A2A28] text-[#2A2A28] py-3.5 rounded-full text-sm font-semibold tracking-wide hover:bg-[#2A2A28] hover:text-[#FAF7F2] transition-colors"
+              onClick={() => handleAdd(true)}
+            >
+              Buy it now
+            </button>
 
             <div className="border-t border-[#E8E2D5] pt-6">
               <h3 className="text-sm font-semibold uppercase tracking-wider text-[#5A554C] mb-3">
@@ -166,6 +190,43 @@ function ProductPage() {
             ))}
           </dl>
         </section>
+
+        {reviews.length > 0 && (
+          <section className="mt-20 border-t border-[#E8E2D5] pt-12">
+            <div className="flex items-baseline justify-between mb-8 flex-wrap gap-3">
+              <h2 className="text-2xl md:text-3xl" style={{ fontFamily: "'Instrument Serif', serif", fontWeight: 400 }}>
+                Customer reviews
+              </h2>
+              <div className="flex items-center gap-3 text-sm">
+                <span className="text-[#E8A87C] text-lg">★★★★★</span>
+                <span className="font-semibold text-[#2A2A28]">{p.rating}</span>
+                <span className="text-[#7A7468]">based on {p.reviews.toLocaleString()} reviews</span>
+              </div>
+            </div>
+            <div className="grid md:grid-cols-2 gap-6">
+              {reviews.map((r, i) => (
+                <article key={i} className="bg-white border border-[#E8E2D5] rounded-2xl p-6">
+                  <header className="flex items-start justify-between mb-3">
+                    <div>
+                      <div className="font-semibold text-[#2A2A28]">{r.author}</div>
+                      <div className="text-xs text-[#9A9488] flex items-center gap-2">
+                        {new Date(r.date).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+                        {r.verified && (
+                          <span className="text-[#5A7A55] flex items-center gap-1">
+                            <span>✓</span> Verified purchase
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    <span className="text-[#E8A87C] text-sm">{"★".repeat(r.rating)}{"☆".repeat(5 - r.rating)}</span>
+                  </header>
+                  <h3 className="font-semibold text-[#2A2A28] mb-2">{r.title}</h3>
+                  <p className="text-sm text-[#5A554C] leading-relaxed">{r.body}</p>
+                </article>
+              ))}
+            </div>
+          </section>
+        )}
 
         <section className="mt-20">
           <h2 className="text-2xl mb-6" style={{ fontFamily: "'Instrument Serif', serif", fontWeight: 400 }}>
