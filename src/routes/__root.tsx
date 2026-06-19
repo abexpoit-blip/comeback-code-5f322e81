@@ -11,6 +11,7 @@ import { useEffect } from "react";
 
 import { Toaster } from "@/components/ui/sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { CartProvider } from "@/lib/cart-context";
 import appCss from "../styles.css?url";
 
 function NotFoundComponent() {
@@ -98,9 +99,11 @@ function RootComponent() {
   const { queryClient } = Route.useRouteContext();
   return (
     <QueryClientProvider client={queryClient}>
-      <AuthSync />
-      <Outlet />
-      <Toaster richColors position="top-right" />
+      <CartProvider>
+        <AuthSync />
+        <Outlet />
+        <Toaster richColors position="top-right" />
+      </CartProvider>
     </QueryClientProvider>
   );
 }
