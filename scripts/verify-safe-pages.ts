@@ -136,7 +136,14 @@ async function checkPage(url: string, sitemapUrls: Set<string>): Promise<Report>
   const inSitemap = sitemapUrls.has(url) || sitemapUrls.has(url.replace(/\/$/, ""));
   checks.push({ name: "in sitemap.xml", ok: inSitemap, detail: inSitemap ? "yes" : `not in ${SITEMAP_URL}` });
 
-  return { url, status, checks, pass: checks.every((c) => c.ok) };
+  const enriched = checks.map(enrich);
+  return {
+    url,
+    status,
+    checks: enriched,
+    pass: enriched.every((c) => c.ok),
+    headSnippet: extractHeadSnippet(html),
+  };
 }
 
 async function main() {
