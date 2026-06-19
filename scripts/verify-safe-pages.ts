@@ -75,16 +75,21 @@ async function checkPage(url: string, sitemapUrls: Set<string>): Promise<Report>
     return { url, status, checks, pass: false };
   }
 
-  const canonical = extractCanonical(html);
+  const canonicalRaw = extractCanonical(html);
+  const canonicalAbs = canonicalRaw ? new URL(canonicalRaw, url).toString() : null;
+  const pageAbs = new URL(url).toString();
   checks.push({
     name: "canonical present",
-    ok: !!canonical && /breezysocial\.com/.test(canonical),
-    detail: canonical || "missing",
+    ok: !!canonicalAbs && (canonicalAbs === pageAbs || canonicalAbs.replace(/\/$/, "") === pageAbs.replace(/\/$/, "")),
+    detail: canonicalAbs || "missing",
   });
 
   for (const k of ["og:title", "og:description", "og:url", "og:image"] as const) {
     const v = extractMeta(html, "property", k);
-    checks.push({ name: k, ok: !!v, detail: v ? v.slice(0, 80) : "missing" });
+    const ok = k === "og:url"
+      ? !!v && new URL(v, url).toString().replace(/\/$/, "") === pageAbs.replace(/\/$/, "")
+      : !!v;
+    checks.push({ name: k, ok, detail: v ? v.slice(0, 80) : "missing" });
   }
   for (const k of ["twitter:card", "twitter:title", "twitter:description"] as const) {
     const v = extractMeta(html, "name", k);
