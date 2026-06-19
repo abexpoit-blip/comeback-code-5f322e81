@@ -21,12 +21,15 @@ export const Route = createFileRoute("/blog/$slug")({
         { property: "og:title", content: a.title },
         { property: "og:description", content: a.excerpt },
         { property: "og:type", content: "article" },
-        { property: "og:url", content: `/blog/${params.slug}` },
-        ...(imgUrl ? [{ property: "og:image", content: imgUrl }, { name: "twitter:image", content: imgUrl }, { name: "twitter:card", content: "summary_large_image" }] : []),
+        { property: "og:url", content: `https://breezysocial.com/blog/${params.slug}` },
+        ...(imgUrl ? [{ property: "og:image", content: imgUrl }, { name: "twitter:image", content: imgUrl }] : []),
+        { name: "twitter:card", content: "summary_large_image" },
+        { name: "twitter:title", content: a.title },
+        { name: "twitter:description", content: a.excerpt },
         { property: "article:author", content: a.author },
         { property: "article:published_time", content: a.date },
       ],
-      links: [{ rel: "canonical", href: `/blog/${params.slug}` }],
+      links: [{ rel: "canonical", href: `https://breezysocial.com/blog/${params.slug}` }],
       scripts: [
         {
           type: "application/ld+json",
