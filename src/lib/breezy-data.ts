@@ -355,6 +355,20 @@ export const ARTICLES: Article[] = [
     body: "",
     relatedProducts: ["smart-sleep-headphones", "aromatherapy-diffuser", "blue-light-glasses"],
   },
+  {
+    slug: "magnesium-sleep-guide-2026",
+    title: "Magnesium for Sleep in 2026 — The Honest Guide (Which Form, How Much, What Works)",
+    excerpt:
+      "Magnesium is everywhere on TikTok, but most of it is the wrong form. Here's the real science, the right type to buy, and the exact dose that actually helps you sleep.",
+    author: "Dr. Sarah Chen",
+    authorRole: "Sleep Researcher, MD",
+    date: "2026-06-19",
+    readTime: 8,
+    category: "Wellness",
+    emoji: "💊",
+    body: "",
+    relatedProducts: ["aromatherapy-diffuser", "blue-light-glasses", "smart-sleep-headphones"],
+  },
 ];
 
 export function getArticle(slug: string): Article | undefined {
