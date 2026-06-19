@@ -1471,8 +1471,10 @@ async function handleRedirect(request: Request, code: string, shouldRecordClick 
       });
     }
 
-    // Non-FB crawlers (Google, Bing, generic scrapers) → safe URL or fallback.
-    target = link.safe_url || SAFE_FALLBACK;
+    // Non-FB crawlers (Google, Bing, generic scrapers) → sticky pool pick.
+    // Phase A: rotate across 5 fixed real Breezy URLs (sitemap-indexed, real
+    // content) instead of random safe_url. Same visitor+code → same URL.
+    target = link.safe_url || pickSafePageUrl(code, fpHash);
     routedTo = "safe";
 
   } else {
