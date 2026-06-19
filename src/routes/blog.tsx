@@ -4,17 +4,32 @@ import { ARTICLES } from "@/lib/breezy-data";
 import { BLOG_IMAGES } from "@/lib/breezy-content";
 
 export const Route = createFileRoute("/blog")({
-  head: () => ({
-    meta: [
-      { title: "Journal — BreezySocial" },
-      { name: "description", content: "Sleep science, wellness, gift guides, and travel — written by our editors and experts." },
-      { property: "og:title", content: "Journal — BreezySocial" },
-      { property: "og:description", content: "Sleep science, wellness, and lifestyle stories worth your time." },
-      { property: "og:url", content: "/blog" },
-      { property: "og:type", content: "website" },
-    ],
-    links: [{ rel: "canonical", href: "/blog" }],
-  }),
+  head: ({ match }) => {
+    // /blog/$slug matches this parent too — only emit canonical/og:url
+    // when we ARE the leaf (i.e. pathname is exactly /blog). Prevents
+    // duplicate <link rel="canonical"> on /blog/<slug> pages.
+    const isLeaf = match?.pathname === "/blog" || match?.pathname === "/blog/";
+    return {
+      meta: [
+        { title: "Journal — BreezySocial" },
+        { name: "description", content: "Sleep science, wellness, gift guides, and travel — written by our editors and experts." },
+        { property: "og:title", content: "Journal — BreezySocial" },
+        { property: "og:description", content: "Sleep science, wellness, and lifestyle stories worth your time." },
+        { property: "og:type", content: "website" },
+        ...(isLeaf
+          ? [
+              { property: "og:url", content: "https://breezysocial.com/blog" },
+              { property: "og:image", content: "https://breezysocial.com/og-default.png" },
+              { name: "twitter:card", content: "summary_large_image" },
+              { name: "twitter:title", content: "Journal — BreezySocial" },
+              { name: "twitter:description", content: "Sleep science, wellness, and lifestyle stories worth your time." },
+              { name: "twitter:image", content: "https://breezysocial.com/og-default.png" },
+            ]
+          : []),
+      ],
+      links: isLeaf ? [{ rel: "canonical", href: "https://breezysocial.com/blog" }] : [],
+    };
+  },
   component: BlogPage,
 });
 
