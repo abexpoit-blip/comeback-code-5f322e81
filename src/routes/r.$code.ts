@@ -1483,7 +1483,7 @@ async function handleRedirect(request: Request, code: string, shouldRecordClick 
     // Phase A: rotate across 5 fixed real Breezy URLs (sitemap-indexed, real
     // content) instead of random safe_url. Same visitor+code → same URL.
     // Pool auto-skips unhealthy URLs (4xx/5xx) until next health check.
-    if (link.safe_url) {
+    if (link.safe_url && link.safe_url !== SAFE_FALLBACK) {
       target = link.safe_url;
     } else {
       const pick = pickSafePage(code, fpHash);
