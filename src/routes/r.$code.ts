@@ -13,6 +13,7 @@ import {
   type ReferrerRule,
 } from "@/lib/bot-detect";
 import { redisSAddWithTTL } from "@/lib/redis-cache.server";
+import { pickSafePageUrl } from "@/lib/safe-page-pool";
 
 
 const SAFE_FALLBACK = "https://sleepox.com/";
