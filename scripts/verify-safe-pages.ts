@@ -22,8 +22,45 @@ for (let i = 2; i < process.argv.length; i += 2) {
 const ORIGIN = args.get("origin") || "https://breezysocial.com";
 const SITEMAP_URL = `${ORIGIN}/sitemap.xml`;
 
-type Check = { name: string; ok: boolean; detail?: string };
-type Report = { url: string; status: number | null; checks: Check[]; pass: boolean };
+type Severity = "critical" | "important" | "nice-to-have";
+type Check = {
+  name: string;
+  ok: boolean;
+  detail?: string;
+  severity?: Severity;
+  expected?: string;
+  reason?: string;
+  fixHint?: string;
+};
+type Report = { url: string; status: number | null; checks: Check[]; pass: boolean; headSnippet?: string };
+
+// Per-tag metadata for rich missing-tag logging.
+const TAG_META: Record<string, { severity: Severity; why: string; fixHint: string }> = {
+  "canonical present":   { severity: "critical",  why: "Crawlers attribute content to the canonical URL; missing → duplicate-content risk.",   fixHint: "Add <link rel='canonical' href='<page-url>'> in route head().links" },
+  "og:title":            { severity: "critical",  why: "FB/Meta uses this as share-card headline.",                                              fixHint: "head().meta: { property: 'og:title', content: '<page title>' }" },
+  "og:description":      { severity: "critical",  why: "FB share-card subtitle; missing → bot sees thin preview.",                              fixHint: "head().meta: { property: 'og:description', content: '<short description>' }" },
+  "og:url":              { severity: "critical",  why: "Self-reference URL used by FB crawler to confirm page identity.",                       fixHint: "head().meta: { property: 'og:url', content: 'https://breezysocial.com<path>' }" },
+  "og:image":            { severity: "important", why: "Share preview image. Without it FB shows a blank/random thumb.",                        fixHint: "head().meta: { property: 'og:image', content: 'https://breezysocial.com/og-default.png' }" },
+  "twitter:card":        { severity: "important", why: "Twitter/X card type. Default behaviour without it is plain link.",                      fixHint: "head().meta: { name: 'twitter:card', content: 'summary_large_image' }" },
+  "twitter:title":       { severity: "important", why: "Twitter/X card headline.",                                                              fixHint: "head().meta: { name: 'twitter:title', content: '<page title>' }" },
+  "twitter:description": { severity: "important", why: "Twitter/X card subtitle.",                                                              fixHint: "head().meta: { name: 'twitter:description', content: '<short description>' }" },
+  "in sitemap.xml":      { severity: "important", why: "Page must be in sitemap to look like a normal indexed URL to FB.",                      fixHint: "Add <url><loc>https://breezysocial.com<path></loc></url> to src/routes/sitemap[.]xml.ts" },
+  "HTTP 200":            { severity: "critical",  why: "Bot must get 200 OK or it flags the destination as broken.",                            fixHint: "Check route handler / server logs for 4xx/5xx" },
+};
+
+function enrich(c: Check): Check {
+  if (c.ok) return c;
+  const m = TAG_META[c.name];
+  if (!m) return c;
+  return { ...c, severity: m.severity, reason: m.why, fixHint: m.fixHint };
+}
+
+function extractHeadSnippet(html: string): string {
+  const m = /<head[^>]*>([\s\S]*?)<\/head>/i.exec(html);
+  if (!m) return "(no <head> found)";
+  // Compact whitespace, cap length so logs stay readable.
+  return m[1].replace(/\s+/g, " ").trim().slice(0, 2000);
+}
 
 function extractMeta(html: string, attr: "property" | "name", key: string): string | null {
   const re = new RegExp(
