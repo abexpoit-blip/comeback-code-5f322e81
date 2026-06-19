@@ -14,6 +14,7 @@ import blog_blueLightAndSleep from "@/assets/breezy/blog/blue-light-and-sleep.jp
 import blog_healthyMorningRoutine from "@/assets/breezy/blog/healthy-morning-routine.jpg";
 import blog_travelGadgetsFlights from "@/assets/breezy/blog/travel-gadgets-flights.jpg";
 import blog_bestSleepAppsInsomnia2026 from "@/assets/breezy/blog/best-sleep-apps-insomnia-2026.jpg";
+import blog_magnesiumSleepGuide2026 from "@/assets/breezy/blog/magnesium-sleep-guide-2026.jpg";
 
 export const PRODUCT_IMAGES: Record<string, string> = {
   "smart-sleep-headphones": prod_smartSleepHeadphones,
@@ -33,6 +34,7 @@ export const BLOG_IMAGES: Record<string, string> = {
   "healthy-morning-routine": blog_healthyMorningRoutine,
   "travel-gadgets-flights": blog_travelGadgetsFlights,
   "best-sleep-apps-insomnia-2026": blog_bestSleepAppsInsomnia2026,
+  "magnesium-sleep-guide-2026": blog_magnesiumSleepGuide2026,
 };
 
 export const ARTICLE_BODIES: Record<string, string> = {
@@ -341,4 +343,55 @@ Then commit to it for two weeks before judging. Sleep is a slow-moving system, a
 The most beautifully designed sleep app in the world can't fix a bedroom that's too bright, too warm, or too loud. Get the room right first — 65°F, blackout curtains, and a [calming aromatherapy diffuser](/shop/aromatherapy-diffuser) running lavender on a 20-minute auto-shutoff. Pair that with one well-chosen app, and you've built a sleep system that doesn't depend on willpower at 11 p.m. — which, let's be honest, none of us have.
 
 Sweet dreams. And put the phone face-down once the app starts playing.`,
+  "magnesium-sleep-guide-2026": `If you've ever fallen down a wellness rabbit hole at 2 a.m. — wide awake, scrolling for the magical fix — you've probably bumped into magnesium. It shows up everywhere: in TikTok "sleepy girl mocktails," on supplement shelves, in your tired friend's pill organizer. The hype is loud, but the actual science is quieter and more interesting. Here's what magnesium really does for sleep in 2026, which form to take, and how to use it without wasting your money.
+
+## Why Magnesium Matters for Sleep
+Magnesium is a cofactor in over 300 enzymatic reactions in your body, and a surprising number of them are related to relaxation. It helps regulate the parasympathetic nervous system — the "rest and digest" branch that needs to take over before your brain can downshift into sleep. It also binds to GABA receptors, the same receptors that anti-anxiety medications like Xanax target, except magnesium does it gently, without dependence or grogginess.
+
+Translation: magnesium doesn't knock you out. It quiets the noise so your body can do what it already knows how to do.
+
+## Are You Actually Deficient?
+Probably. Around 50% of adults in the US and Europe consume less than the recommended daily intake of magnesium, and modern soil depletion means even "healthy" diets often fall short. Symptoms of low magnesium look suspiciously like symptoms of bad sleep: muscle twitches at night, restless legs, anxious racing thoughts, and waking up at 3 a.m. for no obvious reason.
+
+The catch: blood tests for magnesium are notoriously unreliable because less than 1% of your body's magnesium is in your blood. Most of it lives in your bones and cells. So unless you're severely deficient, a standard blood panel will say you're "fine" even when you're not.
+
+## The Forms That Actually Work
+This is where most people waste money. Walk into any pharmacy and you'll see magnesium oxide on the cheapest shelf — it's the most common form and also the worst absorbed (around 4% bioavailability). It's basically a laxative with a sleep label.
+
+Here are the forms worth your attention:
+
+- **Magnesium glycinate** — bound to the amino acid glycine, which itself promotes sleep. Gentle on the stomach, highly absorbable, and the #1 choice for nighttime use. This is what most sleep researchers take themselves.
+- **Magnesium L-threonate** — the only form proven to cross the blood-brain barrier in meaningful amounts. More expensive, but if your issue is racing thoughts and cognitive overdrive at night, this is the one.
+- **Magnesium citrate** — well-absorbed and affordable, but it has a mild laxative effect at higher doses. Fine for occasional use; not ideal nightly.
+- **Magnesium malate** — best for daytime energy support, not sleep. Skip for bedtime.
+
+If you only buy one, buy glycinate. It's the safest, most boring, most effective choice.
+
+## How Much to Take
+The standard sleep dose is 200–400mg of elemental magnesium, taken 30 to 60 minutes before bed. Start at 200mg for a week. If you don't notice a difference, bump to 300mg. Above 400mg, you're mostly just feeding your toilet.
+
+Read the label carefully — "1000mg of magnesium glycinate" usually means the whole compound, not the elemental magnesium inside it. The number that matters is the elemental amount, which is typically much smaller.
+
+## What to Pair It With (and What to Avoid)
+Magnesium plays well with:
+
+- A warm shower 90 minutes before bed (the drop in core temperature afterwards mimics what happens naturally as you fall asleep).
+- A cool, dark room — 65°F is the sweet spot most sleep labs use.
+- A consistent wind-down ritual, even something as simple as ten pages of a paperback or a few minutes of [calming aromatherapy](/shop/aromatherapy-diffuser) running lavender.
+
+What kills magnesium's effect:
+
+- Alcohol. It depletes magnesium *and* fragments your REM cycles. Even one drink within three hours of bed undoes most of the benefit.
+- High doses of zinc taken at the same time — they compete for absorption. Space them apart by at least two hours.
+- Phones in bed. No supplement on earth can out-stimulate a doomscroll.
+
+## The Sleepy Girl Mocktail — Does It Work?
+You've seen it: tart cherry juice + magnesium powder + sparkling water. The viral version is actually defensible. Tart cherry juice contains naturally occurring melatonin and may modestly lower inflammation. Magnesium does its parasympathetic thing. The fizzy water is just for vibes. It's not a miracle, but it's a much better pre-bed ritual than a glass of wine.
+
+Make it once or twice a week, not nightly. Tart cherry has real sugar, and your dentist will not thank you.
+
+## When Magnesium Isn't Enough
+If you've optimized your magnesium, your bedroom, and your wind-down routine, and you're still lying awake — the issue is rarely a nutrient. The two biggest sleep destroyers in 2026 are inconsistent wake times and late-evening light exposure. A good pair of [blue-light glasses](/shop/blue-light-glasses) for the two hours before bed, paired with a hard "lights down at 10" rule, will do more for chronic insomnia than any supplement.
+
+Magnesium is one of the most useful, lowest-risk tools you can add to your sleep stack. It's not a sleeping pill. It's a quiet helper that gets your body out of "go" mode so the rest of your sleep system can do its job. Buy glycinate, start at 200mg, give it two full weeks, and stop expecting magic — that's where the magic actually happens.`,
 };
