@@ -147,7 +147,11 @@ async function checkPage(url: string, sitemapUrls: Set<string>): Promise<Report>
 }
 
 async function main() {
-  console.log(`\nVerifying ${SAFE_PAGE_POOL.length} safe pages against ${ORIGIN}\n`);
+  const verbose = args.has("verbose") || process.env.VERBOSE === "1";
+  const jsonOut = args.has("json");
+
+  console.log(`\nVerifying ${SAFE_PAGE_POOL.length} safe pages against ${ORIGIN}`);
+  console.log(`flags: verbose=${verbose} json=${jsonOut}\n`);
   const sitemapUrls = await fetchSitemapUrls();
   console.log(`sitemap loaded: ${sitemapUrls.size} urls\n`);
 
@@ -157,21 +161,67 @@ async function main() {
     reports.push(await checkPage(target, sitemapUrls));
   }
 
+  // Aggregate missing-tag stats across all pages.
+  const missingByTag = new Map<string, string[]>();
   let failed = 0;
+
   for (const r of reports) {
     const mark = r.pass ? "PASS" : "FAIL";
     console.log(`[${mark}] ${r.url}  (HTTP ${r.status ?? "?"})`);
     for (const c of r.checks) {
       const m = c.ok ? "  ok  " : " FAIL ";
       console.log(`   [${m}] ${c.name.padEnd(22)} ${c.detail ?? ""}`);
+      if (!c.ok) {
+        const arr = missingByTag.get(c.name) ?? [];
+        arr.push(r.url);
+        missingByTag.set(c.name, arr);
+
+        // Rich per-failure detail block.
+        const sev = c.severity ? `[${c.severity.toUpperCase()}]` : "";
+        console.log(`          ↳ ${sev} ${c.reason ?? "(no reason recorded)"}`);
+        if (c.fixHint) console.log(`          ↳ FIX:    ${c.fixHint}`);
+        console.log(`          ↳ FOUND:  ${c.detail ?? "(nothing)"}`);
+      }
+    }
+    if (verbose) {
+      console.log(`   ── <head> snippet (2KB max) ───────────────`);
+      console.log(`   ${r.headSnippet ?? "(none)"}`);
+      console.log(`   ───────────────────────────────────────────`);
     }
     if (!r.pass) failed++;
     console.log("");
   }
 
+  // Roll-up: which tags are systemically missing across pages.
+  if (missingByTag.size > 0) {
+    console.log("── Missing meta roll-up ─────────────────────────────");
+    const rows = [...missingByTag.entries()].sort((a, b) => b[1].length - a[1].length);
+    for (const [tag, urls] of rows) {
+      const meta = TAG_META[tag];
+      const sev = meta ? `[${meta.severity}]` : "";
+      console.log(`  ${sev} ${tag}  — missing on ${urls.length}/${reports.length} page(s)`);
+      for (const u of urls) console.log(`        · ${u}`);
+      if (meta) {
+        console.log(`        why: ${meta.why}`);
+        console.log(`        fix: ${meta.fixHint}`);
+      }
+    }
+    console.log("─────────────────────────────────────────────────────\n");
+  }
+
   console.log(`Summary: ${reports.length - failed}/${reports.length} passed`);
+
+  if (jsonOut) {
+    console.log("\n── JSON report ──");
+    console.log(JSON.stringify({ origin: ORIGIN, reports, missingByTag: Object.fromEntries(missingByTag) }, null, 2));
+  } else {
+    console.log(`Tip: re-run with --verbose to print each page's <head> snippet,`);
+    console.log(`     or --json for a machine-readable report.`);
+  }
+
   process.exit(failed === 0 ? 0 : 1);
 }
+
 
 main().catch((e) => {
   console.error("verify-safe-pages crashed:", e);
