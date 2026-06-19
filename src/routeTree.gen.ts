@@ -29,6 +29,7 @@ import { Route as BlogRouteImport } from './routes/blog'
 import { Route as AboutRouteImport } from './routes/about'
 import { Route as AuthenticatedRouteImport } from './routes/_authenticated'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as BlogIndexRouteImport } from './routes/blog.index'
 import { Route as ShopSlugRouteImport } from './routes/shop.$slug'
 import { Route as RCodeRouteImport } from './routes/r.$code'
 import { Route as BlogSlugRouteImport } from './routes/blog.$slug'
@@ -144,6 +145,11 @@ const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
+} as any)
+const BlogIndexRoute = BlogIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => BlogRoute,
 } as any)
 const ShopSlugRoute = ShopSlugRouteImport.update({
   id: '/$slug',
@@ -264,6 +270,7 @@ export interface FileRoutesByFullPath {
   '/blog/$slug': typeof BlogSlugRoute
   '/r/$code': typeof RCodeRoute
   '/shop/$slug': typeof ShopSlugRoute
+  '/blog/': typeof BlogIndexRoute
   '/api/public/plisio-webhook': typeof ApiPublicPlisioWebhookRoute
   '/api/public/hooks/domain-health-scan': typeof ApiPublicHooksDomainHealthScanRoute
   '/api/public/preview-prelanding/$code': typeof ApiPublicPreviewPrelandingCodeRoute
@@ -271,7 +278,6 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/about': typeof AboutRoute
-  '/blog': typeof BlogRouteWithChildren
   '/cart': typeof CartRoute
   '/checkout': typeof CheckoutRoute
   '/contact': typeof ContactRoute
@@ -301,6 +307,7 @@ export interface FileRoutesByTo {
   '/blog/$slug': typeof BlogSlugRoute
   '/r/$code': typeof RCodeRoute
   '/shop/$slug': typeof ShopSlugRoute
+  '/blog': typeof BlogIndexRoute
   '/api/public/plisio-webhook': typeof ApiPublicPlisioWebhookRoute
   '/api/public/hooks/domain-health-scan': typeof ApiPublicHooksDomainHealthScanRoute
   '/api/public/preview-prelanding/$code': typeof ApiPublicPreviewPrelandingCodeRoute
@@ -340,6 +347,7 @@ export interface FileRoutesById {
   '/blog/$slug': typeof BlogSlugRoute
   '/r/$code': typeof RCodeRoute
   '/shop/$slug': typeof ShopSlugRoute
+  '/blog/': typeof BlogIndexRoute
   '/api/public/plisio-webhook': typeof ApiPublicPlisioWebhookRoute
   '/api/public/hooks/domain-health-scan': typeof ApiPublicHooksDomainHealthScanRoute
   '/api/public/preview-prelanding/$code': typeof ApiPublicPreviewPrelandingCodeRoute
@@ -379,6 +387,7 @@ export interface FileRouteTypes {
     | '/blog/$slug'
     | '/r/$code'
     | '/shop/$slug'
+    | '/blog/'
     | '/api/public/plisio-webhook'
     | '/api/public/hooks/domain-health-scan'
     | '/api/public/preview-prelanding/$code'
@@ -386,7 +395,6 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/about'
-    | '/blog'
     | '/cart'
     | '/checkout'
     | '/contact'
@@ -416,6 +424,7 @@ export interface FileRouteTypes {
     | '/blog/$slug'
     | '/r/$code'
     | '/shop/$slug'
+    | '/blog'
     | '/api/public/plisio-webhook'
     | '/api/public/hooks/domain-health-scan'
     | '/api/public/preview-prelanding/$code'
@@ -454,6 +463,7 @@ export interface FileRouteTypes {
     | '/blog/$slug'
     | '/r/$code'
     | '/shop/$slug'
+    | '/blog/'
     | '/api/public/plisio-webhook'
     | '/api/public/hooks/domain-health-scan'
     | '/api/public/preview-prelanding/$code'
@@ -628,6 +638,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/blog/': {
+      id: '/blog/'
+      path: '/'
+      fullPath: '/blog/'
+      preLoaderRoute: typeof BlogIndexRouteImport
+      parentRoute: typeof BlogRoute
+    }
     '/shop/$slug': {
       id: '/shop/$slug'
       path: '/$slug'
@@ -775,10 +792,12 @@ const AuthenticatedRouteWithChildren = AuthenticatedRoute._addFileChildren(
 
 interface BlogRouteChildren {
   BlogSlugRoute: typeof BlogSlugRoute
+  BlogIndexRoute: typeof BlogIndexRoute
 }
 
 const BlogRouteChildren: BlogRouteChildren = {
   BlogSlugRoute: BlogSlugRoute,
+  BlogIndexRoute: BlogIndexRoute,
 }
 
 const BlogRouteWithChildren = BlogRoute._addFileChildren(BlogRouteChildren)
