@@ -84,16 +84,16 @@ function DomainsPage() {
             <Crown className="w-7 h-7" />
           </div>
           <h1 className="text-3xl font-bold text-[#2D1B0D]" style={display}>
-            Custom Domains — Pro feature
+            Custom Domains — Lifetime feature
           </h1>
           <p className="text-[#5D4538] mt-3 max-w-md mx-auto">
-            Use your own domain (e.g. <span className="font-mono text-[#2D1B0D]">links.yoursite.com</span>) for every smart link. Available on all paid plans.
+            Use your own domain (e.g. <span className="font-mono text-[#2D1B0D]">links.yoursite.com</span>) for every smart link. Available exclusively on the <span className="font-bold">Lifetime</span> plan.
           </p>
           <Link
             to="/upgrade"
             className="inline-flex items-center gap-2 mt-6 px-6 py-3 rounded-2xl bg-gradient-to-r from-[#FF7E5F] to-[#FEB47B] text-white font-bold shadow-lg shadow-orange-500/30 hover:scale-[1.02] transition-transform"
           >
-            <Crown className="w-4 h-4" /> Upgrade now
+            <Crown className="w-4 h-4" /> Upgrade to Lifetime
           </Link>
         </div>
       </div>
