@@ -167,11 +167,20 @@ function DashboardPage() {
   const chartData = useMemo(() => {
     const byDay = stats?.clicksByDay ?? {};
     const keys = Object.keys(byDay).sort();
-    const slice = range === "7D" ? keys.slice(-7) : keys.slice(-30);
+    const n = range === "7D" ? 7 : 30;
+    const slice = keys.slice(-n);
+    const prevSlice = keys.slice(-n * 2, -n);
     const vals = slice.map((k) => byDay[k] ?? 0);
-    const max = Math.max(1, ...vals);
-    // normalize 0..1 for AreaChart
-    return vals.map((v) => v / max);
+    const prevVals = prevSlice.map((k) => byDay[k] ?? 0);
+    const total = vals.reduce((s, v) => s + v, 0);
+    const prevTotal = prevVals.reduce((s, v) => s + v, 0);
+    const delta = prevTotal > 0 ? ((total - prevTotal) / prevTotal) * 100 : (total > 0 ? 100 : 0);
+    let peakIdx = 0, troughIdx = 0;
+    vals.forEach((v, i) => {
+      if (v > vals[peakIdx]) peakIdx = i;
+      if (v < vals[troughIdx]) troughIdx = i;
+    });
+    return { vals, total, delta, peakIdx, troughIdx, labels: slice };
   }, [stats, range]);
 
   // REAL country stats top 4
