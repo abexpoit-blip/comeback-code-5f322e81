@@ -1119,6 +1119,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      _compute_analytics_summary: {
+        Args: { _days: number; _user_id: string }
+        Returns: Json
+      }
       admin_bot_reasons: {
         Args: { _hours?: number; _limit?: number }
         Returns: {
