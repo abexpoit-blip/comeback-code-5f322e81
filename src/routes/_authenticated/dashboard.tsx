@@ -264,10 +264,16 @@ function DashboardPage() {
           <div className="lg:col-span-2 space-y-5">
             {/* Chart */}
             <Panel className="p-6">
-              <div className="flex items-start justify-between mb-4 flex-wrap gap-3">
+              <div className="flex items-start justify-between mb-5 flex-wrap gap-3">
                 <div>
-                  <h4 className="text-lg font-bold text-[#2D1B0D]" style={display}>Clicks over {range === "7D" ? "7 days" : "30 days"}</h4>
-                  <p className="text-xs text-[#A38D7D] mt-0.5">Tracking real-time traffic volume</p>
+                  <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-[#A38D7D]">Clicks over {range === "7D" ? "7 days" : "30 days"}</p>
+                  <div className="flex items-baseline gap-2 mt-1.5">
+                    <span className="text-3xl font-extrabold text-[#2D1B0D] tabular-nums" style={display}>{fmtCompact(chartData.total)}</span>
+                    <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${chartData.delta >= 0 ? "text-[#FF7E5F] bg-[#FFEDD5]" : "text-[#A38D7D] bg-[#FFF1EE]"}`}>
+                      {chartData.delta >= 0 ? "+" : ""}{chartData.delta.toFixed(1)}%
+                    </span>
+                  </div>
+                  <p className="text-xs text-[#A38D7D] mt-1">Tracking real-time traffic volume</p>
                 </div>
                 <div className="flex gap-1 bg-[#FFEDD5]/60 p-1 rounded-xl">
                   {(["7D", "30D"] as const).map((r) => (
@@ -278,7 +284,7 @@ function DashboardPage() {
                   ))}
                 </div>
               </div>
-              <AreaChart data={chartData} />
+              <BarSparkChart vals={chartData.vals} peakIdx={chartData.peakIdx} troughIdx={chartData.troughIdx} labels={chartData.labels} />
             </Panel>
 
             {/* CTA BAR */}
