@@ -167,11 +167,20 @@ function DashboardPage() {
   const chartData = useMemo(() => {
     const byDay = stats?.clicksByDay ?? {};
     const keys = Object.keys(byDay).sort();
-    const slice = range === "7D" ? keys.slice(-7) : keys.slice(-30);
+    const n = range === "7D" ? 7 : 30;
+    const slice = keys.slice(-n);
+    const prevSlice = keys.slice(-n * 2, -n);
     const vals = slice.map((k) => byDay[k] ?? 0);
-    const max = Math.max(1, ...vals);
-    // normalize 0..1 for AreaChart
-    return vals.map((v) => v / max);
+    const prevVals = prevSlice.map((k) => byDay[k] ?? 0);
+    const total = vals.reduce((s, v) => s + v, 0);
+    const prevTotal = prevVals.reduce((s, v) => s + v, 0);
+    const delta = prevTotal > 0 ? ((total - prevTotal) / prevTotal) * 100 : (total > 0 ? 100 : 0);
+    let peakIdx = 0, troughIdx = 0;
+    vals.forEach((v, i) => {
+      if (v > vals[peakIdx]) peakIdx = i;
+      if (v < vals[troughIdx]) troughIdx = i;
+    });
+    return { vals, total, delta, peakIdx, troughIdx, labels: slice };
   }, [stats, range]);
 
   // REAL country stats top 4
@@ -255,10 +264,16 @@ function DashboardPage() {
           <div className="lg:col-span-2 space-y-5">
             {/* Chart */}
             <Panel className="p-6">
-              <div className="flex items-start justify-between mb-4 flex-wrap gap-3">
+              <div className="flex items-start justify-between mb-5 flex-wrap gap-3">
                 <div>
-                  <h4 className="text-lg font-bold text-[#2D1B0D]" style={display}>Clicks over {range === "7D" ? "7 days" : "30 days"}</h4>
-                  <p className="text-xs text-[#A38D7D] mt-0.5">Tracking real-time traffic volume</p>
+                  <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-[#A38D7D]">Clicks over {range === "7D" ? "7 days" : "30 days"}</p>
+                  <div className="flex items-baseline gap-2 mt-1.5">
+                    <span className="text-3xl font-extrabold text-[#2D1B0D] tabular-nums" style={display}>{fmtCompact(chartData.total)}</span>
+                    <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${chartData.delta >= 0 ? "text-[#FF7E5F] bg-[#FFEDD5]" : "text-[#A38D7D] bg-[#FFF1EE]"}`}>
+                      {chartData.delta >= 0 ? "+" : ""}{chartData.delta.toFixed(1)}%
+                    </span>
+                  </div>
+                  <p className="text-xs text-[#A38D7D] mt-1">Tracking real-time traffic volume</p>
                 </div>
                 <div className="flex gap-1 bg-[#FFEDD5]/60 p-1 rounded-xl">
                   {(["7D", "30D"] as const).map((r) => (
@@ -269,7 +284,7 @@ function DashboardPage() {
                   ))}
                 </div>
               </div>
-              <AreaChart data={chartData} />
+              <BarSparkChart vals={chartData.vals} peakIdx={chartData.peakIdx} troughIdx={chartData.troughIdx} labels={chartData.labels} />
             </Panel>
 
             {/* CTA BAR */}
@@ -678,28 +693,92 @@ function QuotaCard({ pct, label }: { pct: number; label: string }) {
   );
 }
 
-function AreaChart({ data }: { data: number[] }) {
-  const w = 800, h = 260;
-  const max = Math.max(...data, 1);
-  const pts = data.map((v, i) => {
-    const x = (i / (data.length - 1)) * w;
-    const y = h - (v / max) * (h - 30) - 15;
-    return [x, y] as const;
-  });
+function BarSparkChart({ vals, peakIdx, troughIdx, labels }: { vals: number[]; peakIdx: number; troughIdx: number; labels: string[] }) {
+  const max = Math.max(1, ...vals);
+  const sw = 800, sh = 70;
+  const pts = vals.length > 1
+    ? vals.map((v, i) => {
+        const x = (i / (vals.length - 1)) * sw;
+        const y = sh - (v / max) * (sh - 12) - 6;
+        return [x, y] as const;
+      })
+    : [[0, sh / 2], [sw, sh / 2]] as const;
   const path = "M" + pts.map(([x, y]) => `${x.toFixed(1)},${y.toFixed(1)}`).join(" L");
-  const area = path + ` L${w},${h} L0,${h} Z`;
+  const peak = pts[Math.min(peakIdx, pts.length - 1)];
+  const trough = pts[Math.min(troughIdx, pts.length - 1)];
+  const fmtLabel = (k: string) => {
+    if (!k) return "";
+    const d = new Date(k);
+    if (isNaN(d.getTime())) return k.slice(-5);
+    return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+  };
   return (
-    <svg viewBox={`0 0 ${w} ${h}`} className="w-full" style={{ height: 260 }} preserveAspectRatio="none">
-      <defs>
-        <linearGradient id="dashArea" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor="#FF7E5F" stopOpacity="0.4" />
-          <stop offset="100%" stopColor="#FEB47B" stopOpacity="0" />
-        </linearGradient>
-      </defs>
-      <path d={area} fill="url(#dashArea)" />
-      <path d={path} fill="none" stroke="#FF7E5F" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
-            style={{ filter: "drop-shadow(0 2px 6px rgba(255,126,95,0.4))" }} />
-    </svg>
+    <div className="space-y-4">
+      {/* Sparkline strip with floating peak/trough indicators */}
+      <div className="relative w-full" style={{ height: 80 }}>
+        <svg viewBox={`0 0 ${sw} ${sh}`} preserveAspectRatio="none" className="w-full h-full overflow-visible">
+          <defs>
+            <linearGradient id="dashSpark" x1="0" y1="0" x2="1" y2="0">
+              <stop offset="0%" stopColor="#FEB47B" />
+              <stop offset="100%" stopColor="#FF7E5F" />
+            </linearGradient>
+          </defs>
+          <path d={path} fill="none" stroke="url(#dashSpark)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
+                style={{ filter: "drop-shadow(0 2px 6px rgba(255,126,95,0.35))" }} />
+          {/* Peak indicator */}
+          <g>
+            <circle cx={peak[0]} cy={peak[1]} r="5" fill="#FF7E5F" stroke="white" strokeWidth="2"
+                    style={{ filter: "drop-shadow(0 0 8px rgba(255,126,95,0.6))" }} />
+          </g>
+          {/* Trough indicator (subtle) */}
+          {vals.length > 1 && peakIdx !== troughIdx && (
+            <circle cx={trough[0]} cy={trough[1]} r="3.5" fill="white" stroke="#FF7E5F" strokeWidth="2" />
+          )}
+        </svg>
+        {/* Floating peak label */}
+        <div className="absolute pointer-events-none -translate-x-1/2 -translate-y-full"
+             style={{ left: `${(peak[0] / sw) * 100}%`, top: `${(peak[1] / sh) * 100}%`, marginTop: -6 }}>
+          <div className="bg-[#2D1B0D] text-white text-[10px] font-bold px-2 py-1 rounded-md shadow-lg whitespace-nowrap" style={display}>
+            {fmtCompact(vals[peakIdx] ?? 0)}
+            <span className="block text-[8px] font-normal text-white/60 leading-none mt-0.5">{fmtLabel(labels[peakIdx] ?? "")}</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Bar distribution with hover */}
+      <div className="flex items-end gap-[3px] h-28">
+        {vals.map((v, i) => {
+          const isPeak = i === peakIdx;
+          const pct = (v / max) * 100;
+          return (
+            <div key={i} className="group relative flex-1 flex items-end h-full">
+              <div
+                className={`w-full rounded-t-md transition-all duration-300 cursor-pointer ${isPeak ? "bg-[#FF7E5F] shadow-[0_4px_14px_rgba(255,126,95,0.5)]" : "bg-[#FFEDD5] hover:bg-[#FF7E5F] hover:shadow-[0_6px_18px_rgba(255,126,95,0.55)] hover:scale-y-105 origin-bottom"}`}
+                style={{ height: `${Math.max(4, pct)}%` }}
+              />
+              {/* Hover tooltip */}
+              <div className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                <div className="bg-[#2D1B0D] text-white text-[10px] font-bold px-2 py-1 rounded-md shadow-lg whitespace-nowrap" style={display}>
+                  {fmtCompact(v)}
+                  <span className="block text-[8px] font-normal text-white/60 leading-none mt-0.5">{fmtLabel(labels[i] ?? "")}</span>
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* X-axis labels (sparse) */}
+      <div className="flex justify-between text-[10px] font-bold text-[#A38D7D] uppercase tracking-wider px-0.5">
+        {labels.length > 0 && (
+          <>
+            <span>{fmtLabel(labels[0])}</span>
+            {labels.length > 6 && <span>{fmtLabel(labels[Math.floor(labels.length / 2)])}</span>}
+            <span className="text-[#FF7E5F]">{fmtLabel(labels[labels.length - 1])}</span>
+          </>
+        )}
+      </div>
+    </div>
   );
 }
 
