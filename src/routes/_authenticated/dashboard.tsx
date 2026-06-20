@@ -5,7 +5,8 @@ import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from "re
 import { toast } from "sonner";
 import {
   Copy, Trash2, Play, Pause, Plus, Search, ArrowRight, LifeBuoy,
-  TrendingUp, Filter, RefreshCw, ChevronRight, Smartphone, Globe, Shield, ShieldCheck
+  TrendingUp, Filter, RefreshCw, ChevronRight, Smartphone, Globe, Shield, ShieldCheck,
+  Crown, Gem, Star
 } from "lucide-react";
 
 
@@ -244,9 +245,27 @@ function DashboardPage() {
             Support
           </Link>
           <BroadcastBell />
-          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#FF7E5F] to-[#FEB47B] shadow-md shadow-orange-500/30 flex items-center justify-center text-white text-[10px] font-bold">
-            {(profile?.email ?? "U").slice(0, 2).toUpperCase()}
-          </div>
+          <PlanBadge slug={(profile as any)?.plan_slug} />
+          {(() => {
+            const slug = (profile as any)?.plan_slug;
+            const isPremium = slug === "lifetime" || slug === "unlimited" || slug === "pro" || slug === "pro_monthly" || slug === "yearly";
+            const isLifetime = slug === "lifetime" || slug === "unlimited";
+            return (
+              <div className="relative">
+                {isPremium && (
+                  <div className={`absolute -inset-[3px] rounded-full bg-gradient-to-br ${isLifetime ? "from-amber-400 via-[#FF7E5F] to-fuchsia-500" : "from-[#FF7E5F] to-[#FEB47B]"} blur-[2px] opacity-80 animate-pulse`} />
+                )}
+                <div className={`relative w-10 h-10 rounded-full bg-gradient-to-br from-[#FF7E5F] to-[#FEB47B] shadow-md shadow-orange-500/30 flex items-center justify-center text-white text-[10px] font-bold ${isPremium ? "ring-2 ring-white" : ""}`}>
+                  {(profile?.email ?? "U").slice(0, 2).toUpperCase()}
+                  {isLifetime && (
+                    <span className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-gradient-to-br from-amber-300 to-amber-500 ring-2 ring-white flex items-center justify-center shadow-md">
+                      <Crown className="w-2.5 h-2.5 text-white" strokeWidth={2.5} />
+                    </span>
+                  )}
+                </div>
+              </div>
+            );
+          })()}
         </div>
 
         {/* KPI ROW — 5 floating cards */}
@@ -489,7 +508,7 @@ function DashboardPage() {
               <h4 className="text-base font-bold text-[#2D1B0D]" style={display}>Account Quota</h4>
               <div className="mt-5 flex items-center justify-between text-xs">
                 <span className="text-[#7D6452]">Plan</span>
-                <span className="font-bold text-[#2D1B0D] capitalize">{(profile as any)?.plan_slug ?? "free"}</span>
+                <PlanBadge slug={(profile as any)?.plan_slug} size="lg" />
               </div>
               {(() => {
                 const exp = (profile as any)?.plan_expires_at as string | null | undefined;
@@ -840,5 +859,27 @@ function Field({ label, full = false, children }: { label: string; full?: boolea
       <span className="text-[11px] font-bold uppercase tracking-[0.16em] text-[#A38D7D] mb-1.5 block">{label}</span>
       {children}
     </label>
+  );
+}
+
+function PlanBadge({ slug, size = "sm" }: { slug?: string | null; size?: "sm" | "lg" }) {
+  const s = (slug ?? "free").toLowerCase();
+  const isLifetime = s === "lifetime" || s === "unlimited";
+  const isPro = s === "pro" || s === "pro_monthly" || s === "yearly";
+  const isMonthly = s === "monthly";
+  const cfg = isLifetime
+    ? { label: "Lifetime", Icon: Crown, grad: "from-amber-400 via-orange-500 to-fuchsia-500", ring: "ring-amber-200", glow: "shadow-[0_4px_18px_rgba(251,146,60,0.55)]" }
+    : isPro
+    ? { label: s === "yearly" ? "Pro Yearly" : "Pro", Icon: Gem, grad: "from-[#FF7E5F] via-[#FF6B4A] to-[#FEB47B]", ring: "ring-orange-200", glow: "shadow-[0_4px_14px_rgba(255,126,95,0.5)]" }
+    : isMonthly
+    ? { label: "Monthly", Icon: Star, grad: "from-[#FEB47B] to-[#FF7E5F]", ring: "ring-orange-100", glow: "shadow-[0_3px_10px_rgba(255,126,95,0.35)]" }
+    : { label: "Free", Icon: Star, grad: "from-stone-300 to-stone-400", ring: "ring-stone-200", glow: "" };
+  const pad = size === "lg" ? "px-2.5 py-1 text-[11px]" : "px-2 py-0.5 text-[10px]";
+  const iconSize = size === "lg" ? "w-3 h-3" : "w-2.5 h-2.5";
+  return (
+    <span className={`inline-flex items-center gap-1 rounded-full font-bold uppercase tracking-wider text-white bg-gradient-to-r ${cfg.grad} ring-1 ${cfg.ring} ${cfg.glow} ${pad}`}>
+      <cfg.Icon className={iconSize} strokeWidth={2.5} fill="currentColor" />
+      {cfg.label}
+    </span>
   );
 }
