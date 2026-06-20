@@ -1167,9 +1167,12 @@ export type Database = {
         Returns: {
           clicks_used: number
           created_at: string
+          days_inactive: number
           email: string
           id: string
           last_login_at: string
+          link_count: number
+          plan_slug: string
         }[]
       }
       admin_top_countries: {
