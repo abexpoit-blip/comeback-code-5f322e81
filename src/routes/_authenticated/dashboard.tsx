@@ -508,7 +508,7 @@ function DashboardPage() {
               <h4 className="text-base font-bold text-[#2D1B0D]" style={display}>Account Quota</h4>
               <div className="mt-5 flex items-center justify-between text-xs">
                 <span className="text-[#7D6452]">Plan</span>
-                <span className="font-bold text-[#2D1B0D] capitalize">{(profile as any)?.plan_slug ?? "free"}</span>
+                <PlanBadge slug={(profile as any)?.plan_slug} size="lg" />
               </div>
               {(() => {
                 const exp = (profile as any)?.plan_expires_at as string | null | undefined;
