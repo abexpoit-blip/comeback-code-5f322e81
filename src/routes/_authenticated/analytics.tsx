@@ -71,6 +71,12 @@ function AnalyticsPage() {
     );
   }
 
+  if (d.locked) {
+    return <AnalyticsPaywall plan={d.plan} />;
+  }
+
+
+
 
   return (
     <div className="p-6 lg:p-10 space-y-8 max-w-[1600px] mx-auto">
