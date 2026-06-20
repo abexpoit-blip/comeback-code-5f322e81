@@ -58,6 +58,27 @@ export type Database = {
           },
         ]
       }
+      analytics_cache: {
+        Row: {
+          data: Json
+          days: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          data: Json
+          days: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          data?: Json
+          days?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       app_settings: {
         Row: {
           click_quota: number | null
@@ -1246,6 +1267,7 @@ export type Database = {
         Returns: undefined
       }
       record_whitelist_hit: { Args: { _id: string }; Returns: undefined }
+      refresh_active_analytics_cache: { Args: never; Returns: Json }
       reset_all_clicks: { Args: never; Returns: Json }
       restore_paid_quota_from_reset_snapshot: {
         Args: { _reset_id?: string }
