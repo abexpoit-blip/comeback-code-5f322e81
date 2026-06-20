@@ -241,7 +241,12 @@ BEGIN
 END
 $function$;
 
--- Drop stale broken cache so users get fresh recompute
-TRUNCATE TABLE public.analytics_cache;
+-- Drop stale broken cache so users get fresh recompute, if this project has the cache table.
+DO $$
+BEGIN
+  IF to_regclass('public.analytics_cache') IS NOT NULL THEN
+    TRUNCATE TABLE public.analytics_cache;
+  END IF;
+END $$;
 
 NOTIFY pgrst, 'reload schema';
