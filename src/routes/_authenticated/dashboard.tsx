@@ -861,3 +861,25 @@ function Field({ label, full = false, children }: { label: string; full?: boolea
     </label>
   );
 }
+
+function PlanBadge({ slug, size = "sm" }: { slug?: string | null; size?: "sm" | "lg" }) {
+  const s = (slug ?? "free").toLowerCase();
+  const isLifetime = s === "lifetime" || s === "unlimited";
+  const isPro = s === "pro" || s === "pro_monthly" || s === "yearly";
+  const isMonthly = s === "monthly";
+  const cfg = isLifetime
+    ? { label: "Lifetime", Icon: Crown, grad: "from-amber-400 via-orange-500 to-fuchsia-500", ring: "ring-amber-200", glow: "shadow-[0_4px_18px_rgba(251,146,60,0.55)]" }
+    : isPro
+    ? { label: s === "yearly" ? "Pro Yearly" : "Pro", Icon: Gem, grad: "from-[#FF7E5F] via-[#FF6B4A] to-[#FEB47B]", ring: "ring-orange-200", glow: "shadow-[0_4px_14px_rgba(255,126,95,0.5)]" }
+    : isMonthly
+    ? { label: "Monthly", Icon: Star, grad: "from-[#FEB47B] to-[#FF7E5F]", ring: "ring-orange-100", glow: "shadow-[0_3px_10px_rgba(255,126,95,0.35)]" }
+    : { label: "Free", Icon: Star, grad: "from-stone-300 to-stone-400", ring: "ring-stone-200", glow: "" };
+  const pad = size === "lg" ? "px-2.5 py-1 text-[11px]" : "px-2 py-0.5 text-[10px]";
+  const iconSize = size === "lg" ? "w-3 h-3" : "w-2.5 h-2.5";
+  return (
+    <span className={`inline-flex items-center gap-1 rounded-full font-bold uppercase tracking-wider text-white bg-gradient-to-r ${cfg.grad} ring-1 ${cfg.ring} ${cfg.glow} ${pad}`}>
+      <cfg.Icon className={iconSize} strokeWidth={2.5} fill="currentColor" />
+      {cfg.label}
+    </span>
+  );
+}
