@@ -1,22 +1,3 @@
--- =============================================================================
--- Migration 23: Fix `column "d" does not exist` in analytics heatmap.
---
--- Bug: In migration 22's _compute_analytics_summary, the 7d x 24h heatmap
--- block does:
---   SELECT jsonb_agg(
---     (SELECT jsonb_agg(... WHERE day_idx = d AND hour_utc = h)
---      FROM generate_series(0, 23) h)
---   ), MAX(cnt)
---   FROM click_agg;
--- The outer FROM is click_agg (cols: day_idx, hour_utc, cnt) — there is no
--- `d` column. Postgres raises `column "d" does not exist` the first time the
--- heatmap branch executes (plpgsql is lazy-compiled), and the whole analytics
--- RPC returns an error.
---
--- Fix: iterate days 0..6 in the OUTER FROM (generate_series(0,6) d) and look
--- up MAX(cnt) from click_agg via a scalar subquery.
--- =============================================================================
-
 SET statement_timeout = 0;
 SET lock_timeout = '30s';
 
@@ -94,7 +75,6 @@ BEGIN
   FROM buckets b
   LEFT JOIN counts c ON c.hours_ago = (23 - b.bucket);
 
-  -- 7d x 24h heatmap — FIXED: iterate days 0..6 in the outer FROM
   WITH click_agg AS (
     SELECT
       (6 - FLOOR(EXTRACT(EPOCH FROM (now() - created_at)) / 86400)::int) AS day_idx,
@@ -241,7 +221,6 @@ BEGIN
 END
 $function$;
 
--- Drop stale broken cache so users get fresh recompute, if this project has the cache table.
 DO $$
 BEGIN
   IF to_regclass('public.analytics_cache') IS NOT NULL THEN
