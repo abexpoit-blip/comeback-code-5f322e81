@@ -1170,7 +1170,7 @@ export type Database = {
           days_inactive: number
           email: string
           id: string
-          last_login_at: string
+          last_sign_in_at: string
           link_count: number
           plan_slug: string
         }[]
