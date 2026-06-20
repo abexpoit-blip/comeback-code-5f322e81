@@ -499,12 +499,12 @@ type ClickBatchState = {
   failed: number;
 };
 
-// Tuned for production: smaller batches finish faster (lower per-RPC time),
-// larger timeout absorbs DB pool stalls without dropping clicks.
-const CLICK_BATCH_SIZE = 40;
+// Tuned for production: small batches finish faster and a longer timeout
+// absorbs DB pool stalls without dropping clicks during traffic spikes.
+const CLICK_BATCH_SIZE = 25;
 const CLICK_BATCH_QUEUE_MAX = 4_000;
 const CLICK_BATCH_FLUSH_MS = 1_000;
-const CLICK_BATCH_TIMEOUT_MS = 12_000;
+const CLICK_BATCH_TIMEOUT_MS = 25_000;
 
 function getClickBatchState(): ClickBatchState {
   const g = globalThis as typeof globalThis & { __sleepoxClickBatch?: ClickBatchState };
