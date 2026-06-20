@@ -15,6 +15,10 @@ module.exports = {
     restart_delay: 3000,
     max_restarts: 10,
     min_uptime: "10s",
+    // Give workers up to 15s to flush in-memory click batch queue before SIGKILL.
+    // Without this, every `pm2 stop` drops ~100 queued clicks (real data loss).
+    kill_timeout: 15000,
+
     env: {
       PORT: String(4000 + i),
       HOST: "127.0.0.1",

@@ -603,6 +603,42 @@ async function flushClickBatch() {
   }
 }
 
+// Register a one-time graceful shutdown hook to drain the click queue before
+// PM2 sends SIGKILL. Without this every deploy loses ~100 queued clicks.
+function installClickBatchShutdownHook() {
+  const g = globalThis as typeof globalThis & { __sleepoxClickShutdownInstalled?: boolean };
+  if (g.__sleepoxClickShutdownInstalled) return;
+  g.__sleepoxClickShutdownInstalled = true;
+
+  const drain = async (signal: string) => {
+    const state = getClickBatchState();
+    const start = Date.now();
+    // Flush repeatedly until queue is empty or 12s elapsed (PM2 kill_timeout=15s).
+    while (state.queue.length > 0 && Date.now() - start < 12_000) {
+      try {
+        await flushClickBatch();
+      } catch {
+        break;
+      }
+    }
+    if (state.queue.length > 0) {
+      console.warn(`[click-batch][SHUTDOWN] ${signal} could not drain ${state.queue.length} clicks`);
+    } else {
+      console.log(`[click-batch][SHUTDOWN] ${signal} drained cleanly (flushed=${state.flushed} failed=${state.failed})`);
+    }
+  };
+
+  // Don't add `process.exit()` — let TanStack's own graceful server close run.
+  for (const sig of ["SIGTERM", "SIGINT"] as const) {
+    process.once(sig, () => {
+      void drain(sig);
+    });
+  }
+}
+
+installClickBatchShutdownHook();
+
+
 export async function recordRedirectClick(input: RedirectClickInput) {
   // Never block redirects on analytics writes. One PM2 worker now sends clicks
   // in small batches, avoiding the AbortError storm from one RPC per visitor.
