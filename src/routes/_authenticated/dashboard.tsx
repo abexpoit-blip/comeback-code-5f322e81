@@ -245,9 +245,27 @@ function DashboardPage() {
             Support
           </Link>
           <BroadcastBell />
-          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#FF7E5F] to-[#FEB47B] shadow-md shadow-orange-500/30 flex items-center justify-center text-white text-[10px] font-bold">
-            {(profile?.email ?? "U").slice(0, 2).toUpperCase()}
-          </div>
+          <PlanBadge slug={(profile as any)?.plan_slug} />
+          {(() => {
+            const slug = (profile as any)?.plan_slug;
+            const isPremium = slug === "lifetime" || slug === "unlimited" || slug === "pro" || slug === "pro_monthly" || slug === "yearly";
+            const isLifetime = slug === "lifetime" || slug === "unlimited";
+            return (
+              <div className="relative">
+                {isPremium && (
+                  <div className={`absolute -inset-[3px] rounded-full bg-gradient-to-br ${isLifetime ? "from-amber-400 via-[#FF7E5F] to-fuchsia-500" : "from-[#FF7E5F] to-[#FEB47B]"} blur-[2px] opacity-80 animate-pulse`} />
+                )}
+                <div className={`relative w-10 h-10 rounded-full bg-gradient-to-br from-[#FF7E5F] to-[#FEB47B] shadow-md shadow-orange-500/30 flex items-center justify-center text-white text-[10px] font-bold ${isPremium ? "ring-2 ring-white" : ""}`}>
+                  {(profile?.email ?? "U").slice(0, 2).toUpperCase()}
+                  {isLifetime && (
+                    <span className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-gradient-to-br from-amber-300 to-amber-500 ring-2 ring-white flex items-center justify-center shadow-md">
+                      <Crown className="w-2.5 h-2.5 text-white" strokeWidth={2.5} />
+                    </span>
+                  )}
+                </div>
+              </div>
+            );
+          })()}
         </div>
 
         {/* KPI ROW — 5 floating cards */}
