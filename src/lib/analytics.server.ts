@@ -128,6 +128,7 @@ type AnalyticsAgg = {
   empty?: boolean;
   links: Array<{ id: string; short_code: string; title: string | null }>;
   total: number; humans: number; bots: number;
+  unique?: number;
   last24h: number; last24hHumans: number; last60s: number;
   offers: number; oursClicks: number;
   hourly: number[];
@@ -176,7 +177,7 @@ function friendlyReason(raw: string): string {
 
 export function emptyAnalytics() {
   return {
-    kpis: { total: 0, humans: 0, bots: 0, cps: "0.0", last24h: 0, humanRate: 100, activeLinks: 0, oursClicks: 0 },
+    kpis: { total: 0, humans: 0, bots: 0, unique: 0, cps: "0.0", last24h: 0, humanRate: 100, activeLinks: 0, oursClicks: 0 },
     series24h: new Array(24).fill(0),
     heatmap: Array.from({ length: 7 }, () => new Array(24).fill(0)),
     heatMax: 1,
@@ -354,6 +355,7 @@ export async function loadAnalyticsData({ supabase, userId }: AnalyticsContext) 
       total: displayTotal,
       humans,
       bots: displayBots,
+      unique: Number(agg.unique ?? 0),
       cps,
       last24h: last24hHumans + hideBots(last24h - last24hHumans),
       humanRate: displayTotal ? Math.round((humans / displayTotal) * 1000) / 10 : 100,
