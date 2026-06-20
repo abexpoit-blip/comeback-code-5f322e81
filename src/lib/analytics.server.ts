@@ -128,6 +128,7 @@ type AnalyticsAgg = {
   empty?: boolean;
   links: Array<{ id: string; short_code: string; title: string | null }>;
   total: number; humans: number; bots: number;
+  unique?: number;
   last24h: number; last24hHumans: number; last60s: number;
   offers: number; oursClicks: number;
   hourly: number[];
