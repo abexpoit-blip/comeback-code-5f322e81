@@ -5,7 +5,8 @@ import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from "re
 import { toast } from "sonner";
 import {
   Copy, Trash2, Play, Pause, Plus, Search, ArrowRight, LifeBuoy,
-  TrendingUp, Filter, RefreshCw, ChevronRight, Smartphone, Globe, Shield, ShieldCheck
+  TrendingUp, Filter, RefreshCw, ChevronRight, Smartphone, Globe, Shield, ShieldCheck,
+  Crown, Gem, Star
 } from "lucide-react";
 
 
