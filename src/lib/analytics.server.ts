@@ -355,6 +355,7 @@ export async function loadAnalyticsData({ supabase, userId }: AnalyticsContext) 
       total: displayTotal,
       humans,
       bots: displayBots,
+      unique: Number(agg.unique ?? 0),
       cps,
       last24h: last24hHumans + hideBots(last24h - last24hHumans),
       humanRate: displayTotal ? Math.round((humans / displayTotal) * 1000) / 10 : 100,
