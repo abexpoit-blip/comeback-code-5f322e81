@@ -210,7 +210,8 @@ export async function loadAnalyticsData({ supabase, userId }: AnalyticsContext) 
   const displayTotal = humans + displayBots;
   const last24h = Number(agg.last24h ?? 0);
   const last24hHumans = Number(agg.last24hHumans ?? 0);
-  const cps = ((Number(agg.last60s ?? 0)) / 60).toFixed(1);
+  const last60s = Number(agg.last60s ?? 0);
+  const cps = String(last60s);
   const uniqueVisitors = Number(agg.unique ?? agg.uniqueVisitors ?? agg.unique_ips ?? 0);
 
   const fClick = total;
