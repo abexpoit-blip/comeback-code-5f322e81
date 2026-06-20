@@ -7,9 +7,6 @@ export const getAnalyticsData = createServerFn({ method: "GET" })
   .handler(async () => {
     const context = await getRequestAuth();
     const gate = await checkPaidAccess(context.supabase, context.userId);
-    if (!gate.allowed) {
-      return { locked: true as const, plan: gate.plan };
-    }
     const data = await loadAnalyticsData(context);
-    return { locked: false as const, plan: gate.plan, data };
+    return { ...data, locked: !gate.allowed, plan: gate.plan };
   });
