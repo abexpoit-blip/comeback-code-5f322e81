@@ -1,126 +1,93 @@
 
-# breezysocial.com → Lifestyle Gadget Blog/Store
+## সমস্যা ও কী ঠিক করব
 
-## Goal
-Facebook crawler যখন `breezysocial.com` scan করবে, একটা legitimate ecommerce blog দেখবে — products, articles, policies, contact। তাহলে `/r/{code}` redirect গুলো "real business এর affiliate link" মনে হবে, block হবে না।
+### 1. Analytics-এ Devices / OS / Top Performing Links / Bot Reasons / Traffic Sources না দেখানোর আসল কারণ
 
-## Architecture (গুরুত্বপূর্ণ)
+`migration/18_analytics_cache_and_index_cleanup.sql` ভুলবশত `_compute_analytics_summary()` কে এমন একটা সংক্ষিপ্ত version দিয়ে replace করেছে যেটা **শুধু** `links / total / humans / bots / hourly / heatmap / countries / browsers / liveEvents` রিটার্ন করে।
 
-দুটো domain (sleepox.com + breezysocial.com) একই TanStack app এ point করে। আমরা **host-aware rendering** করব:
-- `sleepox.com/` → current Sleepox SaaS landing (অপরিবর্তিত)
-- `breezysocial.com/` → নতুন BreezySocial gadget blog homepage
-- `/r/{code}` → দুই domain এই কাজ করবে (অপরিবর্তিত)
-- Login/dashboard/signup → শুধু sleepox.com এ accessible, breezysocial এ 404 বা home redirect
+ফলে এই ৫টা field RPC থেকে আর আসে না (frontend `undefined` পায় → empty section):
+- `devices`
+- `operatingSystems`
+- `botReasons`
+- `trafficSources`
+- `topLinks`
 
-Host detection হবে server-side (request header) loader এ, যাতে FB crawler সঠিক HTML পায় SSR থেকে।
+এমনকি `browsers`-ও broken — raw `ua` string দিয়ে group করছে, parsed browser name দিয়ে না।
 
-## নতুন Routes (সব breezysocial.com এর জন্য)
+`analytics_cache` টেবিলে ২ মিনিট TTL-এ এই broken payload cache হয়ে আছে — তাই নতুন code দিয়ে fix করলেও cache flush দরকার।
 
-```
-src/routes/
-  index.tsx                  → host-aware: breezysocial = gadget homepage, sleepox = current
-  shop.tsx                   → all 8 products grid
-  shop.$slug.tsx             → product detail page (8 products)
-  blog.tsx                   → all 5 articles list
-  blog.$slug.tsx             → article detail page (5 long-form 1500+ word articles)
-  about.tsx                  → company story, team, mission
-  contact.tsx                → email, address, contact form (mailto)
-  privacy.tsx                → privacy policy
-  terms.tsx                  → terms of service
-  shipping.tsx               → shipping policy
-  returns.tsx                → return/refund policy
-```
+### 2. লোডিং স্লো ও ল্যাগি কেন
 
-## 8 Products (Lifestyle/Gadget niche)
+প্রথম cache-miss-এ `_compute_analytics_summary` এখনো ~১০–২০ সেকেন্ড নেয় (২ মিনিটে এক বার)। 2 → 5 মিনিট TTL করলে cache hit rate বাড়বে। Cohort retention + live feed-ও ৫ মিনিট cache পাবে।
 
-1. Smart Sleep Headphones — $79
-2. Ergonomic Blue-Light Glasses — $49
-3. Portable Mini Projector — $129
-4. Wireless Charging Pad 3-in-1 — $59
-5. Smart Posture Corrector — $39
-6. Aromatherapy Sleep Diffuser — $69
-7. Noise-Cancelling Travel Pillow — $45
-8. Smart Water Bottle Tracker — $35
+### 3. Plan gating
 
-প্রতিটার: image, price, rating (4.x stars), review count, description, "Buy Now" button, specs, JSON-LD `Product` schema।
-
-## 5 Blog Articles (1500+ words each, SEO-rich)
-
-1. "10 Science-Backed Sleep Hacks for Better Rest in 2026"
-2. "Best Tech Gifts Under $100 for the Modern Minimalist"
-3. "How Blue Light Affects Your Sleep — And What to Do About It"
-4. "The Ultimate Guide to Building a Healthy Morning Routine"
-5. "Top 7 Travel Gadgets That Actually Make Flights Bearable"
-
-প্রতিটায়: author bio, publish date, cover image, related products section, social share buttons, JSON-LD `Article` schema।
-
-## Design Direction
-
-- **Niche:** Lifestyle / wellness / smart gadgets (consistent vibe, FB এটা trust করে)
-- **Palette:** Warm sand + sage green (organic, wellness feel — current Sleepox orange থেকে আলাদা)
-- **Typography:** Instrument Serif (heading) + Inter (body) — editorial magazine vibe
-- **Layout:** Hero → featured products → latest articles → trust badges → newsletter → footer
-- **Trust signals:** "Free shipping over $50", "30-day returns", "SSL secured", payment icons, fake but realistic business address in footer
-
-## Host-aware Logic
-
-`src/lib/host.server.ts` — server fn যা request header থেকে host বের করবে।
-`src/routes/index.tsx` এর loader এ host check → loader data এ `siteVariant: "breezysocial" | "sleepox"` return → component দুটো version render করবে।
-
-App routes (login/signup/dashboard) breezysocial host এ access করলে → redirect to `https://sleepox.com{path}` (server-side 301)। এটা breezysocial কে "pure shop" রাখবে।
-
-## Cloudflare Setup (breezysocial.com)
-
-Step-by-step:
-
-1. **Cloudflare Dashboard → Add a Site**
-   - Domain: `breezysocial.com`
-   - Plan: Free
-   - Click "Continue"
-
-2. **DNS records add করুন** (Cloudflare auto-scan এর পর verify):
-   ```
-   Type: A    Name: @     Content: 75.119.144.171   Proxy: ☁️ Proxied
-   Type: A    Name: www   Content: 75.119.144.171   Proxy: ☁️ Proxied
-   ```
-
-3. **Nameservers change** at your registrar:
-   - Cloudflare যে 2টা nameserver দেখাবে (e.g. `xxx.ns.cloudflare.com`), registrar এ গিয়ে পুরোনো nameserver সরিয়ে এই দুটো বসান।
-   - Propagation 5min - 24hr।
-
-4. **SSL/TLS settings:**
-   - SSL/TLS → Overview → **Full (strict)**
-   - Edge Certificates → Always Use HTTPS: **ON**
-   - Edge Certificates → Automatic HTTPS Rewrites: **ON**
-
-5. **Rules → Page Rules / Cache:**
-   - `/r/*` → Cache Level: **Bypass** (so analytics work in real-time)
-   - বাকি সব default cache fine।
-
-6. **VPS nginx** এ breezysocial.com server_name আগেই add করা আছে কিনা check:
-   ```bash
-   sudo grep -A2 "server_name" /etc/nginx/sites-available/sleepox | grep breezy
-   ```
-   না থাকলে add করতে হবে + certbot SSL issue করতে হবে (origin cert), কিন্তু Cloudflare Full strict mode এর জন্য origin এ valid cert দরকার।
-
-## Technical Details
-
-- **SSR critical:** FB crawler JS execute করে না, তাই সব content (products, articles) must SSR। Loader-এ data hardcoded array থেকে আসবে (no DB calls = fast)।
-- **JSON-LD schemas:** Product (each product), Article (each blog), Organization (root), BreadcrumbList (deep pages)।
-- **og:image:** প্রতিটা product/article এর নিজস্ব hero image। Generate with imagegen tool (8 products + 5 articles = 13 images, ~$0.50 cost)।
-- **Sitemap:** `sitemap.xml` update — breezysocial host এর জন্য আলাদা entries।
-- **Robots.txt:** Allow all, sitemap reference।
-
-## Implementation Order (2-3 turns)
-
-**Turn 1:** Host detection + new routes scaffold (empty pages + nav) + Cloudflare instructions
-**Turn 2:** All 8 product pages + 5 articles + policy pages content
-**Turn 3:** Hero images generation + JSON-LD + final polish + deploy
-
-## একটা প্রশ্ন আগে
-
-**Cloudflare account এ breezysocial.com domain add করার আগে — registrar (যেখানে domain কিনেছেন) এর login access আপনার আছে তো?** Nameserver change করতে registrar dashboard লাগবে। যদি না থাকে, আগে সেটা arrange করতে হবে।
+| Feature | এখন | চাই |
+|---|---|---|
+| Analytics (পুরো পেজ + cohort + drilldown) | সবার জন্য open | শুধু paid: `monthly` / `pro_monthly` / `pro` / `lifetime` / `unlimited` / `yearly` |
+| Link Debugger | আগেই paid-only | কোনো change নেই |
+| Custom Domains | যেকোনো paid plan | শুধু `lifetime` / `unlimited` |
 
 ---
 
-**Approve করলে Turn 1 শুরু করব:** host detection + 11টা route scaffold + breezysocial homepage skeleton + Cloudflare exact step-by-step command list।
+## কী কী change হবে
+
+### A. New migration `migration/22_restore_full_analytics_compute.sql`
+1. `_compute_analytics_summary` কে migration 10-এর সম্পূর্ণ version দিয়ে replace — devices, browsers (parsed), OS, bot reasons, traffic sources, top links সব আবার return হবে।
+2. `get_analytics_summary` cache TTL: 2 min → **5 min**।
+3. `TRUNCATE public.analytics_cache` — পুরোনো broken payload মুছে যাবে; পরবর্তী fetch নতুন data বানাবে।
+4. `NOTIFY pgrst, 'reload schema';`
+
+### B. Server functions (plan gate add)
+নতুন helper `src/lib/plan-gate.server.ts`:
+```ts
+export async function getUserPlan(supabase, userId): "free"|"monthly"|"lifetime"|...
+export async function assertAnalyticsAccess(supabase, userId)  // paid only
+export async function assertLifetimeAccess(supabase, userId)   // lifetime/unlimited only
+```
+
+আপডেট:
+- `src/lib/analytics-data.functions.ts` → `getAnalyticsData` শুরুতে `assertAnalyticsAccess`। Locked হলে `{ locked: true, plan }` return।
+- `src/lib/cohort-retention.functions.ts` → same gate।
+- `src/lib/link-drilldown.functions.ts` → same gate।
+- `src/lib/custom-domains.functions.ts` → `PAID_PLANS` কে `LIFETIME_PLANS = {"lifetime","unlimited"}` এ change; error message: "Custom Domains is a Lifetime-only feature."
+
+### C. Frontend
+- `src/routes/_authenticated/analytics.tsx` → response-এ `locked` থাকলে orange "Analytics — Pro feature" paywall card দেখাও + Upgrade button। (link-debugger পেজে যে style-এর paywall আছে সেটাই reuse pattern।)
+- `src/routes/_authenticated/domains.tsx` → "Pro feature" copy বদলে "Lifetime-only feature" করা হবে।
+
+### D. Technical notes
+- কোনো client.ts / auth-middleware.ts / types.ts touch করব না।
+- নতুন server function module pattern follow করব (`*.server.ts` helper, dynamic admin import দরকার নেই)।
+- Analytics route public route না — `_authenticated/` এর under, তাই loader-এ call ঠিক আছে।
+
+---
+
+## ডিপ্লয় (একটানে কপি-পেস্ট)
+
+DB migration আগে apply, তারপর code deploy:
+
+```bash
+cd /opt/sleepox-app-new && \
+docker exec -i supabase-db psql -U postgres -d postgres < migration/22_restore_full_analytics_compute.sql && \
+git pull && bun install && pm2 stop all && bun run build && pm2 start all && \
+pm2 logs --lines 30 --nostream
+```
+
+Verify (Analytics page reload করে দেখবেন devices/OS/top links সব দেখাচ্ছে):
+
+```bash
+docker exec -i supabase-db psql -U postgres -d postgres -c "
+SELECT proname,
+  CASE WHEN prosrc LIKE '%v_devices%' AND prosrc LIKE '%v_top_links%'
+       THEN 'FULL ✓' ELSE 'STILL STRIPPED ✗' END AS status
+FROM pg_proc WHERE proname='_compute_analytics_summary';
+SELECT COUNT(*) cached_users FROM analytics_cache;
+"
+```
+
+---
+
+## ⚠️ একটা confirmation
+
+এই plan অনুযায়ী **Free user analytics দেখতে পাবে না** (Upgrade card দেখবে)। যদি চান free user **basic** analytics দেখতে পারবে কিন্তু কিছু advanced section (cohort, drilldown, top links) lock থাকবে — সেটা বললে সেই অনুযায়ী আবার plan করব।
