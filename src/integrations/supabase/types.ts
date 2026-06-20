@@ -1141,7 +1141,11 @@ export type Database = {
     }
     Functions: {
       _compute_analytics_summary: {
-        Args: { _days: number; _user_id: string }
+        Args: { _days?: number; _user_id: string }
+        Returns: Json
+      }
+      _fast_analytics_summary: {
+        Args: { _days?: number; _user_id: string }
         Returns: Json
       }
       admin_bot_reasons: {
@@ -1195,7 +1199,7 @@ export type Database = {
       expire_old_upgrade_requests: { Args: never; Returns: undefined }
       get_admin_overview_stats: { Args: never; Returns: Json }
       get_analytics_summary: {
-        Args: { _days: number; _user_id: string }
+        Args: { _days?: number; _user_id: string }
         Returns: Json
       }
       get_cohort_retention: {
@@ -1270,7 +1274,10 @@ export type Database = {
         Returns: undefined
       }
       record_whitelist_hit: { Args: { _id: string }; Returns: undefined }
-      refresh_active_analytics_cache: { Args: never; Returns: Json }
+      refresh_active_analytics_cache: {
+        Args: { _limit?: number }
+        Returns: Json
+      }
       reset_all_clicks: { Args: never; Returns: Json }
       restore_paid_quota_from_reset_snapshot: {
         Args: { _reset_id?: string }
