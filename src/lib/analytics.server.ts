@@ -128,7 +128,7 @@ type AnalyticsAgg = {
   empty?: boolean;
   links: Array<{ id: string; short_code: string; title: string | null }>;
   total: number; humans: number; bots: number;
-  unique?: number;
+  unique?: number; uniqueVisitors?: number; unique_ips?: number;
   last24h: number; last24hHumans: number; last60s: number;
   offers: number; oursClicks: number;
   hourly: number[];
@@ -211,6 +211,7 @@ export async function loadAnalyticsData({ supabase, userId }: AnalyticsContext) 
   const last24h = Number(agg.last24h ?? 0);
   const last24hHumans = Number(agg.last24hHumans ?? 0);
   const cps = ((Number(agg.last60s ?? 0)) / 60).toFixed(1);
+  const uniqueVisitors = Number(agg.unique ?? agg.uniqueVisitors ?? agg.unique_ips ?? 0);
 
   const fClick = total;
   const fHuman = humans;
@@ -355,7 +356,7 @@ export async function loadAnalyticsData({ supabase, userId }: AnalyticsContext) 
       total: displayTotal,
       humans,
       bots: displayBots,
-      unique: Number(agg.unique ?? 0),
+      unique: uniqueVisitors,
       cps,
       last24h: last24hHumans + hideBots(last24h - last24hHumans),
       humanRate: displayTotal ? Math.round((humans / displayTotal) * 1000) / 10 : 100,
