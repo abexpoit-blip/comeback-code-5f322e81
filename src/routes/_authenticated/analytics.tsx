@@ -163,7 +163,7 @@ function AnalyticsPage() {
                 <h2 className="text-6xl lg:text-7xl font-bold text-[#2D1B0D] tracking-tighter" style={display}>
                   {d.kpis.cps}
                 </h2>
-                <p className="text-[#7D6452] text-xs uppercase tracking-[0.25em] mt-2 font-bold">Clicks per second</p>
+                <p className="text-[#7D6452] text-xs uppercase tracking-[0.25em] mt-2 font-bold">Clicks (last 60s)</p>
               </div>
               <div className="flex-1 min-w-[280px] h-24 relative">
                 <svg viewBox="0 0 1000 100" preserveAspectRatio="none" className="w-full h-full">
