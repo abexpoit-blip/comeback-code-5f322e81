@@ -178,9 +178,10 @@ function AnalyticsPage() {
                 </svg>
               </div>
             </div>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-8 pt-6 border-t border-white/80">
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4 mt-8 pt-6 border-t border-white/80">
               <Stat label="Last 24h" value={d.kpis.last24h.toLocaleString()} />
               <Stat label="Total All-time" value={d.kpis.total.toLocaleString()} />
+              <Stat label="Unique Visitors" value={(d.kpis.unique ?? 0).toLocaleString()} accent="sky" />
               <Stat label="Human rate" value={`${d.kpis.humanRate}%`} accent="emerald" />
               <Stat label="Rotate Adsterra" value={(d.kpis.oursClicks ?? 0).toLocaleString()} accent="sky" />
               <Stat label="Active links" value={d.kpis.activeLinks.toString()} />
