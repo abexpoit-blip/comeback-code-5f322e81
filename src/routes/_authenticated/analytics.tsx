@@ -45,7 +45,22 @@ function AnalyticsPage() {
   const [drilldownId, setDrilldownId] = useState<string | null>(null);
   const q = useQuery({
     queryKey: ["analytics"],
-    queryFn: () => fn(),
+    queryFn: async () => {
+      const t0 = performance.now();
+      try {
+        const res = await fn();
+        console.log(`[analytics][client] loaded in ${(performance.now() - t0).toFixed(0)}ms`);
+        return res;
+      } catch (e: any) {
+        console.error("[analytics][client][FAIL]", {
+          msg: e?.message,
+          stack: e?.stack,
+          cause: e?.cause,
+          tookMs: (performance.now() - t0).toFixed(0),
+        });
+        throw e;
+      }
+    },
     refetchInterval: 60_000,
     staleTime: 60_000,
     gcTime: 5 * 60_000,
@@ -76,10 +91,14 @@ function AnalyticsPage() {
   }, [d, maxSeries]);
 
   if (q.isError) {
+    const err = q.error as Error;
     return (
       <div className="min-h-screen flex flex-col items-center justify-center gap-3 text-center p-6">
-        <p className="text-[#5D4538] text-sm">Couldn't load analytics.</p>
-        <p className="text-[#7D6452] text-xs max-w-md">{(q.error as Error)?.message ?? "Unknown error"}</p>
+        <p className="text-[#5D4538] text-sm font-bold">Couldn't load analytics.</p>
+        <pre className="text-[#7D6452] text-[11px] max-w-xl whitespace-pre-wrap break-words bg-white/60 border border-white/80 rounded-xl p-3 text-left">
+{err?.message ?? "Unknown error"}
+        </pre>
+        <p className="text-[#a08a7c] text-[10px]">Open browser DevTools → Console for full details.</p>
         <button onClick={() => q.refetch()} className="mt-2 px-4 py-2 rounded-xl bg-[#FF7E5F]/15 border border-[#FF7E5F]/40 text-[#FF7E5F] text-xs font-bold hover:bg-[#FF7E5F]/25 transition">
           Retry
         </button>
