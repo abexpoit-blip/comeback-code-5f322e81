@@ -2,10 +2,8 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
-const PAID_PLANS = new Set([
-  "starter", "pro", "business", "enterprise", "premium",
-  "monthly", "lifetime", "unlimited",
-]);
+// Custom Domains is a Lifetime-only feature.
+const LIFETIME_PLANS = new Set(["lifetime", "unlimited"]);
 
 const domainRegex = /^(?!:\/\/)([a-zA-Z0-9-]{1,63}\.)+[a-zA-Z]{2,}$/;
 
@@ -25,8 +23,8 @@ async function assertPaid(supabase: any, userId: string) {
     .eq("id", userId)
     .maybeSingle();
   const slug = (profile?.plan_slug ?? "free").toLowerCase();
-  if (!PAID_PLANS.has(slug)) {
-    throw new Error("Custom domains are available on paid plans. Upgrade to add a domain.");
+  if (!LIFETIME_PLANS.has(slug)) {
+    throw new Error("Custom Domains is a Lifetime-only feature. Upgrade to the Lifetime plan to add a domain.");
   }
 }
 
