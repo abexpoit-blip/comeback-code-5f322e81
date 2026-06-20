@@ -177,7 +177,7 @@ function friendlyReason(raw: string): string {
 
 export function emptyAnalytics() {
   return {
-    kpis: { total: 0, humans: 0, bots: 0, cps: "0.0", last24h: 0, humanRate: 100, activeLinks: 0, oursClicks: 0 },
+    kpis: { total: 0, humans: 0, bots: 0, unique: 0, cps: "0.0", last24h: 0, humanRate: 100, activeLinks: 0, oursClicks: 0 },
     series24h: new Array(24).fill(0),
     heatmap: Array.from({ length: 7 }, () => new Array(24).fill(0)),
     heatMax: 1,
