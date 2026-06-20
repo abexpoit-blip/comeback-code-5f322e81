@@ -38,7 +38,7 @@ export const listCustomDomains = createServerFn({ method: "GET" })
       .eq("id", userId)
       .maybeSingle();
     const slug = (profile?.plan_slug ?? "free").toLowerCase();
-    const isPaid = PAID_PLANS.has(slug);
+    const isPaid = LIFETIME_PLANS.has(slug);
 
     const { data, error } = await supabase
       .from("custom_domains")
