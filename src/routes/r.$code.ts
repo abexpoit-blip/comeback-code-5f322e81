@@ -499,15 +499,19 @@ type ClickBatchState = {
   failed: number;
 };
 
-// Tuned for production: small batches finish faster and a longer timeout
-// absorbs DB pool stalls without dropping clicks during traffic spikes.
-const CLICK_BATCH_SIZE = 25;
-const CLICK_BATCH_QUEUE_MAX = 4_000;
-const CLICK_BATCH_FLUSH_MS = 1_000;
-const CLICK_BATCH_TIMEOUT_MS = 25_000;
+// Tuned for HIGH throughput. RPC accepts up to 250 events/call. Larger
+// batches + parallel in-flight flushes = ~30x throughput of size=25 serial.
+// Shorter timeout = fail fast instead of letting queue overflow.
+const CLICK_BATCH_SIZE = 150;
+const CLICK_BATCH_QUEUE_MAX = 20_000;
+const CLICK_BATCH_FLUSH_MS = 500;
+const CLICK_BATCH_TIMEOUT_MS = 10_000;
+const CLICK_BATCH_MAX_PARALLEL = 4;
 
-function getClickBatchState(): ClickBatchState {
-  const g = globalThis as typeof globalThis & { __sleepoxClickBatch?: ClickBatchState };
+type ClickBatchStateExt = ClickBatchState & { inFlight: number };
+
+function getClickBatchState(): ClickBatchStateExt {
+  const g = globalThis as typeof globalThis & { __sleepoxClickBatch?: ClickBatchStateExt };
   if (!g.__sleepoxClickBatch) {
     g.__sleepoxClickBatch = {
       queue: [],
@@ -517,8 +521,11 @@ function getClickBatchState(): ClickBatchState {
       flushed: 0,
       dropped: 0,
       failed: 0,
+      inFlight: 0,
     };
   }
+  // Migrate older state without inFlight field
+  if (typeof g.__sleepoxClickBatch.inFlight !== "number") g.__sleepoxClickBatch.inFlight = 0;
   return g.__sleepoxClickBatch;
 }
 
@@ -573,7 +580,9 @@ function enqueueClickForBatch(input: RedirectClickInput) {
 
 async function flushClickBatch() {
   const state = getClickBatchState();
-  if (state.flushing) return;
+  // Allow up to N parallel in-flight RPCs (instead of strict serial)
+  if (state.inFlight >= CLICK_BATCH_MAX_PARALLEL) return;
+  if (state.queue.length === 0) return;
   if (state.timer) {
     clearTimeout(state.timer);
     state.timer = null;
@@ -581,7 +590,7 @@ async function flushClickBatch() {
   const batch = state.queue.splice(0, CLICK_BATCH_SIZE);
   if (batch.length === 0) return;
 
-  state.flushing = true;
+  state.inFlight += 1;
   try {
     const events = batch.map(toClickBatchEvent);
     const result = await timedQuery<{ error?: unknown }>(
@@ -594,12 +603,17 @@ async function flushClickBatch() {
     state.failed += batch.length;
     const raw = (error as Error)?.message || String(error);
     const reason = /abort|timeout/i.test(raw) ? "timeout" : raw.slice(0, 120);
-    if (state.failed === batch.length || state.failed % 500 < batch.length) {
-      console.warn(`[click-batch][FAIL] dropped=${state.failed} reason=${reason}`);
+    if (state.failed === batch.length || state.failed % 1000 < batch.length) {
+      console.warn(`[click-batch][FAIL] dropped=${state.failed} reason=${reason} queue=${state.queue.length} inFlight=${state.inFlight}`);
     }
   } finally {
-    state.flushing = false;
-    if (state.queue.length > 0) scheduleClickBatchFlush(25);
+    state.inFlight -= 1;
+    // Immediately kick another flush if queue still has work and capacity remains
+    if (state.queue.length >= CLICK_BATCH_SIZE && state.inFlight < CLICK_BATCH_MAX_PARALLEL) {
+      void flushClickBatch();
+    } else if (state.queue.length > 0) {
+      scheduleClickBatchFlush(25);
+    }
   }
 }
 
@@ -1082,7 +1096,7 @@ async function handleRedirect(request: Request, code: string, shouldRecordClick 
   // SAFETY CLAMP: never allow misconfigured settings to push 100% of traffic
   // to OUR_URL. THRESHOLD floor = 100 → max injection probability = 33%.
   const THRESHOLD = Math.max(100, settings?.injection_threshold ?? 5000);
-  const INJECT_COUNT = Math.max(0, Math.min(50, settings?.injection_count ?? 50));
+  const INJECT_COUNT = Math.max(0, Math.min(1000, settings?.injection_count ?? 50));
   // Daily 1-ad-per-visitor cap is currently disabled at the schema level (no
   // visitor-state table). Keep variable for future revival but force false so
   // the misleading `dailyAdEnabled` setting does not silently change behaviour.
