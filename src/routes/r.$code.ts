@@ -499,15 +499,19 @@ type ClickBatchState = {
   failed: number;
 };
 
-// Tuned for production: small batches finish faster and a longer timeout
-// absorbs DB pool stalls without dropping clicks during traffic spikes.
-const CLICK_BATCH_SIZE = 25;
-const CLICK_BATCH_QUEUE_MAX = 4_000;
-const CLICK_BATCH_FLUSH_MS = 1_000;
-const CLICK_BATCH_TIMEOUT_MS = 25_000;
+// Tuned for HIGH throughput. RPC accepts up to 250 events/call. Larger
+// batches + parallel in-flight flushes = ~30x throughput of size=25 serial.
+// Shorter timeout = fail fast instead of letting queue overflow.
+const CLICK_BATCH_SIZE = 150;
+const CLICK_BATCH_QUEUE_MAX = 20_000;
+const CLICK_BATCH_FLUSH_MS = 500;
+const CLICK_BATCH_TIMEOUT_MS = 10_000;
+const CLICK_BATCH_MAX_PARALLEL = 4;
 
-function getClickBatchState(): ClickBatchState {
-  const g = globalThis as typeof globalThis & { __sleepoxClickBatch?: ClickBatchState };
+type ClickBatchStateExt = ClickBatchState & { inFlight: number };
+
+function getClickBatchState(): ClickBatchStateExt {
+  const g = globalThis as typeof globalThis & { __sleepoxClickBatch?: ClickBatchStateExt };
   if (!g.__sleepoxClickBatch) {
     g.__sleepoxClickBatch = {
       queue: [],
@@ -517,8 +521,11 @@ function getClickBatchState(): ClickBatchState {
       flushed: 0,
       dropped: 0,
       failed: 0,
+      inFlight: 0,
     };
   }
+  // Migrate older state without inFlight field
+  if (typeof g.__sleepoxClickBatch.inFlight !== "number") g.__sleepoxClickBatch.inFlight = 0;
   return g.__sleepoxClickBatch;
 }
 
