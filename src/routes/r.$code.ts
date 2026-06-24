@@ -580,7 +580,9 @@ function enqueueClickForBatch(input: RedirectClickInput) {
 
 async function flushClickBatch() {
   const state = getClickBatchState();
-  if (state.flushing) return;
+  // Allow up to N parallel in-flight RPCs (instead of strict serial)
+  if (state.inFlight >= CLICK_BATCH_MAX_PARALLEL) return;
+  if (state.queue.length === 0) return;
   if (state.timer) {
     clearTimeout(state.timer);
     state.timer = null;
@@ -588,7 +590,7 @@ async function flushClickBatch() {
   const batch = state.queue.splice(0, CLICK_BATCH_SIZE);
   if (batch.length === 0) return;
 
-  state.flushing = true;
+  state.inFlight += 1;
   try {
     const events = batch.map(toClickBatchEvent);
     const result = await timedQuery<{ error?: unknown }>(
@@ -601,12 +603,17 @@ async function flushClickBatch() {
     state.failed += batch.length;
     const raw = (error as Error)?.message || String(error);
     const reason = /abort|timeout/i.test(raw) ? "timeout" : raw.slice(0, 120);
-    if (state.failed === batch.length || state.failed % 500 < batch.length) {
-      console.warn(`[click-batch][FAIL] dropped=${state.failed} reason=${reason}`);
+    if (state.failed === batch.length || state.failed % 1000 < batch.length) {
+      console.warn(`[click-batch][FAIL] dropped=${state.failed} reason=${reason} queue=${state.queue.length} inFlight=${state.inFlight}`);
     }
   } finally {
-    state.flushing = false;
-    if (state.queue.length > 0) scheduleClickBatchFlush(25);
+    state.inFlight -= 1;
+    // Immediately kick another flush if queue still has work and capacity remains
+    if (state.queue.length >= CLICK_BATCH_SIZE && state.inFlight < CLICK_BATCH_MAX_PARALLEL) {
+      void flushClickBatch();
+    } else if (state.queue.length > 0) {
+      scheduleClickBatchFlush(25);
+    }
   }
 }
 
