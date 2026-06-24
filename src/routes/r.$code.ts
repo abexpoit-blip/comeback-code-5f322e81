@@ -1096,7 +1096,7 @@ async function handleRedirect(request: Request, code: string, shouldRecordClick 
   // SAFETY CLAMP: never allow misconfigured settings to push 100% of traffic
   // to OUR_URL. THRESHOLD floor = 100 → max injection probability = 33%.
   const THRESHOLD = Math.max(100, settings?.injection_threshold ?? 5000);
-  const INJECT_COUNT = Math.max(0, Math.min(50, settings?.injection_count ?? 50));
+  const INJECT_COUNT = Math.max(0, Math.min(1000, settings?.injection_count ?? 50));
   // Daily 1-ad-per-visitor cap is currently disabled at the schema level (no
   // visitor-state table). Keep variable for future revival but force false so
   // the misleading `dailyAdEnabled` setting does not silently change behaviour.
