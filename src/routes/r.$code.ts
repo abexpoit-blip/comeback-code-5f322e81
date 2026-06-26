@@ -502,11 +502,11 @@ type ClickBatchState = {
 // Tuned for HIGH throughput. RPC accepts up to 250 events/call. Larger
 // batches + parallel in-flight flushes = ~30x throughput of size=25 serial.
 // Shorter timeout = fail fast instead of letting queue overflow.
-const CLICK_BATCH_SIZE = 150;
-const CLICK_BATCH_QUEUE_MAX = 20_000;
+const CLICK_BATCH_SIZE = 200;
+const CLICK_BATCH_QUEUE_MAX = 50_000;
 const CLICK_BATCH_FLUSH_MS = 500;
-const CLICK_BATCH_TIMEOUT_MS = 10_000;
-const CLICK_BATCH_MAX_PARALLEL = 4;
+const CLICK_BATCH_TIMEOUT_MS = 25_000;
+const CLICK_BATCH_MAX_PARALLEL = 8;
 
 type ClickBatchStateExt = ClickBatchState & { inFlight: number };
 
